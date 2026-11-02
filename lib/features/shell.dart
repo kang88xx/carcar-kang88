@@ -7,6 +7,7 @@ import '../core/device_notifications.dart';
 import '../shared/components.dart';
 import 'parking_form.dart';
 import 'management.dart';
+import 'widget_guide.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({
@@ -15,11 +16,16 @@ class AppShell extends StatefulWidget {
     required this.preferences,
     required this.onLogout,
     this.notifications,
+    this.pendingInvite,
+    this.inviteNotice,
+    this.onClearInvite,
   });
   final AppController controller;
   final SharedPreferences preferences;
   final Future<void> Function() onLogout;
   final DeviceNotificationController? notifications;
+  final String? pendingInvite, inviteNotice;
+  final Future<void> Function()? onClearInvite;
   @override
   State<AppShell> createState() => _AppShellState();
 }
@@ -28,6 +34,7 @@ class _AppShellState extends State<AppShell> {
   int _tab = 0;
   String _search = '';
   final _scroll = ScrollController();
+  final _widgetSettingsKey = GlobalKey();
   AppController get c => widget.controller;
   static const _labels = ['주차 위치', '주차 이력', '우리 가족', '설정'];
   static const _icons = [
@@ -45,6 +52,24 @@ class _AppShellState extends State<AppShell> {
   void _navigate(int index) {
     setState(() => _tab = index);
     if (_scroll.hasClients) _scroll.jumpTo(0);
+  }
+
+  void _openWidgetSettings() {
+    _navigate(3);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final target = _widgetSettingsKey.currentContext;
+      if (mounted && _tab == 3 && target != null) {
+        Scrollable.ensureVisible(
+          target,
+          duration: const Duration(milliseconds: 220),
+          alignment: .12,
+        );
+      }
+    });
+  }
+
+  Future<void> _widgetGuide() async {
+    if (await showWidgetGuide(context) && mounted) _openWidgetSettings();
   }
 
   @override
@@ -151,6 +176,22 @@ class _AppShellState extends State<AppShell> {
                                   children: [
                                     _top(wide),
                                     const SizedBox(height: 24),
+                                    if (widget.inviteNotice != null)
+                                      StatusNotice(
+                                        widget.inviteNotice!,
+                                        error: true,
+                                      ),
+                                    if (widget.pendingInvite != null &&
+                                        c.vehicle != null)
+                                      StatusNotice(
+                                        '가족 초대를 받았지만 이미 연결된 차량이 있어요. 계정마다 차량 한 대만 사용할 수 있어요.',
+                                      ),
+                                    if (widget.pendingInvite != null &&
+                                        c.vehicle != null)
+                                      TextButton(
+                                        onPressed: widget.onClearInvite,
+                                        child: const Text('받은 초대 닫기'),
+                                      ),
                                     if (c.isDemo)
                                       const StatusNotice(
                                         '체험 중 · 기록은 이 기기에만 저장돼요.',
@@ -178,6 +219,7 @@ class _AppShellState extends State<AppShell> {
                                         1 => _history(),
                                         2 => FamilyScreen(controller: c),
                                         _ => SettingsScreen(
+                                          widgetSectionKey: _widgetSettingsKey,
                                           controller: c,
                                           preferences: widget.preferences,
                                           onLogout: widget.onLogout,
@@ -247,19 +289,31 @@ class _AppShellState extends State<AppShell> {
   Widget _onboarding() => Surface(
     child: EmptyState(
       icon: Icons.directions_car_outlined,
-      title: '우리 차를 등록해 볼까요?',
-      description: '차량을 등록하거나 가족에게 받은\n초대 코드로 함께 시작하세요.',
+      title: widget.pendingInvite != null ? '가족 초대를 받았어요' : '우리 가족의 차 한 대',
+      description: '처음이라면 새 차량을 등록하고,\n가족이 먼저 등록했다면 초대코드로 참여해요.',
       action: Column(
         children: [
           FilledButton.icon(
-            onPressed: () => openCreateVehicle(context, c),
+            onPressed: () async {
+              if (await openCreateVehicle(context, c)) {
+                await widget.onClearInvite?.call();
+              }
+            },
             icon: const Icon(Icons.add),
-            label: const Text('내 차량 등록하기'),
+            label: const Text('새 차량 등록'),
           ),
           const SizedBox(height: 10),
           TextButton(
-            onPressed: () => openJoinVehicle(context, c),
-            child: const Text('가족 초대 코드가 있어요'),
+            onPressed: () async {
+              if (await openJoinVehicle(
+                context,
+                c,
+                initialCode: widget.pendingInvite,
+              )) {
+                await widget.onClearInvite?.call();
+              }
+            },
+            child: const Text('기존 차량 참여 · 초대코드 입력'),
           ),
           TextButton(onPressed: widget.onLogout, child: const Text('로그아웃')),
         ],
@@ -272,15 +326,13 @@ class _AppShellState extends State<AppShell> {
         width: 52,
         height: 52,
         decoration: BoxDecoration(
-          color: (vehicleColors[c.vehicle!.icon] ?? Palette.green).withValues(
-            alpha: .13,
-          ),
+          color: Palette.green.withValues(alpha: .13),
           borderRadius: BorderRadius.circular(17),
         ),
         child: Icon(
           Icons.directions_car_filled_outlined,
           size: 30,
-          color: vehicleColors[c.vehicle!.icon],
+          color: Palette.green,
         ),
       ),
       const SizedBox(width: 14),
@@ -299,20 +351,6 @@ class _AppShellState extends State<AppShell> {
             ),
           ],
         ),
-      ),
-      PopupMenuButton<String>(
-        tooltip: '차량 선택',
-        icon: const Icon(Icons.unfold_more_rounded, color: Palette.muted),
-        onSelected: (value) => value == 'add'
-            ? openCreateVehicle(context, c)
-            : c.selectVehicle(value),
-        itemBuilder: (_) => [
-          ...c.vehicles.map(
-            (v) => PopupMenuItem(value: v.id, child: Text(v.name)),
-          ),
-          const PopupMenuDivider(),
-          const PopupMenuItem(value: 'add', child: Text('+ 다른 차량 등록')),
-        ],
       ),
     ],
   );
@@ -355,7 +393,48 @@ class _AppShellState extends State<AppShell> {
           ),
         ],
       ),
-      const SizedBox(height: 32),
+      const SizedBox(height: 24),
+      Material(
+        color: Palette.soft,
+        borderRadius: BorderRadius.circular(18),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ListTile(
+              onTap: _widgetGuide,
+              contentPadding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              leading: const Icon(Icons.widgets_outlined, color: Palette.green),
+              title: const Text(
+                '주차 위치, 홈 화면에서 바로',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+              ),
+              subtitle: const Text(
+                '차곡 위젯을 추가하는 방법을 확인해 보세요.',
+                style: TextStyle(fontSize: 12, height: 1.6),
+              ),
+              trailing: const Icon(Icons.chevron_right_rounded, size: 20),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Wrap(
+                spacing: 8,
+                children: [
+                  TextButton(
+                    onPressed: _widgetGuide,
+                    child: const Text('추가 방법 보기'),
+                  ),
+                  TextButton(
+                    onPressed: _openWidgetSettings,
+                    child: const Text('위젯 설정'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+      const SizedBox(height: 28),
       SectionTitle(
         '최근 주차 기록',
         trailing: TextButton(

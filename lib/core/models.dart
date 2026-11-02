@@ -1,6 +1,18 @@
 import 'package:flutter/material.dart';
 
-const defaultFloors = ['B1', 'B2', 'B3', 'B4'];
+const defaultFloors = [
+  'F5',
+  'F4',
+  'F3',
+  'F2',
+  'F1',
+  'B1',
+  'B2',
+  'B3',
+  'B4',
+  'B5',
+  'B6',
+];
 const defaultZones = ['A', 'B', 'C', 'D', 'E'];
 const vehicleColors = <String, Color>{
   'car_blue': Color(0xFF577AA4),

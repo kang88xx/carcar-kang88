@@ -14,6 +14,7 @@ abstract class ParkingRepository {
   Future<List<FamilyMember>> members(String vehicleId);
   Future<String> profileName();
   Future<void> updateProfileName(String name);
+  Future<bool> isPlateAvailable(String plate);
   Future<String> createVehicle(
     String apartment,
     String plate,
@@ -111,6 +112,26 @@ class SupabaseParkingRepository implements ParkingRepository {
   }
 
   @override
+  Future<bool> isPlateAvailable(String plate) async {
+    _requireSameUser();
+    final result = await client.rpc(
+      'check_vehicle_plate',
+      params: {'p_plate_number': plate},
+    );
+    if (result is! Map || result['ok'] != true) {
+      throw AppException(
+        result is Map && result['error'] == 'rate_limited'
+            ? '확인 요청이 많아요. 잠시 후 다시 시도해 주세요.'
+            : '차량번호를 확인해 주세요.',
+      );
+    }
+    if (result['available'] is! bool) {
+      throw const AppException('차량번호 확인 결과를 읽지 못했어요. 다시 시도해 주세요.');
+    }
+    return result['available'] as bool;
+  }
+
+  @override
   Future<String> profileName() async {
     _requireSameUser();
     final profile = await client
@@ -144,17 +165,20 @@ class SupabaseParkingRepository implements ParkingRepository {
     String plate,
     String name,
     String nickname,
-  ) async =>
-      await client.rpc(
-            'create_vehicle_with_membership',
-            params: {
-              'p_apartment_name': apartment,
-              'p_plate_number': plate,
-              'p_nickname': name,
-              'p_profile_nickname': nickname,
-            },
-          )
-          as String;
+  ) async {
+    _requireSameUser();
+    return await client.rpc(
+          'create_vehicle_with_membership',
+          params: {
+            'p_apartment_name': apartment,
+            'p_plate_number': plate,
+            'p_nickname': name,
+            'p_profile_nickname': nickname,
+          },
+        )
+        as String;
+  }
+
   @override
   Future<ParkingRecord> save(
     String vehicleId,
@@ -193,6 +217,7 @@ class SupabaseParkingRepository implements ParkingRepository {
 
   @override
   Future<String> join(String code) async {
+    _requireSameUser();
     final result = Map<String, dynamic>.from(
       await client.rpc(
             'redeem_invite_securely',
@@ -204,6 +229,8 @@ class SupabaseParkingRepository implements ParkingRepository {
       throw AppException(
         result['error'] == 'rate_limited'
             ? '시도가 많아 잠시 제한되었어요. 10분 뒤 다시 시도해 주세요.'
+            : result['error'] == 'already_has_vehicle'
+            ? '이미 연결된 차량이 있어요. 한 계정에는 차량 한 대만 등록할 수 있어요.'
             : '유효하지 않거나 만료된 초대예요. 새 초대를 요청해 주세요.',
       );
     }
@@ -391,12 +418,22 @@ class DemoParkingRepository implements ParkingRepository {
   }
 
   @override
+  Future<bool> isPlateAvailable(String plate) async => !_vehicles.any(
+    (v) =>
+        v.plate.replaceAll(RegExp(r'[\s-]'), '').toUpperCase() ==
+        plate.replaceAll(RegExp(r'[\s-]'), '').toUpperCase(),
+  );
+
+  @override
   Future<String> createVehicle(
     String apartment,
     String plate,
     String name,
     String nickname,
   ) async {
+    if (_vehicles.isNotEmpty) {
+      throw const AppException('계정마다 차량 한 대만 등록하거나 참여할 수 있어요.');
+    }
     final id = const Uuid().v4();
     _vehicles.add(
       Vehicle(
@@ -531,6 +568,12 @@ String friendlyError(Object error) {
     return '로그인 요청을 완료하지 못했어요. 입력 내용과 연결을 확인해 주세요.';
   }
   if (error is PostgrestException) {
+    if (error.message.contains('already_has_vehicle')) {
+      return '이미 연결된 차량이 있어요. 계정마다 차량 한 대만 사용할 수 있어요.';
+    }
+    if (error.message.contains('plate_already_registered')) {
+      return '이미 등록된 차량번호예요. 처음 등록한 가족에게 초대 링크나 코드를 받아 주세요.';
+    }
     if (error.code == '42501' ||
         error.message.contains('not_member') ||
         error.message.contains('not_owner')) {

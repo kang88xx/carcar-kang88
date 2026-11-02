@@ -23,12 +23,34 @@ class MainActivity : FlutterActivity() {
     private var permissionResult: MethodChannel.Result? = null
     private var pendingFinding: Map<*, *>? = null
     private lateinit var familyPush: PushNotifications
+    private lateinit var launcherIcons: LauncherIcons
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         familyPush = PushNotifications(this)
+        launcherIcons = LauncherIcons(this)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "carcar/native").setMethodCallHandler { call, result ->
             when (call.method) {
+                "shareText" -> {
+                    val text = (call.arguments as? Map<*, *>)?.get("text") as? String
+                    if (text.isNullOrBlank() || text.length > 4096) {
+                        result.error("invalid_share_text", "공유할 내용을 확인해 주세요.", null)
+                    } else if (isFinishing || isDestroyed) {
+                        result.success(false)
+                    } else {
+                        try {
+                            val send = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_TEXT, text)
+                            }
+                            startActivity(Intent.createChooser(send, "초대 링크 공유"))
+                            // This confirms only that the chooser opened, not that a message was sent.
+                            result.success(true)
+                        } catch (_: Exception) { result.success(false) }
+                    }
+                }
+                "launcherIconState" -> launcherIcons.read(result)
+                "setLauncherIcon" -> launcherIcons.set(call.arguments as? Map<*, *> ?: emptyMap<Any, Any>(), result)
                 "pushStatus" -> familyPush.status(result)
                 "registerPush" -> {
                     if (permissionResult != null) result.error("push_busy", "알림 권한 확인 중이에요.", null)

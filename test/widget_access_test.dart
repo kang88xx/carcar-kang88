@@ -50,6 +50,7 @@ void main() {
     pendingSecureWrite = null;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
+          if (call.method == 'launcherIconState') return {'supported': false};
           calls.add(call);
           if (call.method == 'updateWidgetSession') {
             if (rejectSecureWrite) throw PlatformException(code: 'locked');

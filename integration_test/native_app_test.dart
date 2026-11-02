@@ -72,15 +72,21 @@ void main() {
 
       if (Platform.isIOS) {
         // Read real capabilities without asking for notification permission or
-        // changing the current launcher icon. UIKit's real icon change prompts
-        // are deliberately outside this unattended Simulator scenario.
+        // changing the current launcher icon here. Automatic floor sync after
+        // the save above can show UIKit's real icon-change alert. If that alert
+        // blocks interaction, the native UI harness must dismiss it; never mock
+        // the bridge or disable automatic sync to make this scenario pass.
         final iconBefore = await NativeBridge.launcherIconState().timeout(
           const Duration(seconds: 10),
         );
         expect(iconBefore.supported, isTrue);
-        final iconAfter = await NativeBridge.setLauncherIcon(
-          iconBefore.iconId,
-        ).timeout(const Duration(seconds: 10));
+        final iconAfter =
+            iconBefore.iconId == null ||
+                NativeBridge.floorIconIds.contains(iconBefore.iconId)
+            ? await NativeBridge.setLauncherIcon(
+                iconBefore.iconId,
+              ).timeout(const Duration(seconds: 10))
+            : iconBefore; // Legacy color IDs are readable but cannot be newly applied.
         expect(iconAfter.supported, isTrue);
         expect(iconAfter.iconId, iconBefore.iconId);
         final iconReadBack = await NativeBridge.launcherIconState().timeout(
@@ -147,6 +153,36 @@ void main() {
       await binding.takeScreenshot('native-history');
 
       if (Platform.isIOS) {
+        await tester.tap(find.text('주차 위치').last);
+        await tester.pumpAndSettle();
+        await tester.scrollUntilVisible(
+          find.text('추가 방법 보기'),
+          250,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.tap(find.text('추가 방법 보기'));
+        await tester.pumpAndSettle();
+        expect(find.text('홈 화면에 주차 위치 두기'), findsOneWidget);
+        await binding.takeScreenshot('native-widget-guide');
+        await tester.tap(find.text('위젯 설정으로 이동'));
+        await tester.pumpAndSettle();
+        expect(find.text('홈 화면 위젯').hitTestable(), findsOneWidget);
+        await binding.takeScreenshot('native-widget-settings');
+        binding.reportData!['widgetGuideNavigatesToSettings'] = true;
+        await tester.tap(find.text('주차 위치').last);
+        await tester.pumpAndSettle();
+        await tester.scrollUntilVisible(
+          find.text('위젯 설정'),
+          250,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.tap(find.text('위젯 설정'));
+        await tester.pumpAndSettle();
+        expect(find.text('홈 화면 위젯').hitTestable(), findsOneWidget);
+        binding.reportData!['widgetDirectButtonNavigatesToSettings'] = true;
+        // Reset the settings scroll before inspecting the complete settings flow.
+        await tester.tap(find.text('주차 위치').last);
+        await tester.pumpAndSettle();
         final profileBefore = await fresh.profileName();
         final iconBefore = await NativeBridge.launcherIconState().timeout(
           const Duration(seconds: 10),
@@ -170,34 +206,19 @@ void main() {
           expect(find.text(label).hitTestable(), findsOneWidget);
         }
 
-        await reveal('앱 아이콘');
-        await tester.tap(find.text('앱 아이콘'));
+        await reveal('주차 층수 앱 아이콘');
+        await tester.tap(find.text('주차 층수 앱 아이콘'));
         await tester.pumpAndSettle();
         final dialog = find.byType(AlertDialog);
-        expect(find.text('홈 화면 앱 아이콘'), findsOneWidget);
-        final choices = find.descendant(
-          of: dialog,
-          matching: find.byType(ChoiceChip),
-        );
-        expect(choices, findsNWidgets(9));
+        expect(dialog, findsOneWidget);
         expect(
-          tester.widgetList<ChoiceChip>(choices).where((chip) => chip.selected),
-          hasLength(1),
+          find.descendant(of: dialog, matching: find.byType(ChoiceChip)),
+          findsNothing,
         );
-        expect(
-          tester
-              .widget<FilledButton>(
-                find.descendant(
-                  of: dialog,
-                  matching: find.byType(FilledButton),
-                ),
-              )
-              .onPressed,
-          isNull,
-        );
-        await binding.takeScreenshot('native-launcher-picker');
+        expect(find.textContaining('F1~F5'), findsOneWidget);
+        await binding.takeScreenshot('native-launcher-floor');
         await tester.tap(
-          find.descendant(of: dialog, matching: find.text('취소')),
+          find.descendant(of: dialog, matching: find.text('닫기')),
         );
         await tester.pumpAndSettle();
         expect(dialog, findsNothing);
@@ -263,9 +284,8 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('D구역 · 52번'), findsOneWidget);
         binding.reportData!['iosSettingsInspection'] = {
-          'launcherChoiceCount': 9,
-          'launcherApplyDisabledWithoutChange': true,
-          'launcherPickerCancelled': true,
+          'launcherFloorDetailsReadOnly': true,
+          'launcherFloorDetailsClosed': true,
           'demoFamilyNotificationsDisabled': true,
           'profileEditorCancelled': true,
           'profileVehiclesAndRecordsUnchanged': true,

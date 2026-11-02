@@ -73,8 +73,20 @@ class NativeBridge {
     if (supportsPush) await _channel.invokeMethod<void>('disablePush');
   }
 
-  static bool get supportsLauncherIcons =>
-      !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+  static bool get supportsLauncherIcons => supportsOcr;
+  static const floorIconIds = {
+    'floor_f1',
+    'floor_f2',
+    'floor_f3',
+    'floor_f4',
+    'floor_f5',
+    'floor_b1',
+    'floor_b2',
+    'floor_b3',
+    'floor_b4',
+    'floor_b5',
+    'floor_b6',
+  };
   static const launcherIconIds = {
     'car_blue',
     'car_black',
@@ -89,7 +101,9 @@ class NativeBridge {
   static LauncherIconState _launcherState(Map<String, dynamic>? response) {
     final icon = response?['iconId'];
     if (response?['supported'] is! bool ||
-        (icon != null && !launcherIconIds.contains(icon))) {
+        (icon != null &&
+            !launcherIconIds.contains(icon) &&
+            !floorIconIds.contains(icon))) {
       throw PlatformException(
         code: 'icon_state_invalid',
         message: '앱 아이콘 정보를 확인하지 못했어요. 다시 시도해 주세요.',
@@ -110,16 +124,52 @@ class NativeBridge {
     );
   }
 
+  // One queue spans controllers: logout cleanup cannot be overtaken by an old
+  // account's already-running platform write. Failed operations release it too.
+  static Future<void>? _iconQueue;
+  static Future<T> _queueIcon<T>(Future<T> Function() action) {
+    final previous = _iconQueue;
+    final result = previous == null
+        ? Future<T>.sync(action)
+        : previous.then((_) => action());
+    late final Future<void> tail;
+    void release() {
+      if (identical(_iconQueue, tail)) _iconQueue = null;
+    }
+
+    tail = result.then<void>(
+      (_) => release(),
+      onError: (Object _, StackTrace __) => release(),
+    );
+    _iconQueue = tail;
+    return result;
+  }
+
+  static Future<void> syncLauncherIcon(
+    String? iconId, {
+    bool Function()? isCurrent,
+  }) => _queueIcon(() async {
+    if (!supportsLauncherIcons || (isCurrent != null && !isCurrent())) return;
+    final state = await launcherIconState();
+    if (isCurrent != null && !isCurrent()) return;
+    if (state.supported && state.iconId != iconId) {
+      await _setLauncherIcon(iconId);
+    }
+  });
+
   /// Changes only this device's launcher icon after an explicit user action.
   /// A null icon restores the primary app icon; vehicle settings are untouched.
-  static Future<LauncherIconState> setLauncherIcon(String? iconId) async {
-    if (iconId != null && !launcherIconIds.contains(iconId)) {
+  static Future<LauncherIconState> setLauncherIcon(String? iconId) =>
+      _queueIcon(() => _setLauncherIcon(iconId));
+
+  static Future<LauncherIconState> _setLauncherIcon(String? iconId) async {
+    if (iconId != null && !floorIconIds.contains(iconId)) {
       throw ArgumentError.value(iconId, 'iconId', '지원하는 아이콘을 선택해 주세요.');
     }
     if (!supportsLauncherIcons) {
       throw PlatformException(
         code: 'unsupported',
-        message: 'iPhone 또는 iPad 앱에서 아이콘을 바꿀 수 있어요.',
+        message: '휴대폰 앱에서 아이콘을 바꿀 수 있어요.',
       );
     }
     final state = _launcherState(
@@ -147,6 +197,17 @@ class NativeBridge {
           'path': path,
         }) ??
         '';
+  }
+
+  static String? iconForFloor(String? floor) {
+    final id = 'floor_${floor?.trim().toLowerCase()}';
+    return floorIconIds.contains(id) ? id : null;
+  }
+
+  static Future<bool> shareText(String text) async {
+    if (!supportsOcr) return false;
+    return await _channel.invokeMethod<bool>('shareText', {'text': text}) ??
+        false;
   }
 
   static Future<void> updateSnapshot(Map<String, dynamic> snapshot) async {

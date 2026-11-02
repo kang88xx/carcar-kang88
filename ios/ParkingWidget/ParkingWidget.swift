@@ -80,30 +80,83 @@ struct ParkingHomeWidget: Widget {
 }
 
 struct ParkingLiveWidget: Widget {
+    private let ink = Color(red: 0.13, green: 0.24, blue: 0.20)
+
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: ParkingAttributes.self) { context in
-            VStack(alignment: .leading, spacing: 8) {
-                Label("\(context.attributes.vehicleName) 찾기", systemImage: "car.fill").font(.caption)
-                Text("\(context.state.floor) · \(context.state.zone) \(context.state.spot)").font(.title.bold())
-                if context.isStale {
-                    Text("표시 시간이 끝났어요. 앱에서 최신 위치를 확인해 주세요.").font(.caption)
-                } else {
-                    Text(timerInterval: min(Date(), context.state.expiresAt)...context.state.expiresAt, countsDown: true).font(.caption.monospacedDigit())
+            HStack(spacing: 12) {
+                Image(systemName: "car.fill")
+                    .font(.title3)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("\(context.state.floor) · \(context.state.zone) \(context.state.spot)")
+                        .font(.system(.title3, design: .rounded, weight: .bold))
+                        .lineLimit(1).minimumScaleFactor(0.7)
+                        .privacySensitive()
+                    HStack(spacing: 6) {
+                        Text("\(context.attributes.vehicleName) 찾기")
+                            .lineLimit(1).truncationMode(.tail)
+                        if context.isStale {
+                            Text("시간 만료").fixedSize()
+                        } else {
+                            Text(timerInterval: min(Date(), context.state.expiresAt)...context.state.expiresAt, countsDown: true)
+                                .monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
+                                .frame(width: 64, alignment: .leading)
+                        }
+                    }.font(.caption2)
                 }
-            }.padding().activityBackgroundTint(Color(red: 0.95, green: 0.96, blue: 0.93))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                StopFindingButton(activityID: context.activityID, tint: ink)
+            }
+                .padding(.horizontal, 16).padding(.vertical, 10)
+                .foregroundStyle(ink)
+                .activityBackgroundTint(Color(red: 0.95, green: 0.96, blue: 0.93))
+                .activitySystemActionForegroundColor(ink)
                 .widgetURL(URL(string: "carcar://home"))
         } dynamicIsland: { context in
             DynamicIsland {
-                DynamicIslandExpandedRegion(.leading) { Image(systemName: "car.fill") }
-                DynamicIslandExpandedRegion(.trailing) { Text(context.state.floor).bold() }
+                DynamicIslandExpandedRegion(.leading) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "car.fill").accessibilityHidden(true)
+                        Text(context.state.floor).bold().lineLimit(1).minimumScaleFactor(0.7)
+                    }.privacySensitive()
+                }
+                DynamicIslandExpandedRegion(.trailing) {
+                    StopFindingButton(activityID: context.activityID, tint: .white)
+                }
                 DynamicIslandExpandedRegion(.bottom) {
                     Text(context.isStale ? "앱에서 최신 위치 확인" : "\(context.state.zone) 구역 · \(context.state.spot)")
+                        .lineLimit(1).minimumScaleFactor(0.7).privacySensitive()
                 }
-            } compactLeading: { Image(systemName: "car.fill") }
-              compactTrailing: { Text(context.state.floor).bold() }
+            } compactLeading: {
+                HStack(spacing: 4) {
+                    Image(systemName: "car.fill").accessibilityHidden(true)
+                    Text(context.state.floor).bold().lineLimit(1).minimumScaleFactor(0.7)
+                }.privacySensitive()
+            }
+              compactTrailing: { EmptyView() }
               minimal: { Image(systemName: "car.fill") }
                 .widgetURL(URL(string: "carcar://home"))
         }
+    }
+}
+
+private struct StopFindingButton: View {
+    let activityID: String
+    let tint: Color
+
+    var body: some View {
+        Button(intent: StopParkingActivityIntent(activityID: activityID)) {
+            Label("종료", systemImage: "xmark")
+                .font(.caption.weight(.semibold))
+                .padding(.horizontal, 10)
+                .frame(minWidth: 44, minHeight: 44)
+                .background(tint.opacity(0.10), in: Capsule())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(tint)
+        .accessibilityLabel("차량 찾기 표시 종료")
+        .accessibilityHint("현재 표시만 닫고 주차 기록은 유지합니다")
     }
 }
 

@@ -1,4 +1,6 @@
 import 'package:carcar/app/theme.dart';
+import 'package:carcar/core/app_controller.dart';
+import 'floor_icon_sync_test.dart' show FloorRepository;
 import 'package:carcar/core/native_bridge.dart';
 import 'package:carcar/features/launcher_icon_setting.dart';
 import 'package:flutter/foundation.dart';
@@ -50,15 +52,59 @@ void main() {
     );
   }
 
-  iconTest('non-iOS support query does not call a native plugin', () async {
-    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    iconTest('$platform reads native launcher state', () async {
+      debugDefaultTargetPlatformOverride = platform;
+      expect((await NativeBridge.launcherIconState()).supported, isTrue);
+      expect(calls.single.method, 'launcherIconState');
+    });
+  }
+  iconTest('desktop does not invoke native icon methods', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.linux;
     expect((await NativeBridge.launcherIconState()).supported, isFalse);
-    await expectLater(
-      NativeBridge.setLauncherIcon('car_blue'),
-      throwsA(isA<PlatformException>()),
-    );
     expect(calls, isEmpty);
   });
+  iconTest(
+    'all supported floors map and unsupported floors restore default',
+    () async {
+      for (final floor in [
+        ...List.generate(5, (i) => 'F${i + 1}'),
+        ...List.generate(6, (i) => 'B${i + 1}'),
+      ]) {
+        expect(
+          NativeBridge.iconForFloor(floor),
+          'floor_${floor.toLowerCase()}',
+        );
+      }
+      for (final floor in [null, '', 'F6', 'B7', 'B0', '지하 2층']) {
+        expect(NativeBridge.iconForFloor(floor), isNull);
+      }
+    },
+  );
+  iconTest('legacy color IDs are read-only', () async {
+    for (final id in NativeBridge.launcherIconIds) {
+      await expectLater(NativeBridge.setLauncherIcon(id), throwsArgumentError);
+    }
+    expect(calls, isEmpty);
+  });
+
+  iconTest(
+    'unsupported native response never confirms an icon change',
+    () async {
+      supported = false;
+      expect((await NativeBridge.launcherIconState()).supported, isFalse);
+      await expectLater(
+        NativeBridge.setLauncherIcon('floor_b1'),
+        throwsA(
+          isA<PlatformException>().having(
+            (e) => e.code,
+            'code',
+            'icon_change_unconfirmed',
+          ),
+        ),
+      );
+    },
+  );
 
   iconTest('unknown icon cannot reach the native channel', () async {
     await expectLater(
@@ -94,7 +140,7 @@ void main() {
     current = 'car_red';
     failChange = true;
     await expectLater(
-      NativeBridge.setLauncherIcon('car_blue'),
+      NativeBridge.setLauncherIcon('floor_b2'),
       throwsA(isA<PlatformException>()),
     );
     expect(current, 'car_red');
@@ -106,7 +152,7 @@ void main() {
           return {'supported': true, 'iconId': 'car_red'};
         });
     await expectLater(
-      NativeBridge.setLauncherIcon('car_blue'),
+      NativeBridge.setLauncherIcon('floor_b2'),
       throwsA(
         isA<PlatformException>().having(
           (e) => e.code,
@@ -117,104 +163,69 @@ void main() {
     );
   });
 
-  Widget screen({String vehicleIcon = 'car_blue', double scale = 1}) =>
-      MaterialApp(
-        theme: buildTheme(),
-        builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(
-            context,
-          ).copyWith(textScaler: TextScaler.linear(scale)),
-          child: child!,
+  Widget screen(AppController controller, {double scale = 1}) => MaterialApp(
+    theme: buildTheme(),
+    builder: (context, child) => MediaQuery(
+      data: MediaQuery.of(
+        context,
+      ).copyWith(textScaler: TextScaler.linear(scale)),
+      child: child!,
+    ),
+    home: Scaffold(
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: LauncherIconSetting(controller: controller),
         ),
-        home: Scaffold(
-          body: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: LauncherIconSetting(vehicleIconId: vehicleIcon),
-            ),
-          ),
-        ),
-      );
-
-  iconWidgetTest(
-    'vehicle color changes never change the launcher automatically',
-    (tester) async {
-      await tester.pumpWidget(screen());
-      await tester.pumpAndSettle();
-      await tester.pumpWidget(screen(vehicleIcon: 'car_red'));
-      await tester.pumpAndSettle();
-      expect(calls.where((c) => c.method == 'setLauncherIcon'), isEmpty);
-      expect(find.text('기본 · 이 기기에만 적용돼요.'), findsOneWidget);
-    },
+      ),
+    ),
   );
-
-  iconWidgetTest('selecting and cancelling does not apply an icon', (
+  iconWidgetTest('floor details are informative and never write an icon', (
     tester,
   ) async {
-    await tester.pumpWidget(screen());
+    final controller = AppController(FloorRepository());
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(screen(controller));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('앱 아이콘'));
+    await tester.tap(find.text('주차 층수 앱 아이콘'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(ChoiceChip, '블루'));
+    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(find.byType(ChoiceChip), findsNothing);
+    expect(find.textContaining('F1~F5'), findsOneWidget);
+    await tester.tap(find.text('닫기'));
     await tester.pumpAndSettle();
     expect(calls.where((c) => c.method == 'setLauncherIcon'), isEmpty);
-    await tester.tap(find.text('취소'));
-    await tester.pumpAndSettle();
-    expect(calls.where((c) => c.method == 'setLauncherIcon'), isEmpty);
-    expect(current, isNull);
   });
-
-  iconWidgetTest('explicit apply updates only the local icon', (tester) async {
-    await tester.pumpWidget(screen());
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('앱 아이콘'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(ChoiceChip, '블루'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('이 기기에 적용'));
-    await tester.pumpAndSettle();
-    expect(current, 'car_blue');
-    expect(calls.where((c) => c.method == 'setLauncherIcon').length, 1);
-    expect(find.text('블루 · 이 기기에만 적용돼요.'), findsOneWidget);
-  });
-
-  iconWidgetTest('failed apply keeps the confirmed previous selection', (
+  iconWidgetTest('warning exposes retry and native failure stays visible', (
     tester,
   ) async {
-    current = 'car_red';
+    final controller = AppController(FloorRepository());
+    addTearDown(controller.dispose);
+    controller.iconWarning = '아이콘을 확인해 주세요.';
+    current = 'floor_b2';
     failChange = true;
-    await tester.pumpWidget(screen());
+    await tester.pumpWidget(screen(controller));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('앱 아이콘'));
+    await tester.tap(find.text('아이콘 다시 맞추기'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(ChoiceChip, '블루'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('이 기기에 적용'));
-    await tester.pumpAndSettle();
-    expect(find.text('레드 · 이 기기에만 적용돼요.'), findsOneWidget);
-    expect(find.text('이 기기의 앱 아이콘을 바꿨어요.'), findsNothing);
+    expect(controller.iconWarning, isNotNull);
+    expect(current, 'floor_b2');
+    expect(calls.where((c) => c.method == 'setLauncherIcon'), hasLength(1));
   });
-
-  iconWidgetTest('unsupported device has no enabled picker', (tester) async {
-    supported = false;
-    await tester.pumpWidget(screen());
-    await tester.pumpAndSettle();
-    expect(tester.widget<ListTile>(find.byType(ListTile)).onTap, isNull);
-    expect(find.text('이 기기에서는 앱 아이콘 변경을 지원하지 않아요.'), findsOneWidget);
-  });
-
-  iconWidgetTest('picker remains usable at narrow width and large text', (
+  iconWidgetTest('floor details fit narrow width and large text', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(320, 740);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(screen(scale: 2));
+    final controller = AppController(FloorRepository());
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(screen(controller, scale: 2));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('앱 아이콘'));
+    await tester.tap(find.text('주차 층수 앱 아이콘'));
     await tester.pumpAndSettle();
-    expect(find.byType(ChoiceChip), findsNWidgets(9));
+    expect(find.byType(AlertDialog), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

@@ -128,173 +128,119 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  Future<void> openHelp(
-    WidgetTester tester,
-    AccountAuth auth, {
-    bool recovery = true,
-  }) async {
-    await pumpPage(
-      tester,
-      AuthScreen(client: AccountClient(auth), onDemo: () async {}),
-    );
-    await tester.enterText(
-      find.byType(TextFormField).first,
-      '  me@example.com  ',
-    );
-    await tester.tap(find.text(recovery ? '비밀번호를 잊으셨나요?' : '가입 확인 메일 다시 받기'));
-    await tester.pumpAndSettle();
-  }
-
-  Future<void> closeHelp(WidgetTester tester) async {
-    await tester.tap(find.text('닫기'));
-    await tester.pumpAndSettle();
-    await tester.pumpWidget(const SizedBox());
-  }
-
   testWidgets(
-    'auth mode switch clears stale errors and preserves typed credentials',
+    'Google launch prevents duplicate requests without claiming sign-in',
     (tester) async {
-      final auth = AccountAuth();
+      final pending = Completer<bool>();
+      var requests = 0;
       await pumpPage(
         tester,
-        AuthScreen(client: AccountClient(auth), onDemo: () async {}),
+        AuthScreen(
+          client: AccountClient(AccountAuth()),
+          onDemo: () async {},
+          onGoogleSignIn: () {
+            requests++;
+            return pending.future;
+          },
+        ),
       );
-      await tester.enterText(
-        find.byType(TextFormField).first,
-        'family@example.com',
-      );
-      await tester.enterText(find.byType(TextFormField).last, 'short');
-      await tester.tap(find.text('처음 오셨나요? 계정 만들기'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('계정 만들기'));
-      await tester.pumpAndSettle();
-      expect(find.text('비밀번호를 8자 이상 입력해 주세요.'), findsOneWidget);
-      await tester.tap(find.text('이미 계정이 있어요 · 로그인'));
-      await tester.pumpAndSettle();
-      expect(find.text('비밀번호를 8자 이상 입력해 주세요.'), findsNothing);
-      expect(
-        tester
-            .widget<TextFormField>(find.byType(TextFormField).first)
-            .controller!
-            .text,
-        'family@example.com',
-      );
-      expect(
-        tester
-            .widget<TextFormField>(find.byType(TextFormField).last)
-            .controller!
-            .text,
-        'short',
-      );
-      expect(tester.state<FormState>(find.byType(Form)).validate(), isTrue);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('처음 오셨나요? 계정 만들기'));
-      await tester.pumpAndSettle();
-      expect(find.text('가족과 함께 시작해요'), findsOneWidget);
-      expect(tester.state<FormState>(find.byType(Form)).validate(), isFalse);
-      await tester.pumpAndSettle();
-      expect(find.text('비밀번호를 8자 이상 입력해 주세요.'), findsOneWidget);
-      expect(
-        tester
-            .widget<TextFormField>(find.byType(TextFormField).last)
-            .controller!
-            .text,
-        'short',
-      );
-      await tester.enterText(find.byType(TextFormField).last, 'long-enough');
-      expect(tester.state<FormState>(find.byType(Form)).validate(), isTrue);
-      expect(auth.requests, 0);
-    },
-  );
-
-  testWidgets(
-    'recovery requests only email and prevents duplicate pending sends',
-    (tester) async {
-      final auth = AccountAuth()..pending = Completer<void>();
-      await openHelp(tester, auth);
-      await tester.tap(find.text('안내 메일 요청'));
+      expect(find.byType(TextFormField), findsNothing);
+      await tester.tap(find.text('Google로 계속하기'));
       await tester.pump();
-      expect(auth.requests, 1);
-      expect(auth.requestedEmail, 'me@example.com');
-      expect(auth.redirect, 'com.kang88.carcar://login-callback');
-      expect(find.textContaining('등록된 계정이라면'), findsNothing);
+      expect(requests, 1);
       expect(
-        tester.widget<FilledButton>(find.byType(FilledButton).last).onPressed,
+        tester
+            .widget<OutlinedButton>(
+              find.byWidgetPredicate((w) => w is OutlinedButton),
+            )
+            .onPressed,
         isNull,
       );
-      auth.pending!.complete();
+      pending.complete(true);
       await tester.pumpAndSettle();
-      expect(find.textContaining('등록된 계정이라면'), findsOneWidget);
-      expect(find.text('60초 후 다시 요청'), findsOneWidget);
-      await closeHelp(tester);
+      expect(find.textContaining('Google에서 로그인하면'), findsOneWidget);
+      expect(find.byType(AuthScreen), findsOneWidget);
+      expect(
+        tester
+            .widget<OutlinedButton>(
+              find.byWidgetPredicate((w) => w is OutlinedButton),
+            )
+            .onPressed,
+        isNotNull,
+      );
     },
   );
 
   testWidgets(
-    'email request validates email without requiring login password',
+    'Google launch failure permits retry and keeps invitation notice',
     (tester) async {
-      final auth = AccountAuth();
-      await openHelp(tester, auth);
-      final dialog = find.byType(AlertDialog);
-      await tester.enterText(
-        find.descendant(of: dialog, matching: find.byType(TextFormField)),
-        'invalid',
+      var attempts = 0;
+      await pumpPage(
+        tester,
+        AuthScreen(
+          client: AccountClient(AccountAuth()),
+          onDemo: () async {},
+          startupNotice: '가족 초대를 받았어요.',
+          onGoogleSignIn: () async => ++attempts > 1,
+        ),
       );
-      await tester.tap(find.text('안내 메일 요청'));
+      await tester.tap(find.text('Google로 계속하기'));
       await tester.pumpAndSettle();
-      expect(auth.requests, 0);
-      expect(find.text('이메일 주소를 확인해 주세요.'), findsOneWidget);
-      await closeHelp(tester);
+      expect(find.textContaining('로그인 창을 열지 못했어요'), findsOneWidget);
+      expect(find.text('가족 초대를 받았어요.'), findsOneWidget);
+      await tester.tap(find.text('Google로 계속하기'));
+      await tester.pumpAndSettle();
+      expect(attempts, 2);
+      expect(find.textContaining('로그인 창을 열지 못했어요'), findsNothing);
+      expect(find.textContaining('Google에서 로그인하면'), findsOneWidget);
     },
   );
 
-  testWidgets('mail errors preserve input and do not claim a sent message', (
+  testWidgets('Google server errors do not expose details or report success', (
     tester,
   ) async {
-    final auth = AccountAuth()
-      ..error = const AuthException(
-        'server details should not leak',
-        statusCode: '500',
-      );
-    await openHelp(tester, auth);
-    await tester.tap(find.text('안내 메일 요청'));
+    await pumpPage(
+      tester,
+      AuthScreen(
+        client: AccountClient(AccountAuth()),
+        onDemo: () async {},
+        onGoogleSignIn: () async => throw const AuthException(
+          'private server detail',
+          statusCode: '500',
+        ),
+      ),
+    );
+    await tester.tap(find.text('Google로 계속하기'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('메일 요청을 완료하지 못했어요.'), findsOneWidget);
-    expect(find.textContaining('등록된 계정이라면'), findsNothing);
-    expect(find.textContaining('server details'), findsNothing);
-    auth.error = null;
-    await tester.tap(find.text('안내 메일 요청'));
-    await tester.pumpAndSettle();
-    expect(auth.requests, 2);
-    expect(auth.requestedEmail, 'me@example.com');
-    await closeHelp(tester);
+    expect(find.textContaining('private server detail'), findsNothing);
+    expect(find.textContaining('Google에서 로그인하면'), findsNothing);
+    expect(
+      tester
+          .widget<OutlinedButton>(
+            find.byWidgetPredicate((w) => w is OutlinedButton),
+          )
+          .onPressed,
+      isNotNull,
+    );
   });
 
-  testWidgets('unknown account uses the same conditional notice', (
+  testWidgets('unconfigured app offers local demo and no unavailable login', (
     tester,
   ) async {
-    final auth = AccountAuth()
-      ..error = const AuthException('user not found', code: 'user_not_found');
-    await openHelp(tester, auth);
-    await tester.tap(find.text('안내 메일 요청'));
+    var demos = 0;
+    await pumpPage(
+      tester,
+      AuthScreen(
+        client: null,
+        onDemo: () async {
+          demos++;
+        },
+      ),
+    );
+    expect(find.text('Google로 계속하기'), findsNothing);
+    await tester.tap(find.text('체험 시작하기'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('등록된 계정이라면'), findsOneWidget);
-    expect(find.textContaining('user not found'), findsNothing);
-    await closeHelp(tester);
-  });
-
-  testWidgets('confirmation resend uses signup type and configured callback', (
-    tester,
-  ) async {
-    final auth = AccountAuth();
-    await openHelp(tester, auth, recovery: false);
-    await tester.tap(find.text('안내 메일 요청'));
-    await tester.pumpAndSettle();
-    expect(auth.resendType, OtpType.signup);
-    expect(auth.requestedEmail, 'me@example.com');
-    expect(auth.redirect, 'com.kang88.carcar://login-callback');
-    expect(find.textContaining('가입 확인이 필요한 계정이라면'), findsOneWidget);
-    await closeHelp(tester);
+    expect(demos, 1);
   });
 
   testWidgets(

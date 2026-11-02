@@ -1,163 +1,107 @@
 import 'package:flutter/material.dart';
 import '../app/theme.dart';
-import '../core/models.dart';
+import '../core/app_controller.dart';
 import '../core/native_bridge.dart';
 import '../shared/components.dart';
 
-const _iconLabels = {
-  'primary': '기본',
-  'car_blue': '블루',
-  'car_black': '블랙',
-  'car_white': '화이트',
-  'car_gold': '골드',
-  'car_mint': '민트',
-  'car_purple': '퍼플',
-  'car_red': '레드',
-  'car_gray': '그레이',
-};
-
-/// Local launcher preference. Selecting a shared vehicle never applies it.
+/// Shows the automatic floor icon; it is never a shared vehicle color selector.
 class LauncherIconSetting extends StatefulWidget {
-  const LauncherIconSetting({super.key, this.vehicleIconId});
-  final String? vehicleIconId;
-
+  const LauncherIconSetting({super.key, required this.controller});
+  final AppController controller;
   @override
   State<LauncherIconSetting> createState() => _LauncherIconSettingState();
 }
 
 class _LauncherIconSettingState extends State<LauncherIconSetting> {
-  LauncherIconState? _state;
-  bool _busy = true;
-  bool _loadFailed = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    setState(() => _busy = true);
-    try {
-      final state = await NativeBridge.launcherIconState();
-      if (mounted) {
-        setState(() {
-          _state = state;
-          _loadFailed = false;
-        });
-      }
-    } on Object {
-      if (mounted) setState(() => _loadFailed = true);
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<void> _choose() async {
-    var selected = _state?.iconId ?? 'primary';
-    final current = selected;
-    final choice = await showDialog<String>(
+  bool _busy = false;
+  Future<void> _details() async {
+    final floor = widget.controller.latest?.floor;
+    final supportedFloor = NativeBridge.iconForFloor(floor) != null;
+    await showDialog<void>(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, update) => AlertDialog(
-          title: const Text('홈 화면 앱 아이콘'),
-          scrollable: true,
-          content: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('이 기기의 아이콘만 바뀌어요. 가족의 앱과 차량 색상은 그대로예요.'),
-              if (_iconLabels.containsKey(widget.vehicleIconId)) ...[
-                const SizedBox(height: 10),
-                Text(
-                  '우리 차 색상 · ${_iconLabels[widget.vehicleIconId]}',
-                  style: const TextStyle(color: Palette.muted, fontSize: 13),
+      builder: (context) => AlertDialog(
+        title: const Text('주차 층수 앱 아이콘'),
+        scrollable: true,
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 76,
+                height: 76,
+                decoration: BoxDecoration(
+                  color: Palette.green,
+                  borderRadius: BorderRadius.circular(19),
                 ),
-              ],
-              const SizedBox(height: 20),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: _iconLabels.entries.map((entry) {
-                  final color = vehicleColors[entry.key] ?? Palette.green;
-                  return ChoiceChip(
-                    label: Text(entry.value),
-                    avatar: CircleAvatar(backgroundColor: color),
-                    selected: selected == entry.key,
-                    onSelected: (_) => update(() => selected = entry.key),
-                  );
-                }).toList(),
+                alignment: Alignment.center,
+                child: Text(
+                  supportedFloor ? floor! : 'P',
+                  style: const TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
               ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('취소'),
             ),
-            FilledButton(
-              onPressed: selected == current
-                  ? null
-                  : () => Navigator.pop(context, selected),
-              child: Text(selected == 'primary' ? '기본으로 복원' : '이 기기에 적용'),
+            const SizedBox(height: 20),
+            const Text(
+              '주차 위치를 저장하면 앱 아이콘도 해당 층으로 바뀌어요. 지상 F1~F5, 지하 B1~B6을 표시해요.',
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              '다른 가족이 남긴 위치는 앱을 다시 열 때 맞춰요. 지원 범위 밖의 층이나 기록이 없으면 기본 아이콘을 사용해요.',
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'iPhone에서는 아이콘 변경 안내가 표시될 수 있어요. 홈 화면에 반영되는 시점은 기기에 따라 다를 수 있어요.',
+              style: TextStyle(fontSize: 12, height: 1.6, color: Palette.muted),
             ),
           ],
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('닫기'),
+          ),
+        ],
       ),
     );
-    if (!mounted || choice == null) return;
+  }
+
+  Future<void> _retry() async {
+    if (_busy) return;
     setState(() => _busy = true);
-    try {
-      final state = await NativeBridge.setLauncherIcon(
-        choice == 'primary' ? null : choice,
-      );
-      if (mounted) {
-        setState(() => _state = state);
-        showMessage(context, '이 기기의 앱 아이콘을 바꿨어요.');
-      }
-    } on Object {
-      if (mounted) {
-        showMessage(context, '아이콘을 바꾸지 못했어요. 잠시 후 다시 시도해 주세요.');
-      }
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
+    await widget.controller.syncFloorIcon();
+    if (!mounted) return;
+    setState(() => _busy = false);
+    showMessage(
+      context,
+      widget.controller.iconWarning ?? '현재 주차 층수로 앱 아이콘을 확인했어요.',
+    );
   }
 
   @override
-  Widget build(BuildContext context) {
-    final supported = _state?.supported ?? false;
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: const Icon(Icons.apps_rounded, color: Palette.green),
-      title: const Text('앱 아이콘'),
-      subtitle: Text(
-        _busy
-            ? '아이콘을 확인하고 있어요.'
-            : _loadFailed
-            ? '아이콘 정보를 읽지 못했어요. 눌러서 다시 확인해 주세요.'
-            : supported
-            ? '${_iconLabels[_state?.iconId ?? 'primary']} · 이 기기에만 적용돼요.'
-            : '이 기기에서는 앱 아이콘 변경을 지원하지 않아요.',
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: const Icon(Icons.apps_rounded, color: Palette.green),
+        title: const Text('주차 층수 앱 아이콘'),
+        subtitle: Text(
+          widget.controller.iconWarning ?? '저장한 층수에 맞춰 자동으로 바뀌어요.',
+        ),
+        trailing: const Icon(Icons.chevron_right_rounded),
+        onTap: _details,
       ),
-      trailing: _busy
-          ? const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : _loadFailed
-          ? const Icon(Icons.refresh_rounded)
-          : supported
-          ? const Icon(Icons.chevron_right_rounded)
-          : null,
-      onTap: _busy
-          ? null
-          : _loadFailed
-          ? _load
-          : supported
-          ? _choose
-          : null,
-    );
-  }
+      if (widget.controller.iconWarning != null)
+        TextButton.icon(
+          onPressed: _busy ? null : _retry,
+          icon: const Icon(Icons.refresh_rounded),
+          label: const Text('아이콘 다시 맞추기'),
+        ),
+    ],
+  );
 }

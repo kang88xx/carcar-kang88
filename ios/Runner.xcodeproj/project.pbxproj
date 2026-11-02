@@ -458,7 +458,7 @@
 			buildSettings = {
 				APS_ENVIRONMENT = production;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "AppIconBlue AppIconBlack AppIconWhite AppIconGold AppIconMint AppIconPurple AppIconRed AppIconGray";
+				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "AppIconBlue AppIconBlack AppIconWhite AppIconGold AppIconMint AppIconPurple AppIconRed AppIconGray AppIconFloorF1 AppIconFloorF2 AppIconFloorF3 AppIconFloorF4 AppIconFloorF5 AppIconFloorB1 AppIconFloorB2 AppIconFloorB3 AppIconFloorB4 AppIconFloorB5 AppIconFloorB6";
 				CLANG_ENABLE_MODULES = YES;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				ENABLE_BITCODE = NO;
@@ -641,7 +641,7 @@
 			buildSettings = {
 				APS_ENVIRONMENT = development;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "AppIconBlue AppIconBlack AppIconWhite AppIconGold AppIconMint AppIconPurple AppIconRed AppIconGray";
+				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "AppIconBlue AppIconBlack AppIconWhite AppIconGold AppIconMint AppIconPurple AppIconRed AppIconGray AppIconFloorF1 AppIconFloorF2 AppIconFloorF3 AppIconFloorF4 AppIconFloorF5 AppIconFloorB1 AppIconFloorB2 AppIconFloorB3 AppIconFloorB4 AppIconFloorB5 AppIconFloorB6";
 				CLANG_ENABLE_MODULES = YES;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				ENABLE_BITCODE = NO;
@@ -667,7 +667,7 @@
 			buildSettings = {
 				APS_ENVIRONMENT = production;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "AppIconBlue AppIconBlack AppIconWhite AppIconGold AppIconMint AppIconPurple AppIconRed AppIconGray";
+				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "AppIconBlue AppIconBlack AppIconWhite AppIconGold AppIconMint AppIconPurple AppIconRed AppIconGray AppIconFloorF1 AppIconFloorF2 AppIconFloorF3 AppIconFloorF4 AppIconFloorF5 AppIconFloorB1 AppIconFloorB2 AppIconFloorB3 AppIconFloorB4 AppIconFloorB5 AppIconFloorB6";
 				CLANG_ENABLE_MODULES = YES;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				ENABLE_BITCODE = NO;

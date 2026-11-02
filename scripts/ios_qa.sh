@@ -60,13 +60,15 @@ if 1 not in families:
     raise SystemExit('The built Simulator app must support iPhone.')
 names = {'AppIcon' + color for color in
          ['Blue', 'Black', 'White', 'Gold', 'Mint', 'Purple', 'Red', 'Gray']}
+names |= {'AppIconFloorF' + str(i) for i in range(1, 6)}
+names |= {'AppIconFloorB' + str(i) for i in range(1, 7)}
 icon_sets = {}
 for family, key in [(1, 'CFBundleIcons'), (2, 'CFBundleIcons~ipad')]:
     if family not in families:
         continue
     alternate = info.get(key, {}).get('CFBundleAlternateIcons', {})
     if not names.issubset(alternate):
-        raise SystemExit(f'{key}: all eight alternate icons must be packaged.')
+        raise SystemExit(f'{key}: all nineteen alternate icons must be packaged.')
     for name in names:
         icon = alternate[name]
         if not isinstance(icon, dict) or icon.get('CFBundleIconName') != name:
@@ -88,7 +90,7 @@ print('Built Simulator app packaging passed: alternate icons and APNs build conf
 PY_CAPABILITIES
 test -s "$CARCAR_QA_ARTIFACT_DIR/native-home.png"
 test -s "$CARCAR_QA_ARTIFACT_DIR/native-history.png"
-for qa_capture in native-settings-top native-launcher-picker native-settings-notifications native-settings-account native-profile-editor; do
+for qa_capture in native-widget-guide native-widget-settings native-settings-top native-launcher-floor native-settings-notifications native-settings-account native-profile-editor; do
   test -s "$CARCAR_QA_ARTIFACT_DIR/$qa_capture.png"
 done
 printf 'Native iOS integration passed; repository reopen is not a process-restart test.\n'

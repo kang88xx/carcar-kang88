@@ -19,6 +19,9 @@ class AppController extends ChangeNotifier {
   List<ParkingRecord> records = [];
   List<FamilyMember> members = [];
   String? selectedId, error, widgetWarning;
+  String? iconWarning;
+  bool appActive = true;
+  bool _syncingIcon = false, _iconPending = false;
   bool loading = true, saving = false;
   DateTime? lastSynced;
   bool _disposed = false;
@@ -156,6 +159,7 @@ class AppController extends ChangeNotifier {
     String name,
     String nickname,
   ) async {
+    if (_disposed) throw const AppException('로그인 상태가 바뀌었어요. 다시 시도해 주세요.');
     final id = await repository.createVehicle(
       apartment.trim(),
       plate.trim(),
@@ -166,6 +170,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> join(String code) async {
+    if (_disposed) throw const AppException('로그인 상태가 바뀌었어요. 다시 시도해 주세요.');
     final id = await repository.join(code);
     await refresh(select: id);
   }
@@ -207,6 +212,42 @@ class AppController extends ChangeNotifier {
       if (!_disposed && generation == _nativeGeneration) {
         widgetWarning = '위젯을 갱신하지 못했어요. 현재 위치는 앱에서 확인해 주세요.';
       }
+    }
+    unawaited(syncFloorIcon());
+  }
+
+  /// The confirmed record is authoritative. Icon failure never rolls back a save.
+  Future<void> syncFloorIcon() async {
+    if (_disposed || !appActive || !NativeBridge.supportsLauncherIcons) return;
+    _iconPending = true;
+    if (_syncingIcon) return;
+    _syncingIcon = true;
+    try {
+      while (_iconPending && !_disposed && appActive) {
+        _iconPending = false;
+        final target = NativeBridge.iconForFloor(latest?.floor);
+        try {
+          await NativeBridge.syncLauncherIcon(
+            target,
+            isCurrent: () =>
+                !_disposed &&
+                appActive &&
+                target == NativeBridge.iconForFloor(latest?.floor),
+          );
+          if (_disposed) break;
+          iconWarning = null;
+          if (target != NativeBridge.iconForFloor(latest?.floor)) {
+            _iconPending = true;
+          }
+        } on Object {
+          if (!_disposed) {
+            iconWarning = '주차 기록은 저장되어 있어요. 앱 아이콘은 설정에서 다시 맞출 수 있어요.';
+          }
+        }
+      }
+    } finally {
+      _syncingIcon = false;
+      _notify();
     }
   }
 

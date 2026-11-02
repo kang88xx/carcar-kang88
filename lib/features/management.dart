@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../app/theme.dart';
 import '../core/app_controller.dart';
 import '../core/models.dart';
+import '../core/invite_links.dart';
 import '../core/native_bridge.dart';
 import '../core/device_notifications.dart';
 import '../core/repository.dart';
@@ -11,41 +12,46 @@ import '../shared/components.dart';
 import 'launcher_icon_setting.dart';
 import 'profile_editor.dart';
 import 'notification_settings.dart';
+import 'widget_guide.dart';
+import 'vehicle_registration.dart';
 
-Future<void> openCreateVehicle(
+Future<bool> openCreateVehicle(
   BuildContext context,
   AppController controller,
-) async {
-  await showDialog<void>(
-    context: context,
-    builder: (_) => _EntryDialog(
-      title: '우리 차 등록',
-      fields: const ['차량 별명', '차량 번호', '아파트 이름', '내 이름'],
-      hints: const ['예: 우리 가족 차', '예: 123가 4567', '예: 우리집 아파트', '가족에게 표시할 이름'],
-      maxLengths: const [40, 20, 60, 40],
-      button: '차량 등록하기',
-      submit: (values) =>
-          controller.createVehicle(values[2], values[1], values[0], values[3]),
-    ),
-  );
-}
+) async =>
+    await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => VehicleRegistrationDialog(controller: controller),
+    ) ??
+    false;
 
-Future<void> openJoinVehicle(
+Future<bool> openJoinVehicle(
   BuildContext context,
-  AppController controller,
-) async {
+  AppController controller, {
+  String? initialCode,
+}) async {
+  var joined = false;
   await showDialog<void>(
     context: context,
+    barrierDismissible: false,
     builder: (_) => _EntryDialog(
       title: '가족 차량에 참여',
-      description: '가족에게 받은 초대 코드를 입력해 주세요. 코드는 한 번만 사용할 수 있어요.',
-      fields: const ['초대 코드'],
-      hints: const ['초대 코드 붙여넣기'],
-      maxLengths: const [128],
+      description: '가족에게 받은 초대 코드나 링크를 입력해 주세요. 참여 버튼을 눌러야 차량에 연결돼요.',
+      fields: const ['초대 코드 또는 링크'],
+      hints: const ['가족에게 받은 초대 붙여넣기'],
+      initial: [initialCode ?? ''],
+      maxLengths: const [2048],
       button: '가족 차량에 참여하기',
-      submit: (values) => controller.join(values[0]),
+      submit: (values) async {
+        final code = parseInvite(values[0]);
+        if (code == null) throw AppException('올바른 초대 코드 또는 링크를 입력해 주세요.');
+        await controller.join(code);
+        joined = true;
+      },
     ),
   );
+  return joined;
 }
 
 class _EntryDialog extends StatefulWidget {
@@ -209,7 +215,8 @@ class _FamilyScreenState extends State<FamilyScreen> {
       await showDialog<void>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('가족에게 초대 코드를 보내세요'),
+          title: const Text('가족을 초대하세요'),
+          scrollable: true,
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -235,7 +242,7 @@ class _FamilyScreenState extends State<FamilyScreen> {
               onPressed: () => Navigator.pop(context),
               child: const Text('닫기'),
             ),
-            FilledButton.icon(
+            TextButton.icon(
               onPressed: () async {
                 await Clipboard.setData(
                   ClipboardData(text: invite['code'] as String),
@@ -246,6 +253,28 @@ class _FamilyScreenState extends State<FamilyScreen> {
               },
               icon: const Icon(Icons.copy_rounded, size: 18),
               label: const Text('코드 복사'),
+            ),
+            FilledButton.icon(
+              onPressed: () async {
+                try {
+                  final code = invite['code'] as String;
+                  final text =
+                      '차곡에서 우리 가족 차의 주차 위치를 함께 확인해요.\n${inviteLink(code)}\n\n초대 코드: $code\n24시간 동안 한 번 사용할 수 있어요.';
+                  final presented = await NativeBridge.shareText(text);
+                  if (!presented) {
+                    await Clipboard.setData(ClipboardData(text: text));
+                    if (context.mounted) {
+                      showMessage(context, '초대 링크와 코드를 복사했어요. 가족에게 보내 주세요.');
+                    }
+                  }
+                } on Object catch (error) {
+                  if (context.mounted) {
+                    showMessage(context, friendlyError(error));
+                  }
+                }
+              },
+              icon: const Icon(Icons.ios_share_rounded, size: 18),
+              label: const Text('초대 링크 공유'),
             ),
           ],
         ),
@@ -274,7 +303,7 @@ class _FamilyScreenState extends State<FamilyScreen> {
                 Icon(
                   Icons.directions_car_filled_outlined,
                   size: 46,
-                  color: vehicleColors[c.vehicle!.icon],
+                  color: Palette.green,
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -295,56 +324,6 @@ class _FamilyScreenState extends State<FamilyScreen> {
               ],
             ),
             const SizedBox(height: 24),
-            const Text('차량 색상', style: TextStyle(fontWeight: FontWeight.w600)),
-            const SizedBox(height: 6),
-            Text(
-              c.isOwner ? '앱 안에서 가족 모두에게 같은 색으로 보여요.' : '차량 소유자가 변경할 수 있어요.',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 14),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: vehicleColors.entries
-                  .map(
-                    (entry) => Semantics(
-                      label: '차량 색상 ${_colorName(entry.key)}',
-                      selected: c.vehicle!.icon == entry.key,
-                      button: true,
-                      child: InkWell(
-                        onTap: !c.isOwner || _busy
-                            ? null
-                            : () => _run(
-                                () => c.repository.setIcon(
-                                  c.vehicle!.id,
-                                  entry.key,
-                                ),
-                              ),
-                        borderRadius: BorderRadius.circular(14),
-                        child: Container(
-                          width: 54,
-                          height: 54,
-                          decoration: BoxDecoration(
-                            color: entry.value.withValues(alpha: .12),
-                            border: Border.all(
-                              color: c.vehicle!.icon == entry.key
-                                  ? Palette.green
-                                  : Colors.transparent,
-                              width: 2,
-                            ),
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: Icon(
-                            Icons.directions_car_filled_rounded,
-                            color: entry.value,
-                            size: 30,
-                          ),
-                        ),
-                      ),
-                    ),
-                  )
-                  .toList(),
-            ),
           ],
         ),
       ),
@@ -432,28 +411,8 @@ class _FamilyScreenState extends State<FamilyScreen> {
         ),
       ),
       const SizedBox(height: 20),
-      OutlinedButton.icon(
-        onPressed: () => openJoinVehicle(context, c),
-        icon: const Icon(Icons.key_outlined, size: 19),
-        label: const Text('다른 가족의 초대 코드 입력'),
-      ),
-      const SizedBox(height: 12),
-      TextButton(
-        onPressed: () => openCreateVehicle(context, c),
-        child: const Text('+ 다른 차량 등록'),
-      ),
     ],
   );
-  String _colorName(String key) => {
-    'car_blue': '파랑',
-    'car_black': '검정',
-    'car_white': '흰색',
-    'car_gold': '골드',
-    'car_mint': '민트',
-    'car_purple': '보라',
-    'car_red': '빨강',
-    'car_gray': '회색',
-  }[key]!;
 }
 
 Future<void> openFinding(
@@ -604,11 +563,13 @@ class SettingsScreen extends StatefulWidget {
     required this.preferences,
     required this.onLogout,
     this.notifications,
+    this.widgetSectionKey,
   });
   final AppController controller;
   final SharedPreferences preferences;
   final Future<void> Function() onLogout;
   final DeviceNotificationController? notifications;
+  final Key? widgetSectionKey;
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
@@ -710,7 +671,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             const SectionTitle('이 기기에서 보기'),
             if (NativeBridge.supportsLauncherIcons) ...[
-              LauncherIconSetting(vehicleIconId: c.vehicle?.icon),
+              LauncherIconSetting(controller: c),
               const Divider(),
             ],
             _tile(
@@ -727,13 +688,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
             ),
             const Divider(),
-            _tile(
-              Icons.widgets_outlined,
-              '홈 화면 위젯',
-              '마지막으로 확인한 주차 위치를 보여줘요.',
-              () => _info(
-                '위젯 추가 방법',
-                'Android: 홈 화면을 길게 눌러 위젯 → 차곡을 추가해 주세요.\n\niPhone: 홈 화면을 길게 눌러 편집 → 위젯 추가 → 차곡을 선택해 주세요.\n\n중형 위젯에서 층수·구역을 고르고 저장할 수 있어요. 먼저 아래의 위젯 바로 기록을 허용해 주세요. 로그인이 만료되면 앱을 다시 열어 갱신해 주세요.\n\n위젯의 시각은 저장된 기록의 시각이에요. 다른 가족의 변경은 앱을 열어 최신 위치를 확인해 주세요.\n\n기기를 함께 쓰는 사람이 위젯에서 기록할 수 있으므로 필요한 기기에서만 허용해 주세요.',
+            KeyedSubtree(
+              key: widget.widgetSectionKey,
+              child: _tile(
+                Icons.widgets_outlined,
+                '홈 화면 위젯',
+                '마지막으로 확인한 주차 위치를 보여줘요.',
+                () => showWidgetGuide(context, showSettingsAction: false),
               ),
             ),
             SwitchListTile.adaptive(

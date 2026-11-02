@@ -25,18 +25,19 @@ flutter run --dart-define-from-file=config/local.json
 
 ## 구현한 기능
 
-- 이메일 로그인·가입 확인 재요청·비밀번호 복구·표시 이름 편집·계정 삭제
-- 차량 선택·가족 공유 차량 색상·아파트 층과 구역 설정
-- 소유자/구성원 권한·만료형 일회용 초대·구성원 제거와 탈퇴
+- Google 로그인·표시 이름 편집·계정 삭제
+- 계정당 차량 한 대·차량 번호 중복 확인·아파트 층과 구역 설정
+- 소유자/구성원 권한·초대 링크 또는 코드로 가족 참여·24시간 일회용 초대·구성원 제거와 탈퇴
 - 서버 확인 후 주차 저장·중복 요청 방지·검색 가능한 이력·Realtime
 - Android ML Kit·iOS Vision 사진 인식과 편집 가능한 후보; 원본 사진은 서버에 업로드하지 않음
 - 네이티브 위젯의 위치 표시·층과 구역 선택·서버 저장
 - 기기별 가족 알림·야간 시간대·독립적인 차량 찾기 표시
-- iOS Live Activity와 기기별 대체 런처 아이콘 8종
+- 얇은 iOS Live Activity와 표시 종료 버튼·Dynamic Island의 자동차/층수 묶음
+- 주차 층수에 맞춘 앱 아이콘 11종(F1–F5, B1–B6)·홈 화면 위젯 추가 안내
 
 ## 검증
 
-Flutter 자동 검사 123개와 분석, 기본 브라우저 조작 12개, 연결 인증 화면 19개를 통과했습니다. iOS Simulator에서는 저장·이력·Vision OCR·아이콘 조회·설정과 취소 상태 유지·네이티브 패키징을 확인했습니다. iOS 최소 버전은 실제 컴파일된 앱과 위젯에서도 검사하며, 배포 전에는 각각 15.0과 17.0이어야 합니다.
+Flutter 자동 검사와 분석, 브라우저 조작, DB 보안·동시성 검사를 수행합니다. iOS 최소 버전은 실제 컴파일된 앱과 위젯에서도 각각 15.0과 17.0으로 검사합니다. 최신 변경의 iOS 배포와 실기기 결과는 별도 확인이 필요합니다.
 
 ```bash
 flutter pub get
@@ -49,7 +50,8 @@ bash scripts/ios_qa.sh
 
 소스 저장소의 `Verify app` CI는 포맷·분석·테스트·웹 빌드를 실행합니다. TestFlight 배포와 실제 휴대폰 검증은 별도입니다. 개인 배포 정보가 있는 상세 로그는 로컬 및 비공개 빌드 저장소에서 보존합니다.
 
-**남은 검증:** 가입 확인·비밀번호 복구 메일용 발신 도메인/SMTP 연결, TestFlight 실제 설치, 두 기기 푸시 수신, 홈 위젯 배치·앱 종료 후 저장, 카메라 권한·실제 표지판 사진, Live Activity. Android 소프트웨어 에뮬레이터는 시스템 ANR로 전체 통합 검사를 완료하지 못했습니다. Live Activity의 최대 8시간은 활동 시작 기준이며 앱 중단 시 선택한 1/2/4시간의 정확한 종료를 보장하지 않습니다.
+**실기기 검증:** TestFlight 설치와 기존 Live Activity 표시를 사용자 화면으로 확인했습니다. 최신 Google 로그인 왕복, 두 기기 가족 공유·푸시, 홈 위젯 배치·앱 종료 후 저장, 새 Live Activity 종료 버튼과 층수 아이콘은 각 빌드에서 검증해야 합니다. iOS 앱 아이콘 변경에는 시스템 안내가 표시될 수 있으며, 앱이 닫힌 동안 다른 가족이 변경한 층은 다음 실행에서 반영합니다. 홈 화면 위젯은 운영체제의 추가 화면에서 사용자가 직접 배치합니다. Live Activity의 최대 8시간은 활동 시작 기준이며 앱 중단 시 선택한 1/2/4시간의 정확한 종료를 보장하지 않습니다.
+
 
 ## 빌드
 
@@ -68,3 +70,9 @@ Android 개발용 APK는 `build/app/outputs/flutter-apk/app-debug.apk`에 생성
 [제품 요구사항](docs/PRD.md), [아키텍처](docs/ARCHITECTURE.md), [디자인 기준](DESIGN.md), [보안과 비용](docs/SECURITY_AND_COST.md), [결정 기록](docs/DECISIONS.md), [QA 수용 기준](docs/ROADMAP_AND_QA.md), [푸시 배포 계약](supabase/deployment/PUSH.md)을 참고하세요.
 
 Supabase migration은 `supabase/migrations/`에 순서대로 보존합니다. 새 개발 프로젝트에 적용하며 기존 운영 DB에는 검토 없이 재적용하지 않습니다. 월 서버비 $0을 목표로 Supabase Free와 기기 내 OCR을 사용합니다.
+
+## Google 로그인과 초대 링크
+
+Supabase Google provider에 Web OAuth 클라이언트를 연결하고, Google의 승인된 redirect URI에는 해당 Supabase 프로젝트의 `/auth/v1/callback`을 등록합니다. 클라이언트 비밀키는 Supabase 설정에만 보관합니다. Supabase 추가 redirect URL에는 `com.kang88.carcar://login-callback`을 등록합니다.
+
+가족 초대 링크는 GitHub Pages의 `site/invite/`를 사용합니다. 코드는 URL fragment에 두어 웹 서버 요청에 포함하지 않으며, 페이지에서 사용자가 앱 열기를 눌러 전달합니다. 앱 미설치 시 코드를 복사해 설치·로그인 후 사용할 수 있습니다. 번호 중복 확인은 차량 소유권 인증이 아니며 가족 접근 권한은 유효한 초대로만 부여합니다.

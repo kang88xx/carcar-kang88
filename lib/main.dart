@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:app_links/app_links.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -10,6 +11,7 @@ import 'core/native_bridge.dart';
 import 'core/device_notifications.dart';
 import 'core/repository.dart';
 import 'core/session_storage.dart';
+import 'core/invite_links.dart';
 import 'features/auth_screen.dart';
 import 'features/shell.dart';
 
@@ -33,6 +35,12 @@ Future<void> main() async {
         publishableKey: key,
         authOptions: FlutterAuthClientOptions(
           localStorage: kIsWeb ? null : const SecureSessionStorage(),
+          detectSessionInUriPredicate: (uri) => kIsWeb
+              ? (uri.scheme == 'https' || uri.scheme == 'http') &&
+                    uri.origin == Uri.base.origin &&
+                    (uri.queryParameters.containsKey('code') ||
+                        uri.fragment.contains('access_token='))
+              : isAuthCallback(uri),
         ),
       );
       client = Supabase.instance.client;
@@ -56,28 +64,60 @@ class CarcarApp extends StatefulWidget {
     this.client,
     this.startupError,
     this.repositoryFactory = SupabaseParkingRepository.new,
+    this.incomingLinks,
+    this.initialLink,
   });
   final SharedPreferences preferences;
   final SupabaseClient? client;
   final String? startupError;
   final ParkingRepository Function(SupabaseClient) repositoryFactory;
+  final Stream<Uri>? incomingLinks;
+  final Future<Uri?> Function()? initialLink;
   @override
   State<CarcarApp> createState() => _CarcarAppState();
 }
 
 class _CarcarAppState extends State<CarcarApp> with WidgetsBindingObserver {
+  final _navigatorKey = GlobalKey<NavigatorState>();
   AppController? _controller;
   DeviceNotificationController? _notifications;
   StreamSubscription<AuthState>? _authSubscription;
+  StreamSubscription<Uri>? _inviteSubscription;
+  late final PendingInvite _pendingInvite;
   bool _startingDemo = false;
   bool _passwordRecovery = false;
   int _authGeneration = 0;
   String? _cleanupNotice;
   String? _authNotice;
+  String? _inviteNotice;
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _pendingInvite = PendingInvite(widget.preferences);
+    if (widget.client != null || widget.incomingLinks != null) {
+      final links =
+          widget.incomingLinks ??
+          (kIsWeb ? const Stream<Uri>.empty() : AppLinks().uriLinkStream);
+      _inviteSubscription = links.listen(
+        (uri) => unawaited(_receiveInvite(uri)),
+        onError: (_) {
+          if (mounted) {
+            setState(() => _inviteNotice = '초대 링크를 읽지 못했어요. 초대 코드를 붙여 넣어 주세요.');
+          }
+        },
+      );
+      final initial =
+          widget.initialLink ??
+          (kIsWeb ? () async => Uri.base : AppLinks().getInitialLink);
+      unawaited(
+        initial()
+            .then((uri) async {
+              if (uri != null) await _receiveInvite(uri);
+            })
+            .catchError((Object _) {}),
+      );
+    }
     // GoTrue replays its auth events, including password recovery from a cold
     // start link. Handle those before opening a signed-in controller.
     _authSubscription = widget.client?.auth.onAuthStateChange.listen(
@@ -125,11 +165,37 @@ class _CarcarAppState extends State<CarcarApp> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _clearNativeSnapshot() async {
+  Future<void> _receiveInvite(Uri uri) async {
+    try {
+      if (await _pendingInvite.receive(uri) && mounted) {
+        setState(() => _inviteNotice = null);
+      }
+    } on Object {
+      if (mounted) {
+        setState(
+          () => _inviteNotice = '초대 링크를 보관하지 못했어요. 앱을 다시 열면 초대코드를 붙여 넣어 주세요.',
+        );
+      }
+    }
+  }
+
+  Future<void> _clearInvite() async {
+    try {
+      await _pendingInvite.clear();
+      if (mounted) setState(() => _inviteNotice = null);
+    } on Object {
+      if (mounted) {
+        setState(() => _inviteNotice = '초대 닫기를 저장하지 못했어요. 다시 시도해 주세요.');
+      }
+    }
+  }
+
+  Future<void> _clearNativeSnapshot({bool resetIcon = true}) async {
     try {
       await Future.wait([
         NativeBridge.clearSnapshot(),
         NativeBridge.disablePush(),
+        if (resetIcon) NativeBridge.syncLauncherIcon(null),
       ]).timeout(const Duration(seconds: 5));
       _cleanupNotice = null;
     } on Object {
@@ -139,6 +205,7 @@ class _CarcarAppState extends State<CarcarApp> with WidgetsBindingObserver {
   }
 
   Future<void> _clearController() async {
+    _navigatorKey.currentState?.popUntil((route) => route.isFirst);
     _authGeneration++;
     _notifications?.dispose();
     _notifications = null;
@@ -150,13 +217,14 @@ class _CarcarAppState extends State<CarcarApp> with WidgetsBindingObserver {
   }
 
   Future<void> _changeRealSession(String userId) async {
+    _navigatorKey.currentState?.popUntil((route) => route.isFirst);
     final generation = ++_authGeneration;
     _notifications?.dispose();
     _notifications = null;
     _controller?.dispose();
     _controller = null;
     if (mounted) setState(() {});
-    await _clearNativeSnapshot();
+    await _clearNativeSnapshot(resetIcon: false);
     if (!mounted ||
         generation != _authGeneration ||
         widget.client?.auth.currentUser?.id != userId) {
@@ -214,6 +282,7 @@ class _CarcarAppState extends State<CarcarApp> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    _controller?.appActive = state == AppLifecycleState.resumed;
     if (state == AppLifecycleState.resumed && _controller != null) {
       unawaited(_controller!.refresh());
       unawaited(_notifications?.refresh());
@@ -224,6 +293,7 @@ class _CarcarAppState extends State<CarcarApp> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _authSubscription?.cancel();
+    _inviteSubscription?.cancel();
     _notifications?.dispose();
     _controller?.dispose();
     super.dispose();
@@ -231,6 +301,7 @@ class _CarcarAppState extends State<CarcarApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) => MaterialApp(
+    navigatorKey: _navigatorKey,
     title: '차곡 · 우리 차의 자리',
     debugShowCheckedModeBanner: false,
     theme: buildTheme(),
@@ -252,8 +323,10 @@ class _CarcarAppState extends State<CarcarApp> with WidgetsBindingObserver {
       ? AuthScreen(
           client: widget.client,
           onDemo: _demo,
-          startupError: _cleanupNotice ?? widget.startupError,
-          startupNotice: _authNotice,
+          startupError: _inviteNotice ?? _cleanupNotice ?? widget.startupError,
+          startupNotice: _pendingInvite.code != null
+              ? '가족 초대를 받았어요. Google 로그인 후 참여할 수 있어요.'
+              : _authNotice,
         )
       : AppShell(
           key: ValueKey(_controller),
@@ -261,5 +334,8 @@ class _CarcarAppState extends State<CarcarApp> with WidgetsBindingObserver {
           preferences: widget.preferences,
           onLogout: _logout,
           notifications: _notifications,
+          pendingInvite: _pendingInvite.code,
+          inviteNotice: _inviteNotice,
+          onClearInvite: _clearInvite,
         );
 }

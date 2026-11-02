@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:carcar/core/models.dart';
+import 'package:carcar/core/invite_links.dart';
 import 'package:carcar/core/repository.dart';
 import 'package:carcar/main.dart';
 import 'package:carcar/features/auth_screen.dart';
@@ -180,7 +181,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('우리 차를 등록해 볼까요?'), findsOneWidget);
+      expect(find.text('우리 가족의 차 한 대'), findsOneWidget);
       await tester.tap(find.text('설정'));
       await tester.pumpAndSettle();
       expect(find.text('개인정보 처리 안내'), findsOneWidget);
@@ -231,6 +232,46 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     auth.dispose();
   });
+  testWidgets(
+    'account change dismisses registration and preserves pending invitation',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final preferences = await SharedPreferences.getInstance();
+      final code = 'a' * 48;
+      final auth = TestAuth();
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+            const MethodChannel('carcar/native'),
+            (_) async => null,
+          );
+      await tester.pumpWidget(
+        CarcarApp(
+          preferences: preferences,
+          client: TestClient(auth),
+          initialLink: () async => Uri.parse(inviteLink(code)),
+          incomingLinks: const Stream<Uri>.empty(),
+          repositoryFactory: (client) =>
+              SessionRepository(client.auth.currentUser!.id, empty: true),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(PendingInvite(preferences).code, code);
+      auth.signInAs('A');
+      await tester.pumpAndSettle();
+      expect(find.text('가족 초대를 받았어요'), findsOneWidget);
+      expect(find.byType(Dialog), findsNothing);
+      await tester.tap(find.text('새 차량 등록'));
+      await tester.pumpAndSettle();
+      expect(find.byType(Dialog), findsOneWidget);
+      auth.signInAs('B');
+      await tester.pumpAndSettle();
+      expect(find.byType(Dialog), findsNothing);
+      expect(PendingInvite(preferences).code, code);
+      expect(find.text('가족 초대를 받았어요'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+      auth.dispose();
+    },
+  );
   testWidgets('auth stream network errors do not crash the signed-in app', (
     tester,
   ) async {

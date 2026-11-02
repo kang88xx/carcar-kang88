@@ -75,22 +75,14 @@ void main() {
       expect(await repository.records(vehicle.id), hasLength(5));
     },
   );
-  test('records remain isolated between demo vehicles', () async {
+  test('demo cannot register a second vehicle or disturb the first', () async {
     final original = (await repository.vehicles()).single;
-    final secondId = await repository.createVehicle(
-      '다른 집',
-      '98나 7654',
-      '두 번째 차',
-      '나',
+    await expectLater(
+      repository.createVehicle('다른 집', '98나7654', '두 번째 차', '나'),
+      throwsA(isA<AppException>()),
     );
-    await repository.save(
-      secondId,
-      const ParkingDraft(floor: 'B1', zone: 'A'),
-      'other',
-    );
+    expect((await repository.vehicles()).single.id, original.id);
     expect(await repository.records(original.id), hasLength(5));
-    expect(await repository.records(secondId), hasLength(1));
-    expect((await repository.vehicles()).first.latestId, original.latestId);
   });
   test(
     'corrupted demo JSON recovers without touching other preferences',

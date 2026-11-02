@@ -11,11 +11,18 @@ import UserNotifications
   private var findingTask: Task<Void, Never>?
   private let familyPush = PushNotifications()
   private var changingLauncherIcon = false
+  // Keep legacy names readable so an upgrade can restore or replace an old icon.
   private let launcherIcons = [
     "car_blue": "AppIconBlue", "car_black": "AppIconBlack",
     "car_white": "AppIconWhite", "car_gold": "AppIconGold",
     "car_mint": "AppIconMint", "car_purple": "AppIconPurple",
-    "car_red": "AppIconRed", "car_gray": "AppIconGray"
+    "car_red": "AppIconRed", "car_gray": "AppIconGray",
+    "floor_f1": "AppIconFloorF1", "floor_f2": "AppIconFloorF2",
+    "floor_f3": "AppIconFloorF3", "floor_f4": "AppIconFloorF4",
+    "floor_f5": "AppIconFloorF5",
+    "floor_b1": "AppIconFloorB1", "floor_b2": "AppIconFloorB2",
+    "floor_b3": "AppIconFloorB3", "floor_b4": "AppIconFloorB4",
+    "floor_b5": "AppIconFloorB5", "floor_b6": "AppIconFloorB6"
   ]
 
   override func application(
@@ -33,6 +40,7 @@ import UserNotifications
         case "pushStatus": self.familyPush.status(result: result)
         case "registerPush": self.familyPush.register(requestPermission: args["requestPermission"] as? Bool ?? true, result: result)
         case "disablePush": self.familyPush.disable(result: result)
+        case "shareText": self.shareText(args, result: result)
         case "launcherIconState": result(self.launcherIconState())
         case "setLauncherIcon": self.setLauncherIcon(args, result: result)
         case "recognizeText": self.recognizeText(args, result: result)
@@ -88,6 +96,26 @@ import UserNotifications
     }
   }
 
+  private func shareText(_ args: [String: Any], result: @escaping FlutterResult) {
+    guard let text = args["text"] as? String,
+          !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+          text.utf16.count <= 4096 else {
+      result(FlutterError(code: "invalid_share_text", message: "공유할 내용을 확인해 주세요.", details: nil)); return
+    }
+    guard UIApplication.shared.applicationState == .active,
+          let presenter = window?.rootViewController,
+          presenter.presentedViewController == nil,
+          presenter.viewIfLoaded?.window != nil else { result(false); return }
+    let sheet = UIActivityViewController(activityItems: [text], applicationActivities: nil)
+    if let popover = sheet.popoverPresentationController {
+      popover.sourceView = presenter.view
+      popover.sourceRect = CGRect(x: presenter.view.bounds.midX, y: presenter.view.bounds.midY, width: 1, height: 1)
+      popover.permittedArrowDirections = []
+    }
+    // Presentation success does not mean the user sent an invitation.
+    presenter.present(sheet, animated: true) { result(true) }
+  }
+
   private func launcherIconState() -> [String: Any] {
     let app = UIApplication.shared
     let iconId = launcherIcons.first { $0.value == app.alternateIconName }?.key
@@ -105,7 +133,7 @@ import UserNotifications
     let value = args["iconId"]
     var name: String?
     if let value, !(value is NSNull) {
-      guard let iconId = value as? String, let asset = launcherIcons[iconId] else {
+      guard let iconId = value as? String, iconId.hasPrefix("floor_"), let asset = launcherIcons[iconId] else {
         result(FlutterError(code: "invalid_icon", message: "지원하는 아이콘을 선택해 주세요.", details: nil)); return
       }
       name = asset

@@ -6,7 +6,7 @@ from pathlib import Path
 
 root = Path(__file__).resolve().parents[3]
 catalog = root / 'ios/Runner/Assets.xcassets'
-names = ['Blue', 'Black', 'White', 'Gold', 'Mint', 'Purple', 'Red', 'Gray']
+names = ['Blue', 'Black', 'White', 'Gold', 'Mint', 'Purple', 'Red', 'Gray'] + [f'FloorF{i}' for i in range(1, 6)] + [f'FloorB{i}' for i in range(1, 7)]
 project = (root / 'ios/Runner.xcodeproj/project.pbxproj').read_text()
 expected = 'ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "' + ' '.join('AppIcon' + n for n in names) + '";'
 assert project.count(expected) == 3, 'Debug, Profile and Release must include all icons'
@@ -35,4 +35,4 @@ for name in names:
         pixels = zlib.decompress(compressed)
         assert len(pixels) == size * (size * 3 + 1)
         checked += 1
-print(f'PASS: 8 alternate catalogs, {checked} iPhone/iPad/marketing entries, RGB PNG integrity, 3 build configurations')
+print(f'PASS: {len(names)} alternate catalogs, {checked} iPhone/iPad/marketing entries, RGB PNG integrity, 3 build configurations')
