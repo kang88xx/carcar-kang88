@@ -44,7 +44,8 @@ flutter pub get
 bash scripts/check.sh
 python3 fastlane/test_prepare_signing.py
 node --test supabase/tests/push_worker.test.mjs
-# Mac/Xcode에서 실행
+# Mac/Xcode에서 실행 (QA용 XCTest 생성기에 기존 fastlane 의존성 사용)
+BUNDLE_GEMFILE=fastlane/Gemfile bundle install
 bash scripts/ios_qa.sh
 ```
 

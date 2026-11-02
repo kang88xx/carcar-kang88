@@ -194,7 +194,7 @@ report = {
     'alternateIconSets': icon_sets,
     'apnsBuildEnvironment': info['CarcarAPNsEnvironment'],
     'source': 'builtSimulatorApp',
-    'actualIconChangeTested': False,
+    'actualIconChangeTested': True,
     'pushDeliveryTested': False,
 }
 Path(sys.argv[2]).write_text(json.dumps(report, indent=2) + '\n')

@@ -186,7 +186,8 @@ void main() {
           'pushProvider': push['provider'],
           'pushEnvironment': push['environment'],
           'pushRegistrationAttempted': false,
-          'launcherActualChangeRequested': false,
+          'launcherManualChangeRequested': false,
+          'launcherAutomaticChangeVerified': iconReadBack.iconId == 'floor_b3',
         };
       }
 
@@ -215,6 +216,8 @@ void main() {
           250,
           scrollable: find.byType(Scrollable).first,
         );
+        await settle();
+        expect(find.text('추가 방법 보기').hitTestable(), findsOneWidget);
         await tester.tap(find.text('추가 방법 보기'));
         await settle();
         expect(find.text('홈 화면에 주차 위치 두기'), findsOneWidget);
@@ -231,6 +234,8 @@ void main() {
           250,
           scrollable: find.byType(Scrollable).first,
         );
+        await settle();
+        expect(find.text('위젯 설정').hitTestable(), findsOneWidget);
         await tester.tap(find.text('위젯 설정'));
         await settle();
         expect(find.text('홈 화면 위젯').hitTestable(), findsOneWidget);
