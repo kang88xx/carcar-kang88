@@ -1,0 +1,15 @@
+default_platform(:ios)
+platform :ios do
+  desc 'Upload the signed build; external review and invitation are separate visible steps'
+  lane :upload do
+    upload_to_testflight(
+      api_key_path: ENV.fetch('ASC_API_KEY_JSON'),
+      app_identifier: 'com.kang88.carcar',
+      ipa: Dir[File.join(File.expand_path('..', __dir__), 'build/ios/ipa/*.ipa')].first || UI.user_error!('Signed IPA is missing'),
+      skip_submission: true,
+      skip_waiting_for_build_processing: false,
+      wait_processing_timeout_duration: 1200,
+      changelog: '최소 지원 버전을 iOS 15로 조정했습니다. 위젯과 차량 찾기 기능은 iOS 17 이상에서 사용할 수 있습니다. 가입·비밀번호 재설정 메일은 발신 서비스 연결 중입니다. 연결 전에는 가입 없이 먼저 둘러보기를 이용하세요.'
+    )
+  end
+end

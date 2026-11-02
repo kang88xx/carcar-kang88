@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Public Firebase client configuration for Chagok only. No sender credentials. -->
+<resources>
+    <string name="google_app_id" translatable="false">1:759247582431:android:4347fe9cdc4b8590b1e56a</string>
+    <string name="gcm_defaultSenderId" translatable="false">759247582431</string>
+    <string name="google_api_key" translatable="false">AIzaSyCRn000SZH29-zGQvVI527l_m3LKnTrwbs</string>
+    <string name="project_id" translatable="false">chagok-kang88</string>
+</resources>

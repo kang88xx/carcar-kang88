@@ -1,0 +1,32 @@
+name: iOS verification
+on:
+  workflow_dispatch:
+  pull_request:
+    paths: ['lib/**', 'ios/**', 'pubspec.*', 'test/**', 'fastlane/**', '.github/workflows/**']
+permissions:
+  contents: read
+jobs:
+  ios:
+    runs-on: macos-15
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode 26 or newer
+        run: |
+          XCODE_PATH=$(python3 -c 'import glob,re; paths=glob.glob("/Applications/Xcode_26*.app"); print(max(paths, key=lambda p: [int(n) for n in re.findall(r"[0-9]+",p)]) if paths else "")')
+          test -n "$XCODE_PATH" || { echo 'Xcode 26+ runner is required.'; exit 1; }
+          sudo xcode-select -s "$XCODE_PATH/Contents/Developer"
+          xcodebuild -version
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.35.4'
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+      - run: python3 fastlane/test_prepare_signing.py
+      - name: Build actual Runner and widget extension without signing
+        run: flutter build ios --release --no-codesign
+      - name: Check compiled minimum iOS versions
+        run: python3 scripts/check_ios_deployment.py build/ios/iphoneos/Runner.app

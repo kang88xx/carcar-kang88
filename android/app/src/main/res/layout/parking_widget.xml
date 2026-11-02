@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/widget_root" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:gravity="center_vertical" android:padding="12dp" android:background="@drawable/widget_background">
+    <TextView android:id="@+id/widget_title" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#436B52" android:textSize="13sp" android:textStyle="bold" android:text="차곡 · 마지막 주차" />
+    <TextView android:id="@+id/widget_location" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:textColor="#183C2D" android:textSize="24sp" android:textStyle="bold" android:maxLines="1" android:ellipsize="end" />
+    <TextView android:id="@+id/widget_updated" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:textColor="#5D7065" android:textSize="11sp" android:maxLines="1" android:ellipsize="end" />
+    <TextView android:id="@+id/widget_hint" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:textColor="#5D7065" android:textSize="11sp" android:maxLines="1" android:ellipsize="end" />
+    <LinearLayout android:id="@+id/widget_controls" android:layout_width="match_parent" android:layout_height="48dp" android:orientation="horizontal">
+        <Button android:id="@+id/widget_floor" android:layout_width="0dp" android:layout_weight="1" android:layout_height="48dp" android:text="층" android:contentDescription="다음 층 선택" android:textSize="13sp" />
+        <Button android:id="@+id/widget_zone" android:layout_width="0dp" android:layout_weight="1" android:layout_height="48dp" android:text="구역" android:contentDescription="다음 구역 선택" android:textSize="13sp" />
+        <Button android:id="@+id/widget_save" android:layout_width="0dp" android:layout_weight="1" android:layout_height="48dp" android:text="저장" android:textSize="13sp" />
+    </LinearLayout>
+</LinearLayout>

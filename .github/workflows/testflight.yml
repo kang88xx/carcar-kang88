@@ -1,0 +1,88 @@
+name: Upload TestFlight build
+on:
+  workflow_dispatch:
+    inputs:
+      build_number:
+        description: 'Unique positive App Store Connect build number'
+        required: true
+        type: string
+      demo_build:
+        description: 'Build the clearly labelled local experience without Supabase'
+        default: true
+        type: boolean
+permissions:
+  contents: read
+concurrency:
+  group: testflight-upload
+  cancel-in-progress: false
+jobs:
+  upload:
+    runs-on: macos-15
+    timeout-minutes: 55
+    environment: testflight
+    env:
+      BUNDLE_GEMFILE: fastlane/Gemfile
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      IOS_CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
+      IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+      IOS_APP_PROFILE_BASE64: ${{ secrets.IOS_APP_PROFILE_BASE64 }}
+      IOS_WIDGET_PROFILE_BASE64: ${{ secrets.IOS_WIDGET_PROFILE_BASE64 }}
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_PRIVATE_KEY_BASE64: ${{ secrets.ASC_PRIVATE_KEY_BASE64 }}
+      SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+      SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
+      BUILD_NUMBER: ${{ inputs.build_number }}
+      DEMO_BUILD: ${{ inputs.demo_build }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate build and select Xcode
+        run: |
+          [[ "$BUILD_NUMBER" =~ ^[1-9][0-9]*$ ]] || { echo 'Invalid build number'; exit 1; }
+          XCODE_PATH=$(python3 -c 'import glob,re; paths=glob.glob("/Applications/Xcode_26*.app"); print(max(paths, key=lambda p: [int(n) for n in re.findall(r"[0-9]+",p)]) if paths else "")')
+          test -n "$XCODE_PATH" || { echo 'Xcode 26+ runner required'; exit 1; }
+          sudo xcode-select -s "$XCODE_PATH/Contents/Developer"
+          xcodebuild -version
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.35.4'
+          channel: stable
+          cache: true
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+      - run: python3 fastlane/test_prepare_signing.py
+      - name: Prepare scoped signing material
+        run: |
+          python3 fastlane/prepare_signing.py
+      - name: Apply validated profile identifiers
+        run: bundle exec ruby fastlane/configure_signing.rb
+      - name: Build signed archive
+        run: |
+          if [ "$DEMO_BUILD" != true ]; then
+            test -n "$SUPABASE_URL" && test -n "$SUPABASE_PUBLISHABLE_KEY" || { echo 'Supabase configuration is required'; exit 1; }
+          else
+            SUPABASE_URL=''
+            SUPABASE_PUBLISHABLE_KEY=''
+          fi
+          flutter build ipa --release --build-number="$BUILD_NUMBER" \
+            --dart-define=SUPABASE_URL="$SUPABASE_URL" \
+            --dart-define=SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
+            --export-options-plist="$RUNNER_TEMP/carcar-signing/ExportOptions.plist"
+      - name: Check compiled minimum iOS versions before upload
+        run: python3 scripts/check_ios_deployment.py build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app
+      - name: Upload and wait for processing
+        run: bundle exec fastlane ios upload
+      - name: Remove temporary signing material
+        if: always()
+        run: |
+          security delete-keychain "$RUNNER_TEMP/carcar-signing/signing.keychain-db" 2>/dev/null || true
+          for profile_dir in "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles" "$HOME/Library/MobileDevice/Provisioning Profiles"; do
+            if [ -n "${APP_PROFILE_UUID:-}" ]; then rm -f "$profile_dir/$APP_PROFILE_UUID.mobileprovision"; fi
+            if [ -n "${WIDGET_PROFILE_UUID:-}" ]; then rm -f "$profile_dir/$WIDGET_PROFILE_UUID.mobileprovision"; fi
+          done
+          rm -rf "$RUNNER_TEMP/carcar-signing"
