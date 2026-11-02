@@ -97,7 +97,7 @@ with (out / 'integration.log').open('wb') as logfile:
                 last_capture = test_started
         now = time.monotonic()
         # A stalled native UI is visible even before Dart's timeout/cleanup.
-        if test_started is not None and now - last_capture >= 60:
+        if test_started is not None and now - last_capture >= 10:
             capture('watchdog-test-' + str(int(now - test_started)) + 's')
             last_capture = time.monotonic()
         if (test_started is not None and now - test_started > 250) or now - started > 1200:
