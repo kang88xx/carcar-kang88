@@ -28,11 +28,16 @@ PY
 read -r qa_udid qa_state qa_runtime <<< "$qa_selection"
 printf 'Simulator: %s (%s, %s)\n' "$qa_udid" "$qa_state" "$qa_runtime" | tee "$CARCAR_QA_ARTIFACT_DIR/device.txt"
 qa_started=false
+qa_watcher_pid=
 cleanup() {
   qa_exit=$?
   if [[ "$qa_exit" -ne 0 ]]; then
     # Last-resort capture also covers failures outside the drive watchdog.
     xcrun simctl io "$qa_udid" screenshot "$CARCAR_QA_ARTIFACT_DIR/failure-before-shutdown.png" >/dev/null 2>&1 || true
+  fi
+  if [[ -n "$qa_watcher_pid" ]]; then
+    kill "$qa_watcher_pid" >/dev/null 2>&1 || true
+    wait "$qa_watcher_pid" >/dev/null 2>&1 || true
   fi
   if [[ "$qa_started" == true ]]; then xcrun simctl shutdown "$qa_udid" || true; fi
 }
@@ -42,6 +47,26 @@ if [[ "$qa_state" != Booted ]]; then
   qa_started=true
 fi
 xcrun simctl bootstatus "$qa_udid" -b
+# A separate public XCTest runner acknowledges only the two known icon notices.
+# Start it before Flutter launches the real app; it never launches/activates carcar.
+qa_watcher_dir="$PWD/build/ios-icon-alert-watcher"
+BUNDLE_GEMFILE="$PWD/fastlane/Gemfile" bundle exec ruby scripts/generate_ios_alert_watcher.rb "$qa_watcher_dir"
+xcodebuild build-for-testing -project "$qa_watcher_dir/IconAlertWatcher.xcodeproj" \
+  -scheme IconAlertWatcher -configuration Debug -destination "platform=iOS Simulator,id=$qa_udid" \
+  -derivedDataPath "$qa_watcher_dir/DerivedData" CODE_SIGNING_ALLOWED=NO \
+  > "$CARCAR_QA_ARTIFACT_DIR/icon-watcher-build.log" 2>&1
+xcodebuild test-without-building -project "$qa_watcher_dir/IconAlertWatcher.xcodeproj" \
+  -scheme IconAlertWatcher -configuration Debug -destination "platform=iOS Simulator,id=$qa_udid" \
+  -derivedDataPath "$qa_watcher_dir/DerivedData" -resultBundlePath "$CARCAR_QA_ARTIFACT_DIR/icon-alerts.xcresult" \
+  -parallel-testing-enabled NO -maximum-concurrent-test-simulator-destinations 1 \
+  > "$CARCAR_QA_ARTIFACT_DIR/icon-watcher.log" 2>&1 &
+qa_watcher_pid=$!
+for qa_ready_attempt in {1..120}; do
+  if grep -q '\[CARCAR_ICON_WATCHER\] ready' "$CARCAR_QA_ARTIFACT_DIR/icon-watcher.log"; then break; fi
+  kill -0 "$qa_watcher_pid" 2>/dev/null || { echo 'Icon alert watcher exited before readiness.' >&2; exit 1; }
+  sleep 1
+done
+grep -q '\[CARCAR_ICON_WATCHER\] ready' "$CARCAR_QA_ARTIFACT_DIR/icon-watcher.log" || { echo 'Icon alert watcher did not become ready.' >&2; exit 1; }
 # The host watchdog remains active when a native modal prevents Flutter frames.
 # Capture before terminating drive, because its cleanup uninstalls the app.
 python3 - "$qa_udid" "$CARCAR_QA_ARTIFACT_DIR" <<'PY_DRIVE'
@@ -124,6 +149,10 @@ if code != 0 and not timed_out:
     diagnostics()
 sys.exit(124 if timed_out else code)
 PY_DRIVE
+# Require both native acknowledgements, including screenshots in the xcresult.
+wait "$qa_watcher_pid"
+qa_watcher_pid=
+grep -q '\[CARCAR_ICON_WATCHER\] finished-count=2' "$CARCAR_QA_ARTIFACT_DIR/icon-watcher.log"
 # Flutter drive removes the installed app during cleanup. Inspect the Simulator
 # bundle produced by the successful build above instead.
 qa_app_path="build/ios/iphonesimulator/Runner.app"

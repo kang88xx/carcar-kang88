@@ -109,6 +109,24 @@ void main() {
         // the save above can show UIKit's real icon-change alert. If that alert
         // blocks interaction, the native UI harness must dismiss it; never mock
         // the bridge or disable automatic sync to make this scenario pass.
+        checkpoint('confirmed-floor-icon:before');
+        final iconDeadline = DateTime.now().add(const Duration(seconds: 30));
+        LauncherIconState? confirmedIcon;
+        do {
+          confirmedIcon = await NativeBridge.launcherIconState().timeout(
+            const Duration(seconds: 10),
+          );
+          if (confirmedIcon.iconId == 'floor_b3') break;
+          await tester.pump(const Duration(milliseconds: 300));
+        } while (DateTime.now().isBefore(iconDeadline));
+        expect(
+          confirmedIcon.iconId,
+          'floor_b3',
+          reason:
+              'Actual native icon must match the confirmed B3 parking record',
+        );
+        binding.reportData!['confirmedNativeFloorIcon'] = confirmedIcon.iconId;
+        checkpoint('confirmed-floor-icon:after');
         checkpoint('icon-state:before');
         final iconBefore = await NativeBridge.launcherIconState().timeout(
           const Duration(seconds: 10),
