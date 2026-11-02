@@ -29,6 +29,11 @@ read -r qa_udid qa_state qa_runtime <<< "$qa_selection"
 printf 'Simulator: %s (%s, %s)\n' "$qa_udid" "$qa_state" "$qa_runtime" | tee "$CARCAR_QA_ARTIFACT_DIR/device.txt"
 qa_started=false
 cleanup() {
+  qa_exit=$?
+  if [[ "$qa_exit" -ne 0 ]]; then
+    # Last-resort capture also covers failures outside the drive watchdog.
+    xcrun simctl io "$qa_udid" screenshot "$CARCAR_QA_ARTIFACT_DIR/failure-before-shutdown.png" >/dev/null 2>&1 || true
+  fi
   if [[ "$qa_started" == true ]]; then xcrun simctl shutdown "$qa_udid" || true; fi
 }
 trap cleanup EXIT
@@ -37,10 +42,88 @@ if [[ "$qa_state" != Booted ]]; then
   qa_started=true
 fi
 xcrun simctl bootstatus "$qa_udid" -b
-flutter drive --no-pub --driver=test_driver/native_qa_driver.dart \
-  --target=integration_test/native_app_test.dart --device-id="$qa_udid" \
-  --dart-define=SUPABASE_URL= --dart-define=SUPABASE_PUBLISHABLE_KEY= \
-  2>&1 | tee "$CARCAR_QA_ARTIFACT_DIR/integration.log"
+# The host watchdog remains active when a native modal prevents Flutter frames.
+# Capture before terminating drive, because its cleanup uninstalls the app.
+python3 - "$qa_udid" "$CARCAR_QA_ARTIFACT_DIR" <<'PY_DRIVE'
+import json, os, selectors, signal, subprocess, sys, time
+from pathlib import Path
+udid, directory = sys.argv[1:]
+out = Path(directory)
+
+def capture(label):
+    try:
+        subprocess.run(['xcrun', 'simctl', 'io', udid, 'screenshot', str(out / (label + '.png'))],
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=12)
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+
+def diagnostics():
+    # Metadata only; unified-log eventMessage can contain URLs or user data.
+    try:
+        result = subprocess.run(['xcrun', 'simctl', 'spawn', udid, 'log', 'show',
+            '--last', '2m', '--style', 'json', '--predicate',
+            'process == "SpringBoard" OR process == "backboardd"'],
+            capture_output=True, text=True, timeout=15)
+        events = json.loads(result.stdout)
+        safe = [{key: item.get(key) for key in ('timestamp', 'processImagePath', 'subsystem', 'category', 'messageType')}
+                for item in events[-150:]]
+        (out / 'failure-system-metadata.json').write_text(json.dumps(safe, indent=2))
+    except (OSError, subprocess.TimeoutExpired, ValueError, TypeError):
+        (out / 'failure-system-metadata.json').write_text('{"available":false}\n')
+
+command = ['flutter', 'drive', '--no-pub', '--driver=test_driver/native_qa_driver.dart',
+    '--target=integration_test/native_app_test.dart', '--device-id=' + udid,
+    '--dart-define=SUPABASE_URL=', '--dart-define=SUPABASE_PUBLISHABLE_KEY=']
+process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, start_new_session=True)
+selector = selectors.DefaultSelector()
+selector.register(process.stdout, selectors.EVENT_READ)
+started = time.monotonic()
+test_started = None
+last_capture = None
+recent = b''
+timed_out = False
+with (out / 'integration.log').open('wb') as logfile:
+    while process.poll() is None or selector.get_map():
+        for key, _ in selector.select(timeout=1):
+            data = os.read(key.fd, 65536)
+            if not data:
+                selector.unregister(key.fileobj)
+                continue
+            logfile.write(data); logfile.flush()
+            sys.stdout.buffer.write(data); sys.stdout.buffer.flush()
+            recent = (recent + data)[-8192:]
+            if test_started is None and b'[CARCAR_QA] test-start' in recent:
+                test_started = time.monotonic()
+                last_capture = test_started
+        now = time.monotonic()
+        # A stalled native UI is visible even before Dart's timeout/cleanup.
+        if test_started is not None and now - last_capture >= 60:
+            capture('watchdog-test-' + str(int(now - test_started)) + 's')
+            last_capture = time.monotonic()
+        if (test_started is not None and now - test_started > 250) or now - started > 1200:
+            timed_out = True
+            capture('failure-before-drive-termination')
+            diagnostics()
+            print('[CARCAR_QA] host-watchdog-timeout', flush=True)
+            try:
+                os.killpg(process.pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+            try:
+                process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                process.wait()
+            break
+code = process.wait()
+if code != 0 and not timed_out:
+    capture('failure-after-drive')
+    diagnostics()
+sys.exit(124 if timed_out else code)
+PY_DRIVE
 # Flutter drive removes the installed app during cleanup. Inspect the Simulator
 # bundle produced by the successful build above instead.
 qa_app_path="build/ios/iphonesimulator/Runner.app"

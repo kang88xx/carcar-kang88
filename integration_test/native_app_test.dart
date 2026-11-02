@@ -6,6 +6,7 @@ import 'package:carcar/core/native_bridge.dart';
 import 'package:carcar/core/repository.dart';
 import 'package:carcar/main.dart' as app;
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show debugPrintSynchronously;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
@@ -19,21 +20,50 @@ void main() {
   testWidgets(
     'native demo saves, persists and exposes actual OCR',
     (tester) async {
+      void checkpoint(String stage) {
+        // Fixed labels only: never print credentials, URLs, or user records.
+        debugPrintSynchronously('[CARCAR_QA] $stage');
+      }
+
+      Future<T> step<T>(String stage, Future<T> Function() action) async {
+        checkpoint('$stage:before');
+        final value = await action().timeout(const Duration(seconds: 25));
+        checkpoint('$stage:after');
+        return value;
+      }
+
+      var settleNumber = 0;
+      Future<void> settle() async {
+        final stage = 'settle-${++settleNumber}';
+        await step(
+          stage,
+          () => tester.pumpAndSettle(
+            const Duration(milliseconds: 100),
+            EnginePhase.sendSemanticsUpdate,
+            const Duration(seconds: 20),
+          ),
+        );
+      }
+
+      checkpoint('test-start');
       binding.reportData = <String, dynamic>{
         'platform': Platform.operatingSystem,
       };
-      final preferences = await SharedPreferences.getInstance();
+      final preferences = await step(
+        'preferences',
+        SharedPreferences.getInstance,
+      );
       await preferences.remove(DemoParkingRepository.storageKey);
-      await app.main();
-      await tester.pumpAndSettle();
+      await step('app-main', app.main);
+      await settle();
       await tester.ensureVisible(find.text('체험 시작하기'));
-      await tester.tap(find.text('체험 시작하기'));
-      await tester.pumpAndSettle();
+      await step('demo-open', () => tester.tap(find.text('체험 시작하기')));
+      await settle();
       expect(find.text('마지막 주차 위치'), findsOneWidget);
 
       await tester.ensureVisible(find.text('주차 위치 기록하기'));
       await tester.tap(find.text('주차 위치 기록하기'));
-      await tester.pumpAndSettle();
+      await settle();
       await tester.tap(find.widgetWithText(ChoiceChip, 'B3'));
       await tester.tap(find.widgetWithText(ChoiceChip, 'D'));
       await tester.pump();
@@ -42,27 +72,30 @@ void main() {
         '52',
       );
       await SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
-      await tester.pumpAndSettle();
+      await settle();
       final save = find.text('이 위치로 체험 기록 저장');
       await tester.ensureVisible(save);
-      await tester.tap(save);
-      await tester.pumpAndSettle();
+      await step('parking-save-tap', () => tester.tap(save));
+      await settle();
       expect(find.text('52번 자리'), findsOneWidget);
 
       binding.reportData!['savedPosition'] = 'B3 / D / 52';
       // Opening the form may scroll the home page. Capture the confirmed
       // position from the top after the transient save message has disappeared.
       await tester.drag(find.byType(Scrollable).first, const Offset(0, 1200));
-      await tester.pumpAndSettle();
+      await settle();
       await tester.pump(const Duration(seconds: 5));
-      await tester.pumpAndSettle();
+      await settle();
       expect(find.text('마지막 주차 위치').hitTestable(), findsOneWidget);
       expect(find.text('52번 자리').hitTestable(), findsOneWidget);
       if (Platform.isAndroid) {
         await binding.convertFlutterSurfaceToImage();
         await tester.pump();
       }
-      final screenshot = await binding.takeScreenshot('native-home');
+      final screenshot = await step(
+        'capture-home',
+        () => binding.takeScreenshot('native-home'),
+      );
       if (Platform.isAndroid) {
         // The Android adb runner also retrieves this device-local capture.
         await File(
@@ -76,10 +109,13 @@ void main() {
         // the save above can show UIKit's real icon-change alert. If that alert
         // blocks interaction, the native UI harness must dismiss it; never mock
         // the bridge or disable automatic sync to make this scenario pass.
+        checkpoint('icon-state:before');
         final iconBefore = await NativeBridge.launcherIconState().timeout(
           const Duration(seconds: 10),
         );
+        checkpoint('icon-state:after');
         expect(iconBefore.supported, isTrue);
+        checkpoint('icon-noop:before');
         final iconAfter =
             iconBefore.iconId == null ||
                 NativeBridge.floorIconIds.contains(iconBefore.iconId)
@@ -87,6 +123,7 @@ void main() {
                 iconBefore.iconId,
               ).timeout(const Duration(seconds: 10))
             : iconBefore; // Legacy color IDs are readable but cannot be newly applied.
+        checkpoint('icon-noop:after');
         expect(iconAfter.supported, isTrue);
         expect(iconAfter.iconId, iconBefore.iconId);
         final iconReadBack = await NativeBridge.launcherIconState().timeout(
@@ -147,42 +184,42 @@ void main() {
       binding.reportData!['freshRepositoryPersistence'] = true;
 
       await tester.tap(find.text('주차 이력'));
-      await tester.pumpAndSettle();
+      await settle();
       expect(find.text('D구역 · 52번'), findsOneWidget);
       binding.reportData!['historyVisible'] = true;
       await binding.takeScreenshot('native-history');
 
       if (Platform.isIOS) {
         await tester.tap(find.text('주차 위치').last);
-        await tester.pumpAndSettle();
+        await settle();
         await tester.scrollUntilVisible(
           find.text('추가 방법 보기'),
           250,
           scrollable: find.byType(Scrollable).first,
         );
         await tester.tap(find.text('추가 방법 보기'));
-        await tester.pumpAndSettle();
+        await settle();
         expect(find.text('홈 화면에 주차 위치 두기'), findsOneWidget);
         await binding.takeScreenshot('native-widget-guide');
         await tester.tap(find.text('위젯 설정으로 이동'));
-        await tester.pumpAndSettle();
+        await settle();
         expect(find.text('홈 화면 위젯').hitTestable(), findsOneWidget);
         await binding.takeScreenshot('native-widget-settings');
         binding.reportData!['widgetGuideNavigatesToSettings'] = true;
         await tester.tap(find.text('주차 위치').last);
-        await tester.pumpAndSettle();
+        await settle();
         await tester.scrollUntilVisible(
           find.text('위젯 설정'),
           250,
           scrollable: find.byType(Scrollable).first,
         );
         await tester.tap(find.text('위젯 설정'));
-        await tester.pumpAndSettle();
+        await settle();
         expect(find.text('홈 화면 위젯').hitTestable(), findsOneWidget);
         binding.reportData!['widgetDirectButtonNavigatesToSettings'] = true;
         // Reset the settings scroll before inspecting the complete settings flow.
         await tester.tap(find.text('주차 위치').last);
-        await tester.pumpAndSettle();
+        await settle();
         final profileBefore = await fresh.profileName();
         final iconBefore = await NativeBridge.launcherIconState().timeout(
           const Duration(seconds: 10),
@@ -191,7 +228,7 @@ void main() {
           const Duration(seconds: 10),
         );
         await tester.tap(find.text('설정'));
-        await tester.pumpAndSettle();
+        await settle();
         expect(find.text('나에게 맞게 사용하기').hitTestable(), findsOneWidget);
         await binding.takeScreenshot('native-settings-top');
 
@@ -202,13 +239,13 @@ void main() {
             scrollable: find.byType(Scrollable).first,
             maxScrolls: 12,
           );
-          await tester.pumpAndSettle();
+          await settle();
           expect(find.text(label).hitTestable(), findsOneWidget);
         }
 
         await reveal('주차 층수 앱 아이콘');
         await tester.tap(find.text('주차 층수 앱 아이콘'));
-        await tester.pumpAndSettle();
+        await settle();
         final dialog = find.byType(AlertDialog);
         expect(dialog, findsOneWidget);
         expect(
@@ -220,7 +257,7 @@ void main() {
         await tester.tap(
           find.descendant(of: dialog, matching: find.text('닫기')),
         );
-        await tester.pumpAndSettle();
+        await settle();
         expect(dialog, findsNothing);
 
         await reveal('알림과 차량 찾기');
@@ -235,7 +272,7 @@ void main() {
         await binding.takeScreenshot('native-settings-account');
         await reveal('내 이름');
         await tester.tap(find.text('내 이름'));
-        await tester.pumpAndSettle();
+        await settle();
         expect(dialog, findsOneWidget);
         final nameField = find.widgetWithText(TextFormField, '가족에게 표시할 이름');
         expect(
@@ -246,7 +283,7 @@ void main() {
         await tester.tap(
           find.descendant(of: dialog, matching: find.text('취소')),
         );
-        await tester.pumpAndSettle();
+        await settle();
         expect(dialog, findsNothing);
 
         final afterSettings = DemoParkingRepository(
@@ -281,7 +318,7 @@ void main() {
           );
         }
         await tester.tap(find.text('주차 이력'));
-        await tester.pumpAndSettle();
+        await settle();
         expect(find.text('D구역 · 52번'), findsOneWidget);
         binding.reportData!['iosSettingsInspection'] = {
           'launcherFloorDetailsReadOnly': true,
@@ -330,6 +367,7 @@ void main() {
       image.dispose();
       await fixture.delete();
       expect(tester.takeException(), isNull);
+      checkpoint('test-complete');
     },
     timeout: const Timeout(Duration(minutes: 4)),
   );

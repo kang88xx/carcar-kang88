@@ -9,7 +9,7 @@ platform :ios do
       skip_submission: true,
       skip_waiting_for_build_processing: false,
       wait_processing_timeout_duration: 1200,
-      changelog: '최소 지원 버전을 iOS 15로 조정했습니다. 위젯과 차량 찾기 기능은 iOS 17 이상에서 사용할 수 있습니다. 가입·비밀번호 재설정 메일은 발신 서비스 연결 중입니다. 연결 전에는 가입 없이 먼저 둘러보기를 이용하세요.'
+      changelog: 'Google 로그인과 차량 한 대 등록·초대 참여를 추가했습니다. 주차 층수에 맞춰 앱 아이콘이 바뀌며 홈 화면에서 위젯 추가 방법을 볼 수 있습니다. 잠금화면 차량 찾기 표시를 얇게 조정하고 종료 버튼을 추가했습니다. 위젯·차량 찾기는 iOS 17 이상에서 지원합니다.'
     )
   end
 end
