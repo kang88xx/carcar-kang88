@@ -6,9 +6,8 @@ Future<bool> openProfileEditor(
   BuildContext context,
   ParkingRepository repository,
 ) async =>
-    await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
+    await showSheetDialog<bool>(
+      context,
       builder: (_) => ProfileEditorDialog(repository: repository),
     ) ??
     false;
@@ -75,68 +74,67 @@ class _ProfileEditorDialogState extends State<ProfileEditorDialog> {
   @override
   Widget build(BuildContext context) => PopScope(
     canPop: !_saving,
-    child: AlertDialog(
-      title: const Text('내 이름'),
-      content: SizedBox(
-        width: 360,
-        child: SingleChildScrollView(
-          child: Form(
-            key: _form,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  widget.repository.isDemo
-                      ? '이 기기의 체험 기록에 표시할 이름이에요.'
-                      : '같은 차량을 쓰는 가족에게 표시돼요.',
+    child: SheetDialog(
+      title: '내 이름',
+      subtitle: widget.repository.isDemo
+          ? '이 기기의 체험 기록에 표시할 이름이에요.'
+          : '같은 차량을 쓰는 가족에게 표시돼요.',
+      onClose: _saving ? null : () => Navigator.of(context).pop(false),
+      maxWidth: 440,
+      child: Form(
+        key: _form,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (_loading)
+              const Padding(
+                padding: EdgeInsets.all(24),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else ...[
+              if (_error != null)
+                StatusNotice(
+                  _error!,
+                  error: true,
+                  onRetry: _loaded ? null : _load,
                 ),
-                const SizedBox(height: 20),
-                if (_loading)
-                  const Center(child: CircularProgressIndicator())
-                else ...[
-                  if (_error != null)
-                    StatusNotice(
-                      _error!,
-                      error: true,
-                      onRetry: _loaded ? null : _load,
-                    ),
-                  if (_loaded)
-                    TextFormField(
-                      controller: _name,
-                      enabled: !_saving,
-                      maxLength: 40,
-                      decoration: const InputDecoration(
-                        labelText: '가족에게 표시할 이름',
-                        hintText: '예: 민수, 엄마',
-                      ),
-                      textInputAction: TextInputAction.done,
-                      validator: (value) {
-                        try {
-                          validatedProfileName(value ?? '');
-                          return null;
-                        } on AppException catch (error) {
-                          return error.message;
-                        }
-                      },
-                      onFieldSubmitted: (_) => _save(),
-                    ),
-                ],
-              ],
+              if (_loaded)
+                TextFormField(
+                  controller: _name,
+                  enabled: !_saving,
+                  maxLength: 40,
+                  decoration: const InputDecoration(
+                    labelText: '가족에게 표시할 이름',
+                    hintText: '예: 민수, 엄마',
+                  ),
+                  textInputAction: TextInputAction.done,
+                  validator: (value) {
+                    try {
+                      validatedProfileName(value ?? '');
+                      return null;
+                    } on AppException catch (error) {
+                      return error.message;
+                    }
+                  },
+                  onFieldSubmitted: (_) => _save(),
+                ),
+            ],
+            const SizedBox(height: 16),
+            BusyButton(
+              label: _saving ? '저장 중…' : '이름 저장',
+              onPressed: _saving || !_loaded ? null : _save,
+              busy: _saving,
             ),
-          ),
+            TextButton(
+              onPressed: _saving
+                  ? null
+                  : () => Navigator.of(context).pop(false),
+              child: const Text('취소'),
+            ),
+          ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: _saving ? null : () => Navigator.of(context).pop(false),
-          child: const Text('취소'),
-        ),
-        FilledButton(
-          onPressed: _saving || !_loaded ? null : _save,
-          child: Text(_saving ? '저장 중…' : '이름 저장'),
-        ),
-      ],
     ),
   );
 }

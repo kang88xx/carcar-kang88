@@ -26,21 +26,12 @@ class NotificationSettings extends StatelessWidget {
           const GroupLabel('알림과 차량 찾기'),
           Surface(
             padding: const EdgeInsets.symmetric(vertical: 6),
-            child: SwitchListTile.adaptive(
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 18,
-                vertical: 4,
-              ),
-              title: const Text(
-                '가족 주차 알림',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-              ),
-              subtitle: Text(
-                isDemo
-                    ? '실제 계정으로 로그인한 휴대폰에서 설정할 수 있어요.'
-                    : 'Android·iPhone 앱에서 설정할 수 있어요.',
-                style: const TextStyle(fontSize: 12.5, color: Palette.muted),
-              ),
+            child: SwitchRow(
+              icon: Icons.notifications_outlined,
+              title: '가족 주차 알림',
+              subtitle: isDemo
+                  ? '실제 계정으로 로그인한 휴대폰에서 설정할 수 있어요.'
+                  : 'Android·iPhone 앱에서 설정할 수 있어요.',
               value: false,
               onChanged: null,
             ),
@@ -56,36 +47,48 @@ class NotificationSettings extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const GroupLabel('알림과 차량 찾기 · 현재 계정의 이 기기에만 적용'),
+            const GroupLabel('알림과 차량 찾기'),
             Surface(
-              padding: const EdgeInsets.fromLTRB(18, 10, 18, 12),
+              padding: const EdgeInsets.symmetric(vertical: 6),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (c.loading) const LinearProgressIndicator(),
-                  if (c.error != null)
-                    StatusNotice(
-                      c.error!,
-                      error: true,
-                      onRetry: c.busy ? null : c.refresh,
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(18, 10, 18, 4),
+                    child: Text(
+                      '이 기기의 현재 계정에만 적용돼요.',
+                      style: TextStyle(fontSize: 12.5, color: Palette.muted),
                     ),
-                  if (c.warning != null) StatusNotice(c.warning!),
-                  SwitchListTile.adaptive(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('가족 주차 알림'),
-                    subtitle: Text(
-                      !c.deliveryAvailable
-                          ? '가족 알림 서비스가 준비 중이에요. 준비되면 이 기기에서 켤 수 있어요.'
-                          : settings.pushEnabled
-                          ? c.canReceive
-                                ? '가족이 주차하면 이 기기로 알려드려요.'
-                                : '서버에 설정했지만 기기의 알림 수신을 확인하지 못했어요.'
-                          : '허용하면 기기의 알림 권한을 확인해요.',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Palette.muted,
+                  ),
+                  if (c.loading)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 18),
+                      child: LinearProgressIndicator(),
+                    ),
+                  if (c.error != null)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(18, 8, 18, 0),
+                      child: StatusNotice(
+                        c.error!,
+                        error: true,
+                        onRetry: c.busy ? null : c.refresh,
                       ),
                     ),
+                  if (c.warning != null)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(18, 8, 18, 0),
+                      child: StatusNotice(c.warning!),
+                    ),
+                  SwitchRow(
+                    icon: Icons.notifications_outlined,
+                    title: '가족 주차 알림',
+                    subtitle: !c.deliveryAvailable
+                        ? '가족 알림 서비스가 준비 중이에요. 준비되면 이 기기에서 켤 수 있어요.'
+                        : settings.pushEnabled
+                        ? c.canReceive
+                              ? '가족이 주차하면 이 기기로 알려드려요.'
+                              : '서버에 설정했지만 기기의 알림 수신을 확인하지 못했어요.'
+                        : '허용하면 기기의 알림 권한을 확인해요.',
                     value: settings.pushEnabled,
                     onChanged:
                         enabled && (c.deliveryAvailable || settings.pushEnabled)
@@ -96,13 +99,11 @@ class NotificationSettings extends StatelessWidget {
                           )
                         : null,
                   ),
-                  SwitchListTile.adaptive(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('내가 남긴 기록도 알림 받기'),
-                    subtitle: const Text(
-                      '끄면 다른 가족의 기록만 알려드려요.',
-                      style: TextStyle(fontSize: 12, color: Palette.muted),
-                    ),
+                  const RowDivider(),
+                  SwitchRow(
+                    icon: Icons.person_outline_rounded,
+                    title: '내가 남긴 기록도 알림 받기',
+                    subtitle: '끄면 다른 가족의 기록만 알려드려요.',
                     value: settings.notifyOwn,
                     onChanged: enabled && settings.pushEnabled
                         ? (value) => _save(
@@ -112,18 +113,13 @@ class NotificationSettings extends StatelessWidget {
                           )
                         : null,
                   ),
-                  SwitchListTile.adaptive(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('알림 쉬는 시간'),
-                    subtitle: Text(
-                      settings.quietEnabled
-                          ? '${settings.quietStart} ~ ${settings.quietEnd} · ${settings.timezone}'
-                          : '설정한 시간에는 가족 알림을 보내지 않아요.',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Palette.muted,
-                      ),
-                    ),
+                  const RowDivider(),
+                  SwitchRow(
+                    icon: Icons.bedtime_outlined,
+                    title: '알림 쉬는 시간',
+                    subtitle: settings.quietEnabled
+                        ? '${settings.quietStart} ~ ${settings.quietEnd} · ${settings.timezone}'
+                        : '설정한 시간에는 가족 알림을 보내지 않아요.',
                     value: settings.quietEnabled,
                     onChanged: enabled
                         ? (value) async {
@@ -140,23 +136,23 @@ class NotificationSettings extends StatelessWidget {
                         : null,
                   ),
                   if (settings.quietEnabled)
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: TextButton(
-                        onPressed: enabled
-                            ? () => _quietHours(context, c)
-                            : null,
-                        child: const Text('시간·시간대 바꾸기'),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton(
+                          onPressed: enabled
+                              ? () => _quietHours(context, c)
+                              : null,
+                          child: const Text('시간·시간대 바꾸기'),
+                        ),
                       ),
                     ),
-                  const Divider(),
-                  SwitchListTile.adaptive(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('차량 찾기 표시 사용'),
-                    subtitle: const Text(
-                      '직접 시작할 때 잠금 화면이나 알림에 위치를 표시해요. 가족 알림과는 별개예요.',
-                      style: TextStyle(fontSize: 12, color: Palette.muted),
-                    ),
+                  const RowDivider(),
+                  SwitchRow(
+                    icon: Icons.near_me_outlined,
+                    title: '차량 찾기 표시 사용',
+                    subtitle: '직접 시작할 때 잠금 화면이나 알림에 위치를 표시해요. 가족 알림과는 별개예요.',
                     value: settings.liveEnabled,
                     onChanged: enabled
                         ? (value) => _save(
@@ -167,37 +163,49 @@ class NotificationSettings extends StatelessWidget {
                           )
                         : null,
                   ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    '차량 찾기 기본 시간',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [60, 120, 240, 480]
-                        .map(
-                          (minutes) => ChoiceChip(
-                            label: Text('${minutes ~/ 60}시간'),
-                            selected: settings.preferredLiveMinutes == minutes,
-                            onSelected: enabled
-                                ? (_) => _save(
-                                    context,
-                                    c,
-                                    settings.copyWith(
-                                      preferredLiveMinutes: minutes,
-                                    ),
-                                  )
-                                : null,
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 6, 18, 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 8),
+                        const Text(
+                          '차량 찾기 기본 시간',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
                           ),
-                        )
-                        .toList(),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    '표시 여부와 종료 시점은 기기 설정과 OS 정책에 따라 달라질 수 있어요.',
-                    style: TextStyle(fontSize: 12, color: Palette.muted),
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [60, 120, 240, 480]
+                              .map(
+                                (minutes) => ChoiceChip(
+                                  label: Text('${minutes ~/ 60}시간'),
+                                  selected:
+                                      settings.preferredLiveMinutes == minutes,
+                                  onSelected: enabled
+                                      ? (_) => _save(
+                                          context,
+                                          c,
+                                          settings.copyWith(
+                                            preferredLiveMinutes: minutes,
+                                          ),
+                                        )
+                                      : null,
+                                ),
+                              )
+                              .toList(),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          '표시 여부와 종료 시점은 기기 설정과 OS 정책에 따라 달라질 수 있어요.',
+                          style: TextStyle(fontSize: 12, color: Palette.muted),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -241,9 +249,8 @@ class NotificationSettings extends StatelessWidget {
   Future<void> _quietHours(
     BuildContext context,
     DeviceNotificationController c,
-  ) => showDialog<void>(
-    context: context,
-    barrierDismissible: false,
+  ) => showSheetDialog<void>(
+    context,
     builder: (_) => _QuietHoursDialog(controller: c),
   );
 }
@@ -306,69 +313,61 @@ class _QuietHoursDialogState extends State<_QuietHoursDialog> {
   @override
   Widget build(BuildContext context) => PopScope(
     canPop: !_busy,
-    child: AlertDialog(
-      title: const Text('알림 쉬는 시간'),
-      content: SizedBox(
-        width: 360,
-        child: SingleChildScrollView(
-          child: Form(
-            key: _form,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Text('종료 시간이 시작 시간보다 이르면 다음 날까지 쉬어요. 시간대는 자동으로 바뀌지 않아요.'),
-                const SizedBox(height: 20),
-                if (_error != null) StatusNotice(_error!, error: true),
-                TextFormField(
-                  controller: _start,
-                  enabled: !_busy,
-                  keyboardType: TextInputType.datetime,
-                  decoration: const InputDecoration(
-                    labelText: '시작 시간',
-                    hintText: '22:00',
-                  ),
-                  validator: _validateTime,
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _end,
-                  enabled: !_busy,
-                  keyboardType: TextInputType.datetime,
-                  decoration: const InputDecoration(
-                    labelText: '종료 시간',
-                    hintText: '07:00',
-                  ),
-                  validator: _validateTime,
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _timezone,
-                  enabled: !_busy,
-                  autocorrect: false,
-                  decoration: const InputDecoration(
-                    labelText: '시간대',
-                    helperText: '한국: Asia/Seoul · UTC: UTC',
-                  ),
-                  validator: (value) => value == null || value.trim().isEmpty
-                      ? '시간대를 입력해 주세요.'
-                      : null,
-                ),
-              ],
+    child: SheetDialog(
+      title: '알림 쉬는 시간',
+      subtitle: '종료 시간이 시작 시간보다 이르면 다음 날까지 쉬어요. 시간대는 자동으로 바뀌지 않아요.',
+      onClose: _busy ? null : () => Navigator.of(context).pop(),
+      maxWidth: 440,
+      child: Form(
+        key: _form,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (_error != null) StatusNotice(_error!, error: true),
+            TextFormField(
+              controller: _start,
+              enabled: !_busy,
+              keyboardType: TextInputType.datetime,
+              decoration: const InputDecoration(
+                labelText: '시작 시간',
+                hintText: '22:00',
+              ),
+              validator: _validateTime,
             ),
-          ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _end,
+              enabled: !_busy,
+              keyboardType: TextInputType.datetime,
+              decoration: const InputDecoration(
+                labelText: '종료 시간',
+                hintText: '07:00',
+              ),
+              validator: _validateTime,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _timezone,
+              enabled: !_busy,
+              autocorrect: false,
+              decoration: const InputDecoration(
+                labelText: '시간대',
+                helperText: '한국: Asia/Seoul · UTC: UTC',
+              ),
+              validator: (value) => value == null || value.trim().isEmpty
+                  ? '시간대를 입력해 주세요.'
+                  : null,
+            ),
+            const SizedBox(height: 20),
+            BusyButton(label: '시간 저장', onPressed: _save, busy: _busy),
+            TextButton(
+              onPressed: _busy ? null : () => Navigator.of(context).pop(),
+              child: const Text('취소'),
+            ),
+          ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: _busy ? null : () => Navigator.of(context).pop(),
-          child: const Text('취소'),
-        ),
-        FilledButton(
-          onPressed: _busy ? null : _save,
-          child: Text(_busy ? '저장 중…' : '시간 저장'),
-        ),
-      ],
     ),
   );
 

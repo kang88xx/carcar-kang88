@@ -13,9 +13,8 @@ Future<void> openParkingForm(
   AppController controller, {
   bool camera = false,
 }) async {
-  await showDialog<void>(
-    context: context,
-    barrierDismissible: false,
+  await showSheetDialog<void>(
+    context,
     builder: (_) =>
         ParkingForm(controller: controller, startWithCamera: camera),
   );
@@ -86,7 +85,7 @@ class _ParkingFormState extends State<ParkingForm> {
         _floor = suggestion.floor ?? _floor;
         _zone = suggestion.zone ?? _zone;
         if (suggestion.spot != null) _spot.text = suggestion.spot!;
-        _dirty = true;
+        _dirty = _dirty || suggestion.found;
         _ocrNotice = suggestion.found
             ? '사진에서 읽은 내용이에요. 실제 위치와 맞는지 확인하고 수정해 주세요.'
             : '표지판을 정확하게 읽지 못했어요. 직접 선택하거나 더 가까이서 촬영해 주세요.';
@@ -193,10 +192,14 @@ class _ParkingFormState extends State<ParkingForm> {
                 ),
                 if (NativeBridge.supportsOcr) ...[
                   const SizedBox(width: 8),
-                  OutlinedButton.icon(
+                  IconButton(
+                    tooltip: '앨범에서 선택',
                     onPressed: locked ? null : () => _capture(gallery: true),
-                    icon: const Icon(Icons.photo_library_outlined, size: 20),
-                    label: const Text('앨범'),
+                    style: IconButton.styleFrom(
+                      backgroundColor: Palette.soft,
+                      fixedSize: const Size(52, 52),
+                    ),
+                    icon: const Icon(Icons.photo_library_outlined, size: 22),
                   ),
                 ],
               ],
@@ -268,7 +271,7 @@ class _ParkingFormState extends State<ParkingForm> {
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 19,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w700,
                   letterSpacing: -.4,
                 ),
               ),
@@ -313,14 +316,7 @@ class _ParkingFormState extends State<ParkingForm> {
         children: options
             .map(
               (value) => ChoiceChip(
-                label: Text(
-                  value,
-                  style: TextStyle(
-                    color: selected == value ? Colors.white : Palette.ink,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                label: Text(value, style: const TextStyle(fontSize: 17)),
                 selected: selected == value,
                 onSelected: _busy || _scanning ? null : (_) => changed(value),
               ),

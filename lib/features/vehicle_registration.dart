@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../app/theme.dart';
 import '../core/app_controller.dart';
 import '../core/repository.dart';
 import '../shared/components.dart';
@@ -139,11 +138,8 @@ class _VehicleRegistrationDialogState extends State<VehicleRegistrationDialog> {
                   ),
                   if (_notice != null)
                     Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text(
-                        _notice!,
-                        style: const TextStyle(color: Palette.green),
-                      ),
+                      padding: const EdgeInsets.only(top: 12),
+                      child: StatusNotice(_notice!),
                     ),
                 ],
                 const SizedBox(height: 16),

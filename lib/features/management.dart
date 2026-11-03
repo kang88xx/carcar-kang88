@@ -19,9 +19,8 @@ Future<bool> openCreateVehicle(
   BuildContext context,
   AppController controller,
 ) async =>
-    await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
+    await showSheetDialog<bool>(
+      context,
       builder: (_) => VehicleRegistrationDialog(controller: controller),
     ) ??
     false;
@@ -32,9 +31,8 @@ Future<bool> openJoinVehicle(
   String? initialCode,
 }) async {
   var joined = false;
-  await showDialog<void>(
-    context: context,
-    barrierDismissible: false,
+  await showSheetDialog<void>(
+    context,
     builder: (_) => _EntryDialog(
       title: '가족 차량에 참여',
       description: '가족에게 받은 초대 코드나 링크를 입력해 주세요. 참여 버튼을 눌러야 차량에 연결돼요.',
@@ -181,71 +179,80 @@ class _FamilyScreenState extends State<FamilyScreen> {
     await _run(() async {
       final invite = await c.repository.invite(c.vehicle!.id);
       if (!mounted) return;
-      await showDialog<void>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('가족을 초대하세요'),
-          scrollable: true,
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
+      final code = invite['code'] as String;
+      Future<void> share() async {
+        try {
+          final text =
+              '차자리에서 우리 가족 차의 주차 위치를 함께 확인해요.\n${inviteLink(code)}\n\n초대 코드: $code\n24시간 동안 한 번 사용할 수 있어요.';
+          final presented = await NativeBridge.shareText(text);
+          if (!presented) {
+            await Clipboard.setData(ClipboardData(text: text));
+            if (mounted) showMessage(context, '초대 링크와 코드를 복사했어요. 가족에게 보내 주세요.');
+          }
+        } on Object catch (error) {
+          if (mounted) showMessage(context, friendlyError(error));
+        }
+      }
+
+      await showSheetDialog<void>(
+        context,
+        barrierDismissible: true,
+        builder: (context) => SheetDialog(
+          title: '가족을 초대하세요',
+          subtitle: '24시간 동안 한 번만 사용할 수 있어요. 이 창을 닫으면 코드를 다시 볼 수 없어요.',
+          onClose: () => Navigator.pop(context),
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text('24시간 동안 한 번만 사용할 수 있어요. 이 창을 닫으면 코드를 다시 볼 수 없어요.'),
-              const SizedBox(height: 20),
-              SelectableText(
-                invite['code'] as String,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
+              Surface(
+                color: Palette.tint,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 18,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      '초대 코드',
+                      style: TextStyle(fontSize: 12.5, color: Palette.muted),
+                    ),
+                    const SizedBox(height: 6),
+                    SelectableText(
+                      code,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: .5,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '만료: ${formatDate(DateTime.parse(invite['expires_at'] as String), full: true)}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 16),
-              Text(
-                '만료: ${formatDate(DateTime.parse(invite['expires_at'] as String), full: true)}',
-                style: Theme.of(context).textTheme.bodySmall,
+              const SizedBox(height: 18),
+              FilledButton.icon(
+                onPressed: share,
+                icon: const Icon(Icons.ios_share_rounded, size: 18),
+                label: const Text('초대 링크 공유'),
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  await Clipboard.setData(ClipboardData(text: code));
+                  if (context.mounted) {
+                    showMessage(context, '초대 코드를 복사했어요. 믿을 수 있는 가족에게만 보내 주세요.');
+                  }
+                },
+                icon: const Icon(Icons.copy_rounded, size: 18),
+                label: const Text('코드 복사'),
               ),
             ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('닫기'),
-            ),
-            TextButton.icon(
-              onPressed: () async {
-                await Clipboard.setData(
-                  ClipboardData(text: invite['code'] as String),
-                );
-                if (context.mounted) {
-                  showMessage(context, '초대 코드를 복사했어요. 믿을 수 있는 가족에게만 보내 주세요.');
-                }
-              },
-              icon: const Icon(Icons.copy_rounded, size: 18),
-              label: const Text('코드 복사'),
-            ),
-            FilledButton.icon(
-              onPressed: () async {
-                try {
-                  final code = invite['code'] as String;
-                  final text =
-                      '차자리에서 우리 가족 차의 주차 위치를 함께 확인해요.\n${inviteLink(code)}\n\n초대 코드: $code\n24시간 동안 한 번 사용할 수 있어요.';
-                  final presented = await NativeBridge.shareText(text);
-                  if (!presented) {
-                    await Clipboard.setData(ClipboardData(text: text));
-                    if (context.mounted) {
-                      showMessage(context, '초대 링크와 코드를 복사했어요. 가족에게 보내 주세요.');
-                    }
-                  }
-                } on Object catch (error) {
-                  if (context.mounted) {
-                    showMessage(context, friendlyError(error));
-                  }
-                }
-              },
-              icon: const Icon(Icons.ios_share_rounded, size: 18),
-              label: const Text('초대 링크 공유'),
-            ),
-          ],
         ),
       );
     });
@@ -292,7 +299,7 @@ class _FamilyScreenState extends State<FamilyScreen> {
                   Text(
                     '${c.vehicle!.plate} · ${c.vehicle!.apartment}',
                     style: TextStyle(
-                      color: Palette.ink.withValues(alpha: .65),
+                      color: Palette.ink.withValues(alpha: .78),
                       fontSize: 13,
                     ),
                   ),
@@ -304,75 +311,74 @@ class _FamilyScreenState extends State<FamilyScreen> {
       ),
       const SizedBox(height: 24),
       GroupLabel('함께하는 가족 ${c.members.length}명'),
-      Surface(
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            for (final (i, member) in c.members.indexed) ...[
-              if (i > 0)
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 18),
-                  child: Divider(),
-                ),
-              ListTile(
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 18,
-                  vertical: 2,
-                ),
-                leading: CircleAvatar(
-                  backgroundColor: i.isEven ? Palette.tint : Palette.lime,
-                  child: Text(
-                    member.name.characters.first,
-                    style: const TextStyle(
-                      color: Palette.ink,
-                      fontWeight: FontWeight.w700,
+      if (c.members.isEmpty)
+        const StatusNotice('가족 목록을 불러오지 못했어요. 위로 당겨 새로고침해 주세요.')
+      else
+        Surface(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final (i, member) in c.members.indexed) ...[
+                if (i > 0) const RowDivider(),
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 2,
+                  ),
+                  leading: CircleAvatar(
+                    backgroundColor: i.isEven ? Palette.tint : Palette.lime,
+                    child: Text(
+                      member.name.characters.first,
+                      style: const TextStyle(
+                        color: Palette.ink,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
-                ),
-                title: Text(
-                  '${member.name}${member.id == c.repository.userId ? ' (나)' : ''}',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 15,
+                  title: Text(
+                    '${member.name}${member.id == c.repository.userId && member.name != '나' ? ' (나)' : ''}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                    ),
                   ),
+                  subtitle: Text(
+                    member.owner ? '차량 소유자' : '가족 구성원',
+                    style: const TextStyle(fontSize: 12, color: Palette.muted),
+                  ),
+                  trailing: c.isOwner && !member.owner
+                      ? IconButton(
+                          tooltip: '${member.name} 구성원 제거',
+                          onPressed: _busy
+                              ? null
+                              : () async {
+                                  if (await confirmAction(
+                                    context,
+                                    title: '가족 공유를 해제할까요?',
+                                    message:
+                                        '${member.name}님은 이 차량의 위치와 기록을 더 이상 볼 수 없어요.',
+                                    action: '공유 해제',
+                                  )) {
+                                    await _run(
+                                      () => c.repository.removeMember(
+                                        c.vehicle!.id,
+                                        member.id,
+                                      ),
+                                    );
+                                  }
+                                },
+                          icon: const Icon(
+                            Icons.person_remove_outlined,
+                            size: 20,
+                          ),
+                        )
+                      : null,
                 ),
-                subtitle: Text(
-                  member.owner ? '차량 소유자' : '가족 구성원',
-                  style: const TextStyle(fontSize: 12, color: Palette.muted),
-                ),
-                trailing: c.isOwner && !member.owner
-                    ? IconButton(
-                        tooltip: '${member.name} 구성원 제거',
-                        onPressed: _busy
-                            ? null
-                            : () async {
-                                if (await confirmAction(
-                                  context,
-                                  title: '가족 공유를 해제할까요?',
-                                  message:
-                                      '${member.name}님은 이 차량의 위치와 기록을 더 이상 볼 수 없어요.',
-                                  action: '공유 해제',
-                                )) {
-                                  await _run(
-                                    () => c.repository.removeMember(
-                                      c.vehicle!.id,
-                                      member.id,
-                                    ),
-                                  );
-                                }
-                              },
-                        icon: const Icon(
-                          Icons.person_remove_outlined,
-                          size: 20,
-                        ),
-                      )
-                    : null,
-              ),
+              ],
             ],
-          ],
+          ),
         ),
-      ),
       const SizedBox(height: 16),
       if (c.isOwner)
         BusyButton(
@@ -417,37 +423,36 @@ Future<void> openFinding(
       : prefs.getInt('carcar.finding.minutes') ?? 120;
   bool busy = false;
   String? error;
-  await showDialog<void>(
-    context: context,
+  await showSheetDialog<void>(
+    context,
+    barrierDismissible: true,
     builder: (context) => StatefulBuilder(
-      builder: (context, setState) => AlertDialog(
-        title: const Text('차량 찾기 표시'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
+      builder: (context, setState) => SheetDialog(
+        title: '차량 찾기 표시',
+        subtitle:
+            '앱을 나가도 잠금 화면이나 알림에서 위치를 확인해요. 표시 여부와 종료 시점은 기기 설정과 OS에 따라 달라질 수 있어요.',
+        onClose: busy ? null : () => Navigator.pop(context),
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              c.latest?.position ?? '주차 위치 없음',
-              style: Theme.of(context).textTheme.titleLarge,
+            Surface(
+              color: Palette.tint,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: Text(
+                c.latest?.position ?? '주차 위치 없음',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
             ),
-            const SizedBox(height: 12),
-            const Text(
-              '앱을 나가도 잠금 화면이나 알림에서 위치를 확인해요. 표시 여부와 종료 시점은 기기 설정과 OS에 따라 달라질 수 있어요.',
-              style: TextStyle(fontSize: 13, color: Palette.muted),
-            ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 18),
+            Text('표시 시간', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 10),
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: [60, 120, 240, 480]
                   .map(
                     (m) => ChoiceChip(
-                      label: Text(
-                        '${m ~/ 60}시간',
-                        style: TextStyle(
-                          color: duration == m ? Colors.white : Palette.ink,
-                        ),
-                      ),
+                      label: Text('${m ~/ 60}시간'),
                       selected: duration == m,
                       onSelected: busy
                           ? null
@@ -460,84 +465,80 @@ Future<void> openFinding(
               const SizedBox(height: 16),
               StatusNotice(error!, error: true),
             ],
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: busy
-                ? null
-                : () async {
-                    try {
-                      await NativeBridge.stopFinding();
-                      if (notifications?.initialized == true) {
-                        await notifications!.save(
-                          notifications.settings.copyWith(liveEnabled: false),
-                        );
-                      }
-                      if (context.mounted) {
-                        Navigator.pop(context);
-                        showMessage(context, '차량 찾기 표시를 종료했어요.');
-                      }
-                    } on Object {
-                      if (context.mounted) {
-                        setState(
-                          () => error = '표시를 종료하지 못했어요. 기기의 알림을 확인해 주세요.',
-                        );
-                      }
+            const SizedBox(height: 20),
+            BusyButton(
+              label: '표시 시작',
+              busy: busy,
+              onPressed: () async {
+                setState(() => busy = true);
+                try {
+                  if (notifications != null && notifications.supported) {
+                    if (!notifications.initialized) {
+                      await notifications.refresh();
                     }
-                  },
-            child: const Text('표시 종료'),
-          ),
-          FilledButton(
-            onPressed: busy
-                ? null
-                : () async {
-                    setState(() => busy = true);
-                    try {
-                      if (notifications != null && notifications.supported) {
-                        if (!notifications.initialized) {
-                          await notifications.refresh();
-                        }
-                        await notifications.save(
-                          notifications.settings.copyWith(
-                            liveEnabled: true,
-                            preferredLiveMinutes: duration,
-                          ),
-                        );
-                      }
-                      final started = await NativeBridge.startFinding(
-                        c.snapshot,
-                        duration,
+                    await notifications.save(
+                      notifications.settings.copyWith(
+                        liveEnabled: true,
+                        preferredLiveMinutes: duration,
+                      ),
+                    );
+                  }
+                  final started = await NativeBridge.startFinding(
+                    c.snapshot,
+                    duration,
+                  );
+                  if (!context.mounted) return;
+                  if (started) {
+                    await prefs.setInt('carcar.finding.minutes', duration);
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                      showMessage(
+                        context,
+                        '차량 찾기 표시를 요청했어요. 잠금 화면 또는 알림을 확인해 주세요.',
                       );
-                      if (!context.mounted) return;
-                      if (started) {
-                        await prefs.setInt('carcar.finding.minutes', duration);
-                        if (context.mounted) {
-                          Navigator.pop(context);
-                          showMessage(
-                            context,
-                            '차량 찾기 표시를 요청했어요. 잠금 화면 또는 알림을 확인해 주세요.',
+                    }
+                  } else {
+                    setState(
+                      () => error =
+                          '표시 권한이 꺼져 있거나 지원하지 않는 기기예요. 기기 설정에서 허용해 주세요.',
+                    );
+                  }
+                } on Object {
+                  if (context.mounted) {
+                    setState(() => error = '표시를 시작하지 못했어요. 기기 설정을 확인해 주세요.');
+                  }
+                } finally {
+                  if (context.mounted) setState(() => busy = false);
+                }
+              },
+            ),
+            TextButton(
+              onPressed: busy
+                  ? null
+                  : () async {
+                      try {
+                        await NativeBridge.stopFinding();
+                        if (notifications?.initialized == true) {
+                          await notifications!.save(
+                            notifications.settings.copyWith(liveEnabled: false),
                           );
                         }
-                      } else {
-                        setState(
-                          () => error =
-                              '표시 권한이 꺼져 있거나 지원하지 않는 기기예요. 기기 설정에서 허용해 주세요.',
-                        );
+                        if (context.mounted) {
+                          Navigator.pop(context);
+                          showMessage(context, '차량 찾기 표시를 종료했어요.');
+                        }
+                      } on Object {
+                        if (context.mounted) {
+                          setState(
+                            () => error = '표시를 종료하지 못했어요. 기기의 알림을 확인해 주세요.',
+                          );
+                        }
                       }
-                    } on Object {
-                      if (context.mounted) {
-                        setState(
-                          () => error = '표시를 시작하지 못했어요. 기기 설정을 확인해 주세요.',
-                        );
-                      }
-                    } finally {
-                      if (context.mounted) setState(() => busy = false);
-                    }
-                  },
-            child: Text(busy ? '요청 중…' : '표시 시작'),
-          ),
-        ],
+                    },
+              child: const Text('표시 종료'),
+            ),
+          ],
+        ),
       ),
     ),
   );
@@ -566,8 +567,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   AppController get c => widget.controller;
   Future<void> _apartment() async {
     final v = c.vehicle!;
-    await showDialog<void>(
-      context: context,
+    await showSheetDialog<void>(
+      context,
       builder: (_) => _EntryDialog(
         title: '우리 주차장 설정',
         description: '층수와 구역은 쉼표로 구분해 주세요. 예: B1, B2, B3',
@@ -636,7 +637,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             children: [
               ActionRow(
                 icon: Icons.apartment_outlined,
-                title: c.vehicle!.apartment,
+                title: c.vehicle!.apartment.isEmpty
+                    ? '아파트 이름 미설정'
+                    : c.vehicle!.apartment,
                 subtitle:
                     '층수 ${c.vehicle!.floors.join(' · ')}\n구역 ${c.vehicle!.zones.join(' · ')}',
                 onTap: c.isOwner ? _apartment : null,
@@ -662,7 +665,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             if (NativeBridge.supportsLauncherIcons) ...[
               LauncherIconSetting(controller: c),
-              const _RowDivider(),
+              const RowDivider(),
             ],
             ActionRow(
               icon: Icons.near_me_outlined,
@@ -677,7 +680,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       notifications: widget.notifications,
                     ),
             ),
-            const _RowDivider(),
+            const RowDivider(),
             KeyedSubtree(
               key: widget.widgetSectionKey,
               child: ActionRow(
@@ -688,22 +691,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     showWidgetGuide(context, showSettingsAction: false),
               ),
             ),
-            const _RowDivider(),
-            SwitchListTile.adaptive(
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 18,
-                vertical: 4,
-              ),
-              title: const Text(
-                '위젯에서 바로 기록',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-              ),
-              subtitle: Text(
-                c.isDemo
-                    ? '실제 계정에서 사용할 수 있어요.'
-                    : '이 기기에서 허용해요. 로그인 만료 시 앱을 다시 열어 주세요.',
-                style: const TextStyle(fontSize: 12.5, color: Palette.muted),
-              ),
+            const RowDivider(),
+            SwitchRow(
+              icon: Icons.touch_app_outlined,
+              title: '위젯에서 바로 기록',
+              subtitle: c.isDemo
+                  ? '실제 계정에서 사용할 수 있어요.'
+                  : '이 기기에서 허용해요. 로그인 만료 시 앱을 다시 열어 주세요.',
               value: c.widgetQuickSaveEnabled,
               onChanged:
                   _busy ||
@@ -758,14 +752,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       if (changed && mounted) await c.refresh();
                     },
             ),
-            const _RowDivider(),
+            const RowDivider(),
             ActionRow(
               icon: Icons.shield_outlined,
               title: '개인정보 처리 안내',
               subtitle: '사진은 기기에서만 읽고 업로드하지 않아요.',
               onTap: () => _info('개인정보 처리 안내', _privacy),
             ),
-            const _RowDivider(),
+            const RowDivider(),
             ActionRow(
               icon: Icons.logout_rounded,
               title: c.isDemo ? '체험 종료' : '로그아웃',
@@ -784,7 +778,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       }
                     },
             ),
-            const _RowDivider(),
+            const RowDivider(),
             ActionRow(
               icon: Icons.delete_outline_rounded,
               destructive: true,
@@ -818,15 +812,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       ],
     ),
-  );
-}
-
-class _RowDivider extends StatelessWidget {
-  const _RowDivider();
-  @override
-  Widget build(BuildContext context) => const Padding(
-    padding: EdgeInsets.symmetric(horizontal: 18),
-    child: Divider(),
   );
 }
 

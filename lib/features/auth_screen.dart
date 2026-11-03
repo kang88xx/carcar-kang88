@@ -103,10 +103,13 @@ class _AuthScreenState extends State<AuthScreen> {
       children: [
         const Brand(large: true),
         const SizedBox(height: 36),
-        Text(
-          '우리 차,\n어디에 주차했더라?',
-          style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-            fontSize: constraints.maxWidth < 312 ? 28 : 36,
+        MediaQuery.withClampedTextScaling(
+          maxScaleFactor: headlineMaxTextScale,
+          child: Text(
+            '우리 차,\n어디에 주차했더라?',
+            style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+              fontSize: constraints.maxWidth < 312 ? 28 : 36,
+            ),
           ),
         ),
         const SizedBox(height: 14),
@@ -118,44 +121,44 @@ class _AuthScreenState extends State<AuthScreen> {
         Surface(
           color: Palette.tint,
           padding: const EdgeInsets.fromLTRB(22, 18, 22, 18),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
+          child: Wrap(
+            crossAxisAlignment: WrapCrossAlignment.end,
+            spacing: 18,
+            runSpacing: 8,
             children: [
               const Text(
                 'B2',
                 style: TextStyle(
                   fontSize: 52,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w700,
                   height: 1,
                   letterSpacing: -2.5,
                   color: Palette.ink,
                 ),
               ),
-              const SizedBox(width: 18),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'C 구역 · 24번',
-                        style: TextStyle(
-                          fontSize: 19,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: -.5,
-                        ),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'C 구역 · 24번',
+                      style: TextStyle(
+                        fontSize: 19,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -.5,
                       ),
-                      const SizedBox(height: 3),
-                      Text(
-                        '이렇게 간단하게 기억해요.',
-                        style: TextStyle(
-                          color: Palette.ink.withValues(alpha: .62),
-                          fontSize: 12.5,
-                        ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '이렇게 간단하게 기억해요.',
+                      style: TextStyle(
+                        color: Palette.ink.withValues(alpha: .78),
+                        fontSize: 12.5,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -224,10 +227,16 @@ class _AuthScreenState extends State<AuthScreen> {
                 child: const Text('가입 없이 먼저 둘러보기'),
               ),
         const SizedBox(height: 12),
-        const Text(
-          '체험 기록은 이 기기에만 저장돼요.\n실제 가족 공유는 Google 로그인 후 사용할 수 있어요.',
+        Text(
+          widget.client == null
+              ? '체험 기록은 이 기기에만 저장돼요.\n실제 가족 공유는 Google 로그인 후 사용할 수 있어요.'
+              : '체험 기록은 이 기기에만 저장돼요.',
           textAlign: TextAlign.center,
-          style: TextStyle(color: Palette.muted, fontSize: 12, height: 1.7),
+          style: const TextStyle(
+            color: Palette.muted,
+            fontSize: 12,
+            height: 1.7,
+          ),
         ),
       ],
     ),

@@ -49,7 +49,7 @@ Future<bool> showWidgetGuide(
                 ],
                 const SizedBox(height: 20),
                 const Text(
-                  '위치만 볼 때는 별도 허용이 필요 없어요. 위젯의 층 버튼과 등록을 쓰려면 로그인 후 위젯 설정에서 허용해 주세요. 층이 모두 보이도록 중간 크기 이상으로 추가해 주세요.',
+                  '위치만 볼 때는 별도 허용이 필요 없어요. 위젯에서 층을 눌러 바로 기록하려면 로그인 후 위젯 설정에서 허용해 주세요. 층이 모두 보이도록 중간 크기 이상으로 추가해 주세요.',
                 ),
                 const SizedBox(height: 12),
                 const Text(
@@ -88,11 +88,17 @@ class _GuideStep extends StatelessWidget {
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          number,
-          style: const TextStyle(
-            fontWeight: FontWeight.w700,
-            color: Palette.green,
+        Container(
+          width: 24,
+          height: 24,
+          alignment: Alignment.center,
+          decoration: const BoxDecoration(
+            color: Palette.lime,
+            shape: BoxShape.circle,
+          ),
+          child: Text(
+            number,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
           ),
         ),
         const SizedBox(width: 12),

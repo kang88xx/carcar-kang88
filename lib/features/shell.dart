@@ -96,7 +96,9 @@ class _AppShellState extends State<AppShell> {
     animation: c,
     builder: (context, _) => LayoutBuilder(
       builder: (context, constraints) {
-        final wide = constraints.maxWidth >= 760;
+        final wide =
+            constraints.maxWidth >= wideLayoutBreakpoint &&
+            constraints.maxHeight >= 520;
         return Scaffold(
           bottomNavigationBar: wide ? null : _floatingBar(),
           body: SafeArea(
@@ -216,9 +218,8 @@ class _AppShellState extends State<AppShell> {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(36),
-        child: MediaQuery.removePadding(
-          context: context,
-          removeBottom: true,
+        child: MediaQuery.withClampedTextScaling(
+          maxScaleFactor: headlineMaxTextScale,
           child: NavigationBar(
             selectedIndex: _tab,
             onDestinationSelected: _navigate,
@@ -262,7 +263,7 @@ class _AppShellState extends State<AppShell> {
               title: Text(
                 _labels[i],
                 style: const TextStyle(
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w700,
                   fontSize: 14,
                 ),
               ),
@@ -285,66 +286,75 @@ class _AppShellState extends State<AppShell> {
   Widget _top(bool wide) {
     final name = _myName;
     final headline = switch (_tab) {
-      0 =>
-        name == null
-            ? greetingFor(DateTime.now())
-            : '${greetingFor(DateTime.now())}, $name',
+      0 => greetingFor(DateTime.now(), name: name),
       1 => '쌓여 가는 주차 기록',
       2 => '우리 가족, 같은 자리',
       _ => '나에게 맞게 사용하기',
     };
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    final title = MediaQuery.withClampedTextScaling(
+      maxScaleFactor: headlineMaxTextScale,
+      child: Text(
+        headline,
+        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+          fontSize: wide
+              ? 32
+              : MediaQuery.sizeOf(context).width < 360
+              ? 22
+              : 27,
+        ),
+      ),
+    );
+    final controls = <Widget>[
+      IconButton(
+        tooltip: '최신 위치 새로고침',
+        onPressed: c.loading ? null : c.refresh,
+        style: IconButton.styleFrom(
+          backgroundColor: Colors.white,
+          fixedSize: const Size(42, 42),
+        ),
+        icon: const Icon(Icons.refresh_rounded, size: 21),
+      ),
+      const SizedBox(width: 8),
+      IconButton(
+        tooltip: '설정 열기',
+        onPressed: () => _navigate(3),
+        style: IconButton.styleFrom(
+          backgroundColor: Palette.ink,
+          fixedSize: const Size(42, 42),
+        ),
+        icon: Text(
+          name == null ? '나' : name.characters.first,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
+          ),
+        ),
+      ),
+    ];
+    if (wide) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: title,
+            ),
+          ),
+          const SizedBox(width: 12),
+          ...controls,
+        ],
+      );
+    }
+    // Phones: controls sit in their own row so the greeting keeps the full
+    // width and Korean words do not break syllable by syllable.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Text(
-              headline,
-              style: Theme.of(
-                context,
-              ).textTheme.headlineMedium?.copyWith(fontSize: wide ? 32 : 27),
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        IconButton(
-          tooltip: '최신 위치 새로고침',
-          onPressed: c.loading ? null : c.refresh,
-          style: IconButton.styleFrom(
-            backgroundColor: Colors.white,
-            fixedSize: const Size(42, 42),
-          ),
-          icon: const Icon(Icons.refresh_rounded, size: 21),
-        ),
-        const SizedBox(width: 8),
-        Semantics(
-          button: true,
-          label: '설정 열기',
-          child: InkWell(
-            onTap: () => _navigate(3),
-            customBorder: const CircleBorder(),
-            child: Container(
-              width: 42,
-              height: 42,
-              decoration: const BoxDecoration(
-                color: Palette.ink,
-                shape: BoxShape.circle,
-              ),
-              alignment: Alignment.center,
-              child: ExcludeSemantics(
-                child: Text(
-                  name == null ? '나' : name.characters.first,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
+        Row(mainAxisAlignment: MainAxisAlignment.end, children: controls),
+        const SizedBox(height: 4),
+        title,
       ],
     );
   }
@@ -398,31 +408,17 @@ class _AppShellState extends State<AppShell> {
       ),
       const SizedBox(height: 26),
       if (!_bannerHidden) ...[_widgetBanner(), const SizedBox(height: 26)],
-      SectionTitle(
-        '최근 주차 기록',
-        trailing: TextButton(
-          onPressed: () => _navigate(1),
-          child: const Text('전체 보기'),
-        ),
-      ),
-      if (c.records.isEmpty)
-        const Surface(
-          child: Text(
-            '첫 주차 기록을 남기면 이곳에서 확인할 수 있어요.',
-            style: TextStyle(color: Palette.muted),
-          ),
-        )
-      else
-        Surface(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-          child: Column(
-            children: c.records
-                .take(3)
-                .map((r) => _recordRow(r, last: r == c.records.take(3).last))
-                .toList(),
+      if (c.records.isNotEmpty) ...[
+        SectionTitle(
+          '최근 주차 기록',
+          trailing: TextButton(
+            onPressed: () => _navigate(1),
+            child: const Text('전체 보기'),
           ),
         ),
-      const SizedBox(height: 14),
+        _recordList(c.records.take(3).toList()),
+        const SizedBox(height: 14),
+      ],
       _familyRow(),
     ],
   );
@@ -448,7 +444,7 @@ class _AppShellState extends State<AppShell> {
               Expanded(
                 child: QuickAction(
                   icon: Icons.photo_camera_outlined,
-                  label: '사진으로',
+                  label: '사진 기록',
                   onTap: () => openParkingForm(context, c, camera: true),
                 ),
               ),
@@ -489,7 +485,6 @@ class _AppShellState extends State<AppShell> {
 
   Widget _locationCard() {
     final r = c.latest;
-    final v = c.vehicle!;
     if (r == null) {
       return Container(
         padding: const EdgeInsets.all(22),
@@ -506,33 +501,39 @@ class _AppShellState extends State<AppShell> {
     }
     return Semantics(
       label: '현재 주차 위치 ${r.position}',
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(22, 20, 22, 20),
-        decoration: BoxDecoration(
-          color: Palette.tint,
-          borderRadius: BorderRadius.circular(22),
-        ),
+      excludeSemantics: true,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 10,
+              runSpacing: 4,
               children: [
-                const Icon(
-                  Icons.check_circle_rounded,
-                  color: Palette.ink,
-                  size: 17,
-                ),
-                const SizedBox(width: 7),
-                Expanded(
-                  child: Text(
-                    '마지막 주차 위치',
-                    style: TextStyle(
-                      color: Palette.ink.withValues(alpha: .72),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: .2,
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.check_circle_rounded,
+                      color: Palette.ink,
+                      size: 17,
                     ),
-                  ),
+                    const SizedBox(width: 7),
+                    Flexible(
+                      child: Text(
+                        '마지막 주차 위치',
+                        style: TextStyle(
+                          color: Palette.ink.withValues(alpha: .8),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: .2,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 if (c.loading)
                   const SizedBox(
@@ -541,15 +542,11 @@ class _AppShellState extends State<AppShell> {
                     child: CircularProgressIndicator(strokeWidth: 1.5),
                   )
                 else
-                  Flexible(
-                    child: Text(
-                      v.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: Palette.ink.withValues(alpha: .6),
-                        fontSize: 12.5,
-                      ),
+                  Text(
+                    c.vehicle!.name,
+                    style: TextStyle(
+                      color: Palette.ink.withValues(alpha: .78),
+                      fontSize: 12.5,
                     ),
                   ),
               ],
@@ -563,26 +560,34 @@ class _AppShellState extends State<AppShell> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      r.floor,
-                      style: const TextStyle(
-                        color: Palette.ink,
-                        fontSize: 76,
-                        fontWeight: FontWeight.w600,
-                        height: 1,
-                        letterSpacing: -3.5,
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 220),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          r.floor,
+                          maxLines: 1,
+                          style: const TextStyle(
+                            color: Palette.ink,
+                            fontSize: 76,
+                            fontWeight: FontWeight.w700,
+                            height: 1,
+                            letterSpacing: -3.5,
+                          ),
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      r.floor.startsWith('B')
-                          ? '지하 ${r.floor.substring(1)}층'
-                          : r.floor,
-                      style: TextStyle(
-                        color: Palette.ink.withValues(alpha: .62),
-                        fontSize: 13,
+                    if (floorDescription(r.floor) case final label?) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        label,
+                        style: TextStyle(
+                          color: Palette.ink.withValues(alpha: .78),
+                          fontSize: 13,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
                 Padding(
@@ -595,7 +600,7 @@ class _AppShellState extends State<AppShell> {
                         style: const TextStyle(
                           color: Palette.ink,
                           fontSize: 30,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w700,
                           letterSpacing: -1,
                           height: 1.2,
                         ),
@@ -644,7 +649,7 @@ class _AppShellState extends State<AppShell> {
                           '${c.author(r.createdBy)} 기록 · ${formatDate(r.createdAt)}',
                           style: const TextStyle(
                             fontSize: 12.5,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w700,
                             color: Palette.ink,
                           ),
                         ),
@@ -653,8 +658,8 @@ class _AppShellState extends State<AppShell> {
                             padding: const EdgeInsets.only(top: 3),
                             child: Text(
                               r.note,
-                              style: TextStyle(
-                                color: Palette.ink.withValues(alpha: .78),
+                              style: const TextStyle(
+                                color: Palette.ink,
                                 fontSize: 13,
                                 height: 1.55,
                               ),
@@ -689,10 +694,10 @@ class _AppShellState extends State<AppShell> {
               child: Padding(
                 padding: EdgeInsets.only(top: 4),
                 child: Text(
-                  '주차 위치, 홈 화면에서 바로. 위젯에서 층을 누르고 바로 등록할 수 있어요.',
+                  '홈 화면 위젯으로 주차 위치를 보고, 층을 눌러 바로 기록해요.',
                   style: TextStyle(
                     fontSize: 15,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w700,
                     height: 1.5,
                   ),
                 ),
@@ -776,10 +781,12 @@ class _AppShellState extends State<AppShell> {
               child: Text(
                 c.isDemo
                     ? '가족과 함께 사용하는 모습을 둘러보세요'
+                    : c.members.length <= 1
+                    ? '가족을 초대해 함께 확인해 보세요'
                     : '${c.members.length}명이 함께 위치를 확인하고 있어요',
                 style: const TextStyle(
                   fontSize: 14,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
@@ -791,6 +798,16 @@ class _AppShellState extends State<AppShell> {
           ],
         ),
       ),
+    ),
+  );
+
+  Widget _recordList(List<ParkingRecord> records) => Surface(
+    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+    child: Column(
+      children: [
+        for (final (i, r) in records.indexed)
+          _recordRow(r, last: i == records.length - 1),
+      ],
     ),
   );
 
@@ -826,7 +843,7 @@ class _AppShellState extends State<AppShell> {
                   Text(
                     '${r.zone}구역${r.spot.isEmpty ? '' : ' · ${r.spot}번'}',
                     style: const TextStyle(
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                       fontSize: 15,
                     ),
                   ),
@@ -913,14 +930,7 @@ class _AppShellState extends State<AppShell> {
             ),
           )
         else
-          Surface(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-            child: Column(
-              children: results
-                  .map((r) => _recordRow(r, last: r == results.last))
-                  .toList(),
-            ),
-          ),
+          _recordList(results),
       ],
     );
   }

@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import '../app/theme.dart';
 
 class Brand extends StatelessWidget {
-  const Brand({super.key, this.large = false, this.showName = true});
-  final bool large, showName;
+  const Brand({super.key, this.large = false});
+  final bool large;
   @override
   Widget build(BuildContext context) => Row(
     mainAxisSize: MainAxisSize.min,
@@ -21,18 +21,16 @@ class Brand extends StatelessWidget {
           size: large ? 34 : 24,
         ),
       ),
-      if (showName) ...[
-        const SizedBox(width: 10),
-        Text(
-          '차자리',
-          style: TextStyle(
-            fontSize: large ? 28 : 21,
-            fontWeight: FontWeight.w700,
-            letterSpacing: -1.1,
-            color: Palette.ink,
-          ),
+      const SizedBox(width: 10),
+      Text(
+        '차자리',
+        style: TextStyle(
+          fontSize: large ? 28 : 21,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -1.1,
+          color: Palette.ink,
         ),
-      ],
+      ),
     ],
   );
 }
@@ -89,14 +87,28 @@ class GroupLabel extends StatelessWidget {
     padding: const EdgeInsets.only(left: 6, bottom: 8),
     child: Text(
       text,
-      style: const TextStyle(
-        fontSize: 13,
-        fontWeight: FontWeight.w500,
-        color: Palette.muted,
-      ),
+      style: const TextStyle(fontSize: 13, color: Palette.muted),
     ),
   );
 }
+
+/// Hairline between rows inside a card group.
+class RowDivider extends StatelessWidget {
+  const RowDivider({super.key});
+  @override
+  Widget build(BuildContext context) => const Padding(
+    padding: EdgeInsets.symmetric(horizontal: 18),
+    child: Divider(),
+  );
+}
+
+const _rowPadding = EdgeInsets.symmetric(horizontal: 18, vertical: 4);
+const _rowTitle = TextStyle(fontSize: 15, fontWeight: FontWeight.w700);
+const _rowSubtitle = TextStyle(
+  fontSize: 12.5,
+  color: Palette.muted,
+  height: 1.6,
+);
 
 /// Tappable row inside a white card group with icon, chevron and subtitle.
 class ActionRow extends StatelessWidget {
@@ -121,29 +133,15 @@ class ActionRow extends StatelessWidget {
     return ListTile(
       onTap: onTap,
       enabled: onTap != null || trailing != null,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
+      contentPadding: _rowPadding,
       minVerticalPadding: 12,
       leading: icon == null ? null : Icon(icon, color: color, size: 23),
-      title: Text(
-        title,
-        style: TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
-          color: color,
-        ),
-      ),
+      title: Text(title, style: _rowTitle.copyWith(color: color)),
       subtitle: subtitle == null
           ? null
           : Padding(
               padding: const EdgeInsets.only(top: 3),
-              child: Text(
-                subtitle!,
-                style: const TextStyle(
-                  fontSize: 12.5,
-                  color: Palette.muted,
-                  height: 1.6,
-                ),
-              ),
+              child: Text(subtitle!, style: _rowSubtitle),
             ),
       trailing:
           trailing ??
@@ -156,6 +154,37 @@ class ActionRow extends StatelessWidget {
                 )),
     );
   }
+}
+
+/// Switch row styled like [ActionRow] for card groups.
+class SwitchRow extends StatelessWidget {
+  const SwitchRow({
+    super.key,
+    required this.title,
+    required this.value,
+    required this.onChanged,
+    this.subtitle,
+    this.icon,
+  });
+  final String title;
+  final String? subtitle;
+  final IconData? icon;
+  final bool value;
+  final ValueChanged<bool>? onChanged;
+  @override
+  Widget build(BuildContext context) => SwitchListTile.adaptive(
+    contentPadding: _rowPadding,
+    secondary: icon == null ? null : Icon(icon, size: 23),
+    title: Text(title, style: _rowTitle),
+    subtitle: subtitle == null
+        ? null
+        : Padding(
+            padding: const EdgeInsets.only(top: 3),
+            child: Text(subtitle!, style: _rowSubtitle),
+          ),
+    value: value,
+    onChanged: onChanged,
+  );
 }
 
 /// Circular icon with a short label, used for secondary quick actions.
@@ -201,12 +230,12 @@ class QuickAction extends StatelessWidget {
               ExcludeSemantics(
                 child: Text(
                   label,
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w700,
                     color: enabled ? Palette.ink : Palette.muted,
                   ),
                 ),
@@ -220,8 +249,8 @@ class QuickAction extends StatelessWidget {
 }
 
 /// Round close control used in sheet headers.
-class CloseButton2 extends StatelessWidget {
-  const CloseButton2({super.key, required this.tooltip, this.onPressed});
+class RoundCloseButton extends StatelessWidget {
+  const RoundCloseButton({super.key, required this.tooltip, this.onPressed});
   final String tooltip;
   final VoidCallback? onPressed;
   @override
@@ -236,6 +265,19 @@ class CloseButton2 extends StatelessWidget {
     icon: const Icon(Icons.close_rounded, size: 22),
   );
 }
+
+/// Opens [SheetDialog] content. Safe-area insets are handled by the sheet so
+/// it can reach the bottom edge on phones.
+Future<T?> showSheetDialog<T>(
+  BuildContext context, {
+  required WidgetBuilder builder,
+  bool barrierDismissible = false,
+}) => showDialog<T>(
+  context: context,
+  barrierDismissible: barrierDismissible,
+  useSafeArea: false,
+  builder: builder,
+);
 
 /// A [Dialog] presented as a bottom sheet on phones and a centered card on
 /// wide screens. Keeps [Dialog] semantics for tests and QA scripts.
@@ -258,85 +300,92 @@ class SheetDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
-    final sheet = size.width < 640;
+    final padding = MediaQuery.paddingOf(context);
+    final sheet = size.width < wideLayoutBreakpoint;
     final radius = sheet
         ? const BorderRadius.vertical(top: Radius.circular(28))
         : BorderRadius.circular(28);
     return Dialog(
       alignment: sheet ? Alignment.bottomCenter : Alignment.center,
       insetPadding: sheet
-          ? EdgeInsets.zero
-          : const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+          ? EdgeInsets.only(top: padding.top + 24)
+          : EdgeInsets.fromLTRB(
+              24 + padding.left,
+              32 + padding.top,
+              24 + padding.right,
+              32 + padding.bottom,
+            ),
       shape: RoundedRectangleBorder(borderRadius: radius),
       clipBehavior: Clip.antiAlias,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: sheet ? double.infinity : maxWidth,
-          maxHeight: size.height * (sheet ? .92 : .88),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (sheet)
-              Center(
-                child: Container(
-                  margin: const EdgeInsets.only(top: 10),
-                  width: 40,
-                  height: 5,
-                  decoration: BoxDecoration(
-                    color: Palette.line,
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                ),
-              ),
-            Padding(
-              padding: EdgeInsets.fromLTRB(24, sheet ? 14 : 24, 16, 0),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 6),
-                        Text(
-                          title,
-                          style: Theme.of(
-                            context,
-                          ).textTheme.titleLarge?.copyWith(fontSize: 22),
-                        ),
-                        if (subtitle != null) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            subtitle!,
-                            style: const TextStyle(
-                              color: Palette.muted,
-                              fontSize: 13.5,
-                              height: 1.5,
-                            ),
+      child: Semantics(
+        scopesRoute: true,
+        namesRoute: true,
+        explicitChildNodes: true,
+        label: title,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: sheet ? double.infinity : maxWidth,
+            maxHeight: size.height * (sheet ? .92 : .88),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: EdgeInsets.fromLTRB(24, sheet ? 18 : 24, 16, 0),
+                child: MediaQuery.withClampedTextScaling(
+                  maxScaleFactor: headlineMaxTextScale,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Semantics(
+                          header: true,
+                          child: Text(
+                            title,
+                            style: Theme.of(context).textTheme.titleLarge
+                                ?.copyWith(fontSize: sheet ? 20 : 22),
                           ),
-                        ],
-                      ],
-                    ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      RoundCloseButton(
+                        tooltip: closeTooltip,
+                        onPressed: onClose,
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 12),
-                  CloseButton2(tooltip: closeTooltip, onPressed: onClose),
-                ],
-              ),
-            ),
-            Flexible(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.fromLTRB(
-                  24,
-                  20,
-                  24,
-                  sheet ? 24 + MediaQuery.paddingOf(context).bottom : 24,
                 ),
-                child: child,
               ),
-            ),
-          ],
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.fromLTRB(
+                    24 + (sheet ? padding.left : 0),
+                    subtitle == null ? 18 : 6,
+                    24 + (sheet ? padding.right : 0),
+                    24 + (sheet ? padding.bottom : 0),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (subtitle != null) ...[
+                        Text(
+                          subtitle!,
+                          style: const TextStyle(
+                            color: Palette.muted,
+                            fontSize: 13.5,
+                            height: 1.5,
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                      ],
+                      child,
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -353,11 +402,10 @@ class StatusNotice extends StatelessWidget {
     margin: const EdgeInsets.only(bottom: 16),
     padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
     decoration: BoxDecoration(
-      color: error ? Palette.rose : const Color(0xFFE6EBF6),
+      color: error ? Palette.rose : Palette.info,
       borderRadius: BorderRadius.circular(18),
     ),
     child: Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Icon(
           error ? Icons.wifi_off_rounded : Icons.info_outline_rounded,
@@ -478,12 +526,15 @@ class BusyButton extends StatelessWidget {
     child: FilledButton(
       onPressed: busy ? null : onPressed,
       child: busy
-          ? const SizedBox(
-              width: 22,
-              height: 22,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: Palette.muted,
+          ? Semantics(
+              label: '$label 처리 중',
+              child: const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Palette.muted,
+                ),
               ),
             )
           : Row(
@@ -500,12 +551,26 @@ class BusyButton extends StatelessWidget {
   );
 }
 
-/// Time-of-day greeting used as the home headline.
-String greetingFor(DateTime now) {
+/// Time-of-day greeting used as the home headline. A name is prepended
+/// with the polite suffix.
+String greetingFor(DateTime now, {String? name}) {
   final hour = now.hour;
-  if (hour < 5) return '늦은 밤이에요';
-  if (hour < 11) return '좋은 아침이에요';
-  if (hour < 14) return '좋은 점심이에요';
-  if (hour < 18) return '좋은 오후예요';
-  return '좋은 저녁이에요';
+  final greeting = hour < 5
+      ? '늦은 밤이에요'
+      : hour < 11
+      ? '좋은 아침이에요'
+      : hour < 14
+      ? '즐거운 점심시간이에요'
+      : hour < 18
+      ? '편안한 오후 보내세요'
+      : '좋은 저녁이에요';
+  return name == null ? greeting : '$name님, $greeting';
+}
+
+/// Human floor label for a configured floor code, or null when the code is
+/// not a plain B/F number.
+String? floorDescription(String floor) {
+  final match = RegExp(r'^([BF])(\d{1,3})$').firstMatch(floor.toUpperCase());
+  if (match == null) return null;
+  return '${match.group(1) == 'B' ? '지하' : '지상'} ${int.parse(match.group(2)!)}층';
 }

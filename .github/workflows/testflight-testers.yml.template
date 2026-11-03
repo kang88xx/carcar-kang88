@@ -1,0 +1,54 @@
+# Install in the private build repository as .github/workflows/carcar-testflight-testers.yml.
+# App source must be under apps/carcar. Cheap ubuntu job: no macOS compute.
+name: Chagok TestFlight testers
+on:
+  workflow_dispatch:
+    inputs:
+      build_number:
+        description: 'Build number to check or add to the internal group (blank = latest upload)'
+        type: string
+        default: ''
+      ensure:
+        description: 'Add the build to the internal group, enable automatic distribution and resend pending invitations'
+        type: boolean
+        default: false
+      tester_emails:
+        description: 'Comma-separated internal tester emails that must be in the group'
+        type: string
+        default: 'kslee324@gmail.com'
+permissions:
+  contents: read
+concurrency:
+  group: chagok-testflight-testers
+  cancel-in-progress: false
+jobs:
+  testers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: apps/carcar
+        shell: bash
+    env:
+      BUILD_NUMBER: ${{ inputs.build_number }}
+      ENSURE: ${{ inputs.ensure }}
+      TESTER_EMAILS: ${{ inputs.tester_emails }}
+      TESTFLIGHT_SUMMARY_PATH: ${{ github.workspace }}/testflight-testers.json
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node --test scripts/testflight_testers.test.mjs
+      - name: Check internal group, build and testers
+        env:
+          APP_STORE_CONNECT_API_KEY_P8_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8_BASE64 }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+        run: node scripts/testflight_testers.mjs
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: chagok-testflight-testers-${{ github.run_number }}
+          path: ${{ github.workspace }}/testflight-testers.json
+          if-no-files-found: ignore

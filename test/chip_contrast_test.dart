@@ -38,8 +38,9 @@ void main() {
           .text
           .style!;
       final foreground = selected.color!.computeLuminance();
-      final background = buildTheme().chipTheme.selectedColor!
-          .computeLuminance();
+      final background = buildTheme().chipTheme.color!.resolve({
+        WidgetState.selected,
+      })!.computeLuminance();
       final ratio =
           (foreground > background ? foreground + .05 : background + .05) /
           (foreground > background ? background + .05 : foreground + .05);
