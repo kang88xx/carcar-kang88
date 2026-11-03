@@ -31,14 +31,16 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> {
+  static const _bannerKey = 'carcar.home.widget_banner_hidden';
   int _tab = 0;
   String _search = '';
   final _scroll = ScrollController();
   final _widgetSettingsKey = GlobalKey();
+  late bool _bannerHidden = widget.preferences.getBool(_bannerKey) ?? false;
   AppController get c => widget.controller;
   static const _labels = ['주차 위치', '주차 이력', '우리 가족', '설정'];
   static const _icons = [
-    Icons.local_parking_outlined,
+    Icons.local_parking_rounded,
     Icons.history_rounded,
     Icons.people_outline_rounded,
     Icons.tune_rounded,
@@ -72,6 +74,23 @@ class _AppShellState extends State<AppShell> {
     if (await showWidgetGuide(context) && mounted) _openWidgetSettings();
   }
 
+  Future<void> _hideBanner() async {
+    setState(() => _bannerHidden = true);
+    try {
+      await widget.preferences.setBool(_bannerKey, true);
+    } on Object {
+      // The banner simply returns next launch if the preference fails.
+    }
+  }
+
+  String? get _myName {
+    final name = c.members
+        .where((m) => m.id == c.repository.userId)
+        .map((m) => m.name.trim())
+        .firstOrNull;
+    return name == null || name.isEmpty || name == '나' ? null : name;
+  }
+
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: c,
@@ -79,79 +98,12 @@ class _AppShellState extends State<AppShell> {
       builder: (context, constraints) {
         final wide = constraints.maxWidth >= 760;
         return Scaffold(
-          bottomNavigationBar: wide
-              ? null
-              : NavigationBar(
-                  selectedIndex: _tab,
-                  onDestinationSelected: _navigate,
-                  destinations: List.generate(
-                    4,
-                    (i) => NavigationDestination(
-                      icon: Icon(_icons[i]),
-                      label: _labels[i],
-                    ),
-                  ),
-                ),
+          bottomNavigationBar: wide ? null : _floatingBar(),
           body: SafeArea(
+            bottom: false,
             child: Row(
               children: [
-                if (wide)
-                  Container(
-                    width: 214,
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      border: Border(right: BorderSide(color: Palette.line)),
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 32,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Padding(
-                          padding: EdgeInsets.only(left: 12),
-                          child: Brand(),
-                        ),
-                        const SizedBox(height: 48),
-                        ...List.generate(
-                          4,
-                          (i) => Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: ListTile(
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              selected: _tab == i,
-                              selectedTileColor: Palette.soft,
-                              selectedColor: Palette.green,
-                              leading: Icon(_icons[i]),
-                              title: Text(
-                                _labels[i],
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 14,
-                                ),
-                              ),
-                              onTap: () => _navigate(i),
-                            ),
-                          ),
-                        ),
-                        const Spacer(),
-                        const Padding(
-                          padding: EdgeInsets.all(12),
-                          child: Text(
-                            '가족과 함께 기억하는\n우리 차의 자리',
-                            style: TextStyle(
-                              color: Palette.muted,
-                              fontSize: 12,
-                              height: 1.8,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                if (wide) _sidebar(),
                 Expanded(
                   child: RefreshIndicator(
                     onRefresh: c.refresh,
@@ -165,9 +117,9 @@ class _AppShellState extends State<AppShell> {
                               constraints: const BoxConstraints(maxWidth: 1056),
                               child: Padding(
                                 padding: EdgeInsets.fromLTRB(
-                                  wide ? 44 : 22,
-                                  wide ? 38 : 22,
-                                  wide ? 44 : 22,
+                                  wide ? 44 : 20,
+                                  wide ? 38 : 12,
+                                  wide ? 44 : 20,
                                   40,
                                 ),
                                 child: Column(
@@ -175,7 +127,7 @@ class _AppShellState extends State<AppShell> {
                                       CrossAxisAlignment.stretch,
                                   children: [
                                     _top(wide),
-                                    const SizedBox(height: 24),
+                                    const SizedBox(height: 22),
                                     if (widget.inviteNotice != null)
                                       StatusNotice(
                                         widget.inviteNotice!,
@@ -243,55 +195,167 @@ class _AppShellState extends State<AppShell> {
       },
     ),
   );
-  Widget _top(bool wide) => Row(
-    children: [
-      if (!wide)
-        const Brand()
-      else
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                _tab == 0 ? '주차 위치' : _labels[_tab],
-                style: Theme.of(context).textTheme.headlineMedium,
+
+  Widget _floatingBar() => Padding(
+    padding: EdgeInsets.fromLTRB(
+      16,
+      8,
+      16,
+      12 + MediaQuery.paddingOf(context).bottom,
+    ),
+    child: Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(36),
+        boxShadow: [
+          BoxShadow(
+            color: Palette.ink.withValues(alpha: .12),
+            blurRadius: 28,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(36),
+        child: MediaQuery.removePadding(
+          context: context,
+          removeBottom: true,
+          child: NavigationBar(
+            selectedIndex: _tab,
+            onDestinationSelected: _navigate,
+            labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+            destinations: List.generate(
+              4,
+              (i) => NavigationDestination(
+                icon: Icon(_icons[i]),
+                label: _labels[i],
               ),
-              if (_tab == 0)
-                const Text(
-                  '오늘도 편안하게, 우리 차의 자리.',
-                  style: TextStyle(color: Palette.muted, fontSize: 13),
-                ),
-            ],
+            ),
           ),
         ),
-      if (!wide) const Spacer(),
-      IconButton(
-        tooltip: '최신 위치 새로고침',
-        onPressed: c.loading ? null : c.refresh,
-        icon: const Icon(Icons.refresh_rounded, color: Palette.muted),
       ),
-      const SizedBox(width: 4),
-      Container(
-        width: 38,
-        height: 38,
-        decoration: const BoxDecoration(
-          color: Palette.soft,
-          shape: BoxShape.circle,
-        ),
-        alignment: Alignment.center,
-        child: const Text(
-          '나',
-          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-        ),
-      ),
-    ],
+    ),
   );
+
+  Widget _sidebar() => Container(
+    width: 224,
+    margin: const EdgeInsets.fromLTRB(16, 16, 0, 16),
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 28),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(28),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(padding: EdgeInsets.only(left: 12), child: Brand()),
+        const SizedBox(height: 40),
+        ...List.generate(
+          4,
+          (i) => Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: ListTile(
+              shape: const StadiumBorder(),
+              selected: _tab == i,
+              selectedTileColor: Palette.lime,
+              selectedColor: Palette.ink,
+              leading: Icon(_icons[i]),
+              title: Text(
+                _labels[i],
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+              ),
+              onTap: () => _navigate(i),
+            ),
+          ),
+        ),
+        const Spacer(),
+        const Padding(
+          padding: EdgeInsets.all(12),
+          child: Text(
+            '가족과 함께 기억하는\n우리 차의 자리',
+            style: TextStyle(color: Palette.muted, fontSize: 12, height: 1.8),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _top(bool wide) {
+    final name = _myName;
+    final headline = switch (_tab) {
+      0 =>
+        name == null
+            ? greetingFor(DateTime.now())
+            : '${greetingFor(DateTime.now())}, $name',
+      1 => '쌓여 가는 주차 기록',
+      2 => '우리 가족, 같은 자리',
+      _ => '나에게 맞게 사용하기',
+    };
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(
+              headline,
+              style: Theme.of(
+                context,
+              ).textTheme.headlineMedium?.copyWith(fontSize: wide ? 32 : 27),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        IconButton(
+          tooltip: '최신 위치 새로고침',
+          onPressed: c.loading ? null : c.refresh,
+          style: IconButton.styleFrom(
+            backgroundColor: Colors.white,
+            fixedSize: const Size(42, 42),
+          ),
+          icon: const Icon(Icons.refresh_rounded, size: 21),
+        ),
+        const SizedBox(width: 8),
+        Semantics(
+          button: true,
+          label: '설정 열기',
+          child: InkWell(
+            onTap: () => _navigate(3),
+            customBorder: const CircleBorder(),
+            child: Container(
+              width: 42,
+              height: 42,
+              decoration: const BoxDecoration(
+                color: Palette.ink,
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: ExcludeSemantics(
+                child: Text(
+                  name == null ? '나' : name.characters.first,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _onboarding() => Surface(
     child: EmptyState(
       icon: Icons.directions_car_outlined,
       title: widget.pendingInvite != null ? '가족 초대를 받았어요' : '우리 가족의 차 한 대',
       description: '처음이라면 새 차량을 등록하고,\n가족이 먼저 등록했다면 초대코드로 참여해요.',
       action: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           FilledButton.icon(
             onPressed: () async {
@@ -303,7 +367,7 @@ class _AppShellState extends State<AppShell> {
             label: const Text('새 차량 등록'),
           ),
           const SizedBox(height: 10),
-          TextButton(
+          OutlinedButton(
             onPressed: () async {
               if (await openJoinVehicle(
                 context,
@@ -320,121 +384,20 @@ class _AppShellState extends State<AppShell> {
       ),
     ),
   );
-  Widget _vehicleHeader() => Row(
-    children: [
-      Container(
-        width: 52,
-        height: 52,
-        decoration: BoxDecoration(
-          color: Palette.green.withValues(alpha: .13),
-          borderRadius: BorderRadius.circular(17),
-        ),
-        child: Icon(
-          Icons.directions_car_filled_outlined,
-          size: 30,
-          color: Palette.green,
-        ),
-      ),
-      const SizedBox(width: 14),
-      Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              c.vehicle!.name,
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 3),
-            Text(
-              '${c.vehicle!.plate} · ${c.vehicle!.apartment}',
-              style: const TextStyle(fontSize: 12, color: Palette.muted),
-            ),
-          ],
-        ),
-      ),
-    ],
-  );
+
   Widget _home() => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      _vehicleHeader(),
-      const SizedBox(height: 24),
-      _locationCard(),
-      const SizedBox(height: 18),
+      const SectionTitle('지금 우리 차'),
+      _heroGroup(),
+      const SizedBox(height: 16),
       BusyButton(
         label: '주차 위치 기록하기',
         icon: Icons.add_rounded,
         onPressed: () => openParkingForm(context, c),
       ),
-      const SizedBox(height: 12),
-      Row(
-        children: [
-          Expanded(
-            child: OutlinedButton.icon(
-              onPressed: () => openParkingForm(context, c, camera: true),
-              icon: const Icon(Icons.photo_camera_outlined, size: 19),
-              label: const Text('사진 입력'),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: OutlinedButton.icon(
-              onPressed: c.latest == null
-                  ? null
-                  : () => openFinding(
-                      context,
-                      c,
-                      widget.preferences,
-                      notifications: widget.notifications,
-                    ),
-              icon: const Icon(Icons.near_me_outlined, size: 19),
-              label: const Text('차량 찾기'),
-            ),
-          ),
-        ],
-      ),
-      const SizedBox(height: 24),
-      Material(
-        color: Palette.soft,
-        borderRadius: BorderRadius.circular(18),
-        clipBehavior: Clip.antiAlias,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            ListTile(
-              onTap: _widgetGuide,
-              contentPadding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              leading: const Icon(Icons.widgets_outlined, color: Palette.green),
-              title: const Text(
-                '주차 위치, 홈 화면에서 바로',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-              ),
-              subtitle: const Text(
-                '위젯에서 층을 누르고 바로 등록할 수 있어요.',
-                style: TextStyle(fontSize: 12, height: 1.6),
-              ),
-              trailing: const Icon(Icons.chevron_right_rounded, size: 20),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Wrap(
-                spacing: 8,
-                children: [
-                  TextButton(
-                    onPressed: _widgetGuide,
-                    child: const Text('추가 방법 보기'),
-                  ),
-                  TextButton(
-                    onPressed: _openWidgetSettings,
-                    child: const Text('위젯 설정'),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-      const SizedBox(height: 28),
+      const SizedBox(height: 26),
+      if (!_bannerHidden) ...[_widgetBanner(), const SizedBox(height: 26)],
       SectionTitle(
         '최근 주차 기록',
         trailing: TextButton(
@@ -459,56 +422,81 @@ class _AppShellState extends State<AppShell> {
                 .toList(),
           ),
         ),
-      const SizedBox(height: 26),
-      InkWell(
-        onTap: () => _navigate(2),
-        borderRadius: BorderRadius.circular(18),
-        child: Padding(
-          padding: const EdgeInsets.all(8),
+      const SizedBox(height: 14),
+      _familyRow(),
+    ],
+  );
+
+  Widget _heroGroup() => Surface(
+    color: Palette.tint,
+    padding: const EdgeInsets.all(10),
+    radius: 28,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _locationCard(),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: .42),
+            borderRadius: BorderRadius.circular(22),
+          ),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              ...c.members
-                  .take(3)
-                  .map(
-                    (m) => Padding(
-                      padding: const EdgeInsets.only(right: 5),
-                      child: CircleAvatar(
-                        radius: 16,
-                        backgroundColor: Palette.soft,
-                        child: Text(
-                          m.name.characters.first,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Palette.green,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-              const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  c.isDemo
-                      ? '가족과 함께 사용하는 모습을 둘러보세요'
-                      : '${c.members.length}명이 함께 위치를 확인하고 있어요',
-                  style: const TextStyle(color: Palette.muted, fontSize: 12),
+                child: QuickAction(
+                  icon: Icons.photo_camera_outlined,
+                  label: '사진으로',
+                  onTap: () => openParkingForm(context, c, camera: true),
                 ),
               ),
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: Palette.muted,
-                size: 20,
+              Expanded(
+                child: QuickAction(
+                  icon: Icons.near_me_outlined,
+                  label: '차량 찾기',
+                  onTap: c.latest == null
+                      ? null
+                      : () => openFinding(
+                          context,
+                          c,
+                          widget.preferences,
+                          notifications: widget.notifications,
+                        ),
+                ),
+              ),
+              Expanded(
+                child: QuickAction(
+                  icon: Icons.history_rounded,
+                  label: '이력 보기',
+                  onTap: () => _navigate(1),
+                ),
+              ),
+              Expanded(
+                child: QuickAction(
+                  icon: Icons.widgets_outlined,
+                  label: '위젯',
+                  onTap: _widgetGuide,
+                ),
               ),
             ],
           ),
         ),
-      ),
-    ],
+      ],
+    ),
   );
+
   Widget _locationCard() {
     final r = c.latest;
+    final v = c.vehicle!;
     if (r == null) {
-      return Surface(
+      return Container(
+        padding: const EdgeInsets.all(22),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: .6),
+          borderRadius: BorderRadius.circular(22),
+        ),
         child: EmptyState(
           icon: Icons.local_parking_rounded,
           title: '아직 주차 기록이 없어요',
@@ -519,10 +507,10 @@ class _AppShellState extends State<AppShell> {
     return Semantics(
       label: '현재 주차 위치 ${r.position}',
       child: Container(
-        padding: const EdgeInsets.all(28),
+        padding: const EdgeInsets.fromLTRB(22, 20, 22, 20),
         decoration: BoxDecoration(
-          color: Palette.green,
-          borderRadius: BorderRadius.circular(26),
+          color: Palette.tint,
+          borderRadius: BorderRadius.circular(22),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -530,18 +518,19 @@ class _AppShellState extends State<AppShell> {
             Row(
               children: [
                 const Icon(
-                  Icons.location_on_outlined,
-                  color: Palette.lime,
-                  size: 18,
+                  Icons.check_circle_rounded,
+                  color: Palette.ink,
+                  size: 17,
                 ),
                 const SizedBox(width: 7),
-                const Expanded(
+                Expanded(
                   child: Text(
                     '마지막 주차 위치',
                     style: TextStyle(
-                      color: Palette.lime,
+                      color: Palette.ink.withValues(alpha: .72),
                       fontSize: 13,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: .2,
                     ),
                   ),
                 ),
@@ -549,18 +538,27 @@ class _AppShellState extends State<AppShell> {
                   const SizedBox(
                     width: 14,
                     height: 14,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 1.5,
-                      color: Palette.lime,
+                    child: CircularProgressIndicator(strokeWidth: 1.5),
+                  )
+                else
+                  Flexible(
+                    child: Text(
+                      v.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Palette.ink.withValues(alpha: .6),
+                        fontSize: 12.5,
+                      ),
                     ),
                   ),
               ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 18),
             Wrap(
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 24,
-              runSpacing: 16,
+              crossAxisAlignment: WrapCrossAlignment.end,
+              spacing: 22,
+              runSpacing: 10,
               children: [
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -568,97 +566,105 @@ class _AppShellState extends State<AppShell> {
                     Text(
                       r.floor,
                       style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 72,
-                        fontWeight: FontWeight.w700,
-                        height: 1.05,
-                        letterSpacing: -3,
+                        color: Palette.ink,
+                        fontSize: 76,
+                        fontWeight: FontWeight.w600,
+                        height: 1,
+                        letterSpacing: -3.5,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 6),
                     Text(
                       r.floor.startsWith('B')
                           ? '지하 ${r.floor.substring(1)}층'
                           : r.floor,
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: .68),
+                        color: Palette.ink.withValues(alpha: .62),
                         fontSize: 13,
                       ),
                     ),
                   ],
                 ),
-                Container(
-                  height: 60,
-                  width: 1,
-                  color: Colors.white.withValues(alpha: .18),
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${r.zone} 구역',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 29,
-                        fontWeight: FontWeight.w600,
-                        height: 1.3,
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${r.zone} 구역',
+                        style: const TextStyle(
+                          color: Palette.ink,
+                          fontSize: 30,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -1,
+                          height: 1.2,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      r.spot.isEmpty ? '번호 미입력' : '${r.spot}번 자리',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: .78),
-                        fontSize: 16,
+                      const SizedBox(height: 4),
+                      Text(
+                        r.spot.isEmpty ? '번호 미입력' : '${r.spot}번 자리',
+                        style: TextStyle(
+                          color: Palette.ink.withValues(alpha: .72),
+                          fontSize: 16,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ),
-            if (r.note.isNotEmpty) ...[
-              const SizedBox(height: 24),
-              Row(
+            const SizedBox(height: 18),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: .62),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(
-                    Icons.subdirectory_arrow_right_rounded,
-                    size: 18,
-                    color: Colors.white.withValues(alpha: .65),
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
+                  CircleAvatar(
+                    radius: 13,
+                    backgroundColor: Palette.ink,
                     child: Text(
-                      r.note,
+                      c.author(r.createdBy).characters.first,
                       style: const TextStyle(
+                        fontSize: 11,
                         color: Colors.white,
-                        fontSize: 13,
-                        height: 1.7,
+                        fontWeight: FontWeight.w700,
                       ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${c.author(r.createdBy)} 기록 · ${formatDate(r.createdAt)}',
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: Palette.ink,
+                          ),
+                        ),
+                        if (r.note.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 3),
+                            child: Text(
+                              r.note,
+                              style: TextStyle(
+                                color: Palette.ink.withValues(alpha: .78),
+                                fontSize: 13,
+                                height: 1.55,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ],
               ),
-            ],
-            const SizedBox(height: 24),
-            Divider(color: Colors.white.withValues(alpha: .17)),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 8,
-              runSpacing: 4,
-              children: [
-                Text(
-                  '${c.author(r.createdBy)} 기록',
-                  style: const TextStyle(color: Colors.white, fontSize: 12),
-                ),
-                Text(
-                  '· ${formatDate(r.createdAt)}',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: .65),
-                    fontSize: 12,
-                  ),
-                ),
-              ],
             ),
           ],
         ),
@@ -666,26 +672,149 @@ class _AppShellState extends State<AppShell> {
     );
   }
 
+  Widget _widgetBanner() => Surface(
+    padding: const EdgeInsets.fromLTRB(20, 18, 12, 14),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Padding(
+              padding: EdgeInsets.only(top: 2),
+              child: Icon(Icons.widgets_outlined, color: Palette.ink, size: 24),
+            ),
+            const SizedBox(width: 14),
+            const Expanded(
+              child: Padding(
+                padding: EdgeInsets.only(top: 4),
+                child: Text(
+                  '주차 위치, 홈 화면에서 바로. 위젯에서 층을 누르고 바로 등록할 수 있어요.',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    height: 1.5,
+                  ),
+                ),
+              ),
+            ),
+            IconButton(
+              onPressed: _hideBanner,
+              tooltip: '위젯 안내 닫기',
+              icon: const Icon(Icons.close_rounded, size: 20),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Padding(
+          padding: const EdgeInsets.only(left: 38),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              FilledButton(
+                onPressed: _widgetGuide,
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(48, 44),
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                ),
+                child: const Text('추가 방법 보기'),
+              ),
+              TextButton(
+                onPressed: _openWidgetSettings,
+                child: const Text('위젯 설정'),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _familyRow() => Surface(
+    padding: EdgeInsets.zero,
+    child: InkWell(
+      onTap: () => _navigate(2),
+      borderRadius: BorderRadius.circular(24),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 14, 16),
+        child: Row(
+          children: [
+            SizedBox(
+              height: 32,
+              width: 32.0 + 20.0 * (c.members.take(3).length - 1).clamp(0, 2),
+              child: Stack(
+                children: [
+                  for (final (i, m) in c.members.take(3).indexed)
+                    Positioned(
+                      left: i * 20,
+                      child: Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: i.isEven ? Palette.tint : Palette.lime,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          m.name.characters.first,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: Palette.ink,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                c.isDemo
+                    ? '가족과 함께 사용하는 모습을 둘러보세요'
+                    : '${c.members.length}명이 함께 위치를 확인하고 있어요',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: Palette.muted,
+              size: 22,
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+
   Widget _recordRow(ParkingRecord r, {bool last = false}) => Column(
     children: [
       Padding(
-        padding: const EdgeInsets.symmetric(vertical: 17),
+        padding: const EdgeInsets.symmetric(vertical: 15),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Container(
-              width: 44,
-              height: 44,
+              width: 46,
+              height: 46,
               alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: Palette.soft,
-                borderRadius: BorderRadius.circular(12),
+              decoration: const BoxDecoration(
+                color: Palette.canvas,
+                shape: BoxShape.circle,
               ),
               child: Text(
                 r.floor,
                 style: const TextStyle(
                   fontWeight: FontWeight.w700,
-                  fontSize: 16,
+                  fontSize: 15,
+                  letterSpacing: -.5,
                 ),
               ),
             ),
@@ -696,20 +825,23 @@ class _AppShellState extends State<AppShell> {
                 children: [
                   Text(
                     '${r.zone}구역${r.spot.isEmpty ? '' : ' · ${r.spot}번'}',
-                    style: const TextStyle(fontWeight: FontWeight.w600),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                    ),
                   ),
                   const SizedBox(height: 3),
                   Text(
                     '${c.author(r.createdBy)} · ${formatDate(r.createdAt)}',
-                    style: const TextStyle(color: Palette.muted, fontSize: 11),
+                    style: const TextStyle(color: Palette.muted, fontSize: 12),
                   ),
                   if (_tab == 1 && r.note.isNotEmpty)
                     Padding(
-                      padding: const EdgeInsets.only(top: 7),
+                      padding: const EdgeInsets.only(top: 6),
                       child: Text(
                         r.note,
                         style: const TextStyle(
-                          fontSize: 12,
+                          fontSize: 12.5,
                           color: Palette.muted,
                         ),
                       ),
@@ -720,17 +852,20 @@ class _AppShellState extends State<AppShell> {
             if (r.id == c.latest?.id)
               Container(
                 margin: const EdgeInsets.only(left: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-                decoration: BoxDecoration(
-                  color: Palette.soft,
-                  borderRadius: BorderRadius.circular(7),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
+                decoration: const ShapeDecoration(
+                  color: Palette.lime,
+                  shape: StadiumBorder(),
                 ),
                 child: const Text(
                   '최근',
                   style: TextStyle(
-                    color: Palette.green,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
+                    color: Palette.ink,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
@@ -740,6 +875,7 @@ class _AppShellState extends State<AppShell> {
       if (!last) const Divider(),
     ],
   );
+
   Widget _history() {
     final results = c.records
         .where(
@@ -752,28 +888,29 @@ class _AppShellState extends State<AppShell> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('쌓여 가는 주차 기록', style: Theme.of(context).textTheme.headlineMedium),
-        const SizedBox(height: 8),
         Text(
           '${c.vehicle!.name}의 최근 200개 기록을 확인해요.',
           style: const TextStyle(color: Palette.muted),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 18),
         TextField(
           decoration: const InputDecoration(
+            fillColor: Colors.white,
             hintText: '층수, 구역, 번호 또는 메모 검색',
-            prefixIcon: Icon(Icons.search_rounded),
+            prefixIcon: Icon(Icons.search_rounded, color: Palette.muted),
           ),
           onChanged: (value) => setState(() => _search = value),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 20),
         if (results.isEmpty)
-          EmptyState(
-            icon: Icons.history_rounded,
-            title: _search.isEmpty ? '아직 기록이 없어요' : '검색한 기록이 없어요',
-            description: _search.isEmpty
-                ? '주차 위치를 기록하면 이곳에 차례로 쌓여요.'
-                : '다른 층수나 구역으로 검색해 보세요.',
+          Surface(
+            child: EmptyState(
+              icon: Icons.history_rounded,
+              title: _search.isEmpty ? '아직 기록이 없어요' : '검색한 기록이 없어요',
+              description: _search.isEmpty
+                  ? '주차 위치를 기록하면 이곳에 차례로 쌓여요.'
+                  : '다른 층수나 구역으로 검색해 보세요.',
+            ),
           )
         else
           Surface(

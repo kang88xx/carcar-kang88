@@ -31,7 +31,7 @@ class _LauncherIconSettingState extends State<LauncherIconSetting> {
                 width: 76,
                 height: 76,
                 decoration: BoxDecoration(
-                  color: Palette.green,
+                  color: Palette.ink,
                   borderRadius: BorderRadius.circular(19),
                 ),
                 alignment: Alignment.center,
@@ -86,21 +86,23 @@ class _LauncherIconSettingState extends State<LauncherIconSetting> {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      ListTile(
-        contentPadding: EdgeInsets.zero,
-        leading: const Icon(Icons.apps_rounded, color: Palette.green),
-        title: const Text('주차 층수 앱 아이콘'),
-        subtitle: Text(
-          widget.controller.iconWarning ?? '저장한 층수에 맞춰 자동으로 바뀌어요.',
-        ),
-        trailing: const Icon(Icons.chevron_right_rounded),
+      ActionRow(
+        icon: Icons.apps_rounded,
+        title: '주차 층수 앱 아이콘',
+        subtitle: widget.controller.iconWarning ?? '저장한 층수에 맞춰 자동으로 바뀌어요.',
         onTap: _details,
       ),
       if (widget.controller.iconWarning != null)
-        TextButton.icon(
-          onPressed: _busy ? null : _retry,
-          icon: const Icon(Icons.refresh_rounded),
-          label: const Text('아이콘 다시 맞추기'),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: _busy ? null : _retry,
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('아이콘 다시 맞추기'),
+            ),
+          ),
         ),
     ],
   );

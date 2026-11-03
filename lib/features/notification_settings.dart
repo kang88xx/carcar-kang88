@@ -21,19 +21,29 @@ class NotificationSettings extends StatelessWidget {
     final c = controller;
     if (c == null || isDemo || !c.supported) {
       return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const SectionTitle('알림과 차량 찾기'),
-          SwitchListTile.adaptive(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('가족 주차 알림'),
-            subtitle: Text(
-              isDemo
-                  ? '실제 계정으로 로그인한 휴대폰에서 설정할 수 있어요.'
-                  : 'Android·iPhone 앱에서 설정할 수 있어요.',
+          const GroupLabel('알림과 차량 찾기'),
+          Surface(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: SwitchListTile.adaptive(
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 18,
+                vertical: 4,
+              ),
+              title: const Text(
+                '가족 주차 알림',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+              ),
+              subtitle: Text(
+                isDemo
+                    ? '실제 계정으로 로그인한 휴대폰에서 설정할 수 있어요.'
+                    : 'Android·iPhone 앱에서 설정할 수 있어요.',
+                style: const TextStyle(fontSize: 12.5, color: Palette.muted),
+              ),
+              value: false,
+              onChanged: null,
             ),
-            value: false,
-            onChanged: null,
           ),
         ],
       );
@@ -46,132 +56,151 @@ class NotificationSettings extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const SectionTitle('알림과 차량 찾기'),
-            const Text(
-              '현재 계정의 이 기기에만 적용돼요.',
-              style: TextStyle(fontSize: 12, color: Palette.muted),
-            ),
-            const SizedBox(height: 12),
-            if (c.loading) const LinearProgressIndicator(),
-            if (c.error != null)
-              StatusNotice(
-                c.error!,
-                error: true,
-                onRetry: c.busy ? null : c.refresh,
-              ),
-            if (c.warning != null) StatusNotice(c.warning!),
-            SwitchListTile.adaptive(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('가족 주차 알림'),
-              subtitle: Text(
-                !c.deliveryAvailable
-                    ? '가족 알림 서비스가 준비 중이에요. 준비되면 이 기기에서 켤 수 있어요.'
-                    : settings.pushEnabled
-                    ? c.canReceive
-                          ? '가족이 주차하면 이 기기로 알려드려요.'
-                          : '서버에 설정했지만 기기의 알림 수신을 확인하지 못했어요.'
-                    : '허용하면 기기의 알림 권한을 확인해요.',
-                style: const TextStyle(fontSize: 12, color: Palette.muted),
-              ),
-              value: settings.pushEnabled,
-              onChanged:
-                  enabled && (c.deliveryAvailable || settings.pushEnabled)
-                  ? (value) =>
-                        _save(context, c, settings.copyWith(pushEnabled: value))
-                  : null,
-            ),
-            SwitchListTile.adaptive(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('내가 남긴 기록도 알림 받기'),
-              subtitle: const Text(
-                '끄면 다른 가족의 기록만 알려드려요.',
-                style: TextStyle(fontSize: 12, color: Palette.muted),
-              ),
-              value: settings.notifyOwn,
-              onChanged: enabled && settings.pushEnabled
-                  ? (value) =>
-                        _save(context, c, settings.copyWith(notifyOwn: value))
-                  : null,
-            ),
-            SwitchListTile.adaptive(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('알림 쉬는 시간'),
-              subtitle: Text(
-                settings.quietEnabled
-                    ? '${settings.quietStart} ~ ${settings.quietEnd} · ${settings.timezone}'
-                    : '설정한 시간에는 가족 알림을 보내지 않아요.',
-                style: const TextStyle(fontSize: 12, color: Palette.muted),
-              ),
-              value: settings.quietEnabled,
-              onChanged: enabled
-                  ? (value) async {
-                      if (value) {
-                        await _quietHours(context, c);
-                      } else {
-                        await _save(
-                          context,
-                          c,
-                          settings.copyWith(clearQuietHours: true),
-                        );
-                      }
-                    }
-                  : null,
-            ),
-            if (settings.quietEnabled)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton(
-                  onPressed: enabled ? () => _quietHours(context, c) : null,
-                  child: const Text('시간·시간대 바꾸기'),
-                ),
-              ),
-            const Divider(),
-            SwitchListTile.adaptive(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('차량 찾기 표시 사용'),
-              subtitle: const Text(
-                '직접 시작할 때 잠금 화면이나 알림에 위치를 표시해요. 가족 알림과는 별개예요.',
-                style: TextStyle(fontSize: 12, color: Palette.muted),
-              ),
-              value: settings.liveEnabled,
-              onChanged: enabled
-                  ? (value) => _save(
-                      context,
-                      c,
-                      settings.copyWith(liveEnabled: value),
-                      stopFinding: !value,
-                    )
-                  : null,
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              '차량 찾기 기본 시간',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [60, 120, 240, 480]
-                  .map(
-                    (minutes) => ChoiceChip(
-                      label: Text('${minutes ~/ 60}시간'),
-                      selected: settings.preferredLiveMinutes == minutes,
-                      onSelected: enabled
-                          ? (_) => _save(
-                              context,
-                              c,
-                              settings.copyWith(preferredLiveMinutes: minutes),
-                            )
-                          : null,
+            const GroupLabel('알림과 차량 찾기 · 현재 계정의 이 기기에만 적용'),
+            Surface(
+              padding: const EdgeInsets.fromLTRB(18, 10, 18, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (c.loading) const LinearProgressIndicator(),
+                  if (c.error != null)
+                    StatusNotice(
+                      c.error!,
+                      error: true,
+                      onRetry: c.busy ? null : c.refresh,
                     ),
-                  )
-                  .toList(),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              '표시 여부와 종료 시점은 기기 설정과 OS 정책에 따라 달라질 수 있어요.',
-              style: TextStyle(fontSize: 12, color: Palette.muted),
+                  if (c.warning != null) StatusNotice(c.warning!),
+                  SwitchListTile.adaptive(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('가족 주차 알림'),
+                    subtitle: Text(
+                      !c.deliveryAvailable
+                          ? '가족 알림 서비스가 준비 중이에요. 준비되면 이 기기에서 켤 수 있어요.'
+                          : settings.pushEnabled
+                          ? c.canReceive
+                                ? '가족이 주차하면 이 기기로 알려드려요.'
+                                : '서버에 설정했지만 기기의 알림 수신을 확인하지 못했어요.'
+                          : '허용하면 기기의 알림 권한을 확인해요.',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Palette.muted,
+                      ),
+                    ),
+                    value: settings.pushEnabled,
+                    onChanged:
+                        enabled && (c.deliveryAvailable || settings.pushEnabled)
+                        ? (value) => _save(
+                            context,
+                            c,
+                            settings.copyWith(pushEnabled: value),
+                          )
+                        : null,
+                  ),
+                  SwitchListTile.adaptive(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('내가 남긴 기록도 알림 받기'),
+                    subtitle: const Text(
+                      '끄면 다른 가족의 기록만 알려드려요.',
+                      style: TextStyle(fontSize: 12, color: Palette.muted),
+                    ),
+                    value: settings.notifyOwn,
+                    onChanged: enabled && settings.pushEnabled
+                        ? (value) => _save(
+                            context,
+                            c,
+                            settings.copyWith(notifyOwn: value),
+                          )
+                        : null,
+                  ),
+                  SwitchListTile.adaptive(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('알림 쉬는 시간'),
+                    subtitle: Text(
+                      settings.quietEnabled
+                          ? '${settings.quietStart} ~ ${settings.quietEnd} · ${settings.timezone}'
+                          : '설정한 시간에는 가족 알림을 보내지 않아요.',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Palette.muted,
+                      ),
+                    ),
+                    value: settings.quietEnabled,
+                    onChanged: enabled
+                        ? (value) async {
+                            if (value) {
+                              await _quietHours(context, c);
+                            } else {
+                              await _save(
+                                context,
+                                c,
+                                settings.copyWith(clearQuietHours: true),
+                              );
+                            }
+                          }
+                        : null,
+                  ),
+                  if (settings.quietEnabled)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton(
+                        onPressed: enabled
+                            ? () => _quietHours(context, c)
+                            : null,
+                        child: const Text('시간·시간대 바꾸기'),
+                      ),
+                    ),
+                  const Divider(),
+                  SwitchListTile.adaptive(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('차량 찾기 표시 사용'),
+                    subtitle: const Text(
+                      '직접 시작할 때 잠금 화면이나 알림에 위치를 표시해요. 가족 알림과는 별개예요.',
+                      style: TextStyle(fontSize: 12, color: Palette.muted),
+                    ),
+                    value: settings.liveEnabled,
+                    onChanged: enabled
+                        ? (value) => _save(
+                            context,
+                            c,
+                            settings.copyWith(liveEnabled: value),
+                            stopFinding: !value,
+                          )
+                        : null,
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    '차량 찾기 기본 시간',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [60, 120, 240, 480]
+                        .map(
+                          (minutes) => ChoiceChip(
+                            label: Text('${minutes ~/ 60}시간'),
+                            selected: settings.preferredLiveMinutes == minutes,
+                            onSelected: enabled
+                                ? (_) => _save(
+                                    context,
+                                    c,
+                                    settings.copyWith(
+                                      preferredLiveMinutes: minutes,
+                                    ),
+                                  )
+                                : null,
+                          ),
+                        )
+                        .toList(),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    '표시 여부와 종료 시점은 기기 설정과 OS 정책에 따라 달라질 수 있어요.',
+                    style: TextStyle(fontSize: 12, color: Palette.muted),
+                  ),
+                ],
+              ),
             ),
           ],
         );

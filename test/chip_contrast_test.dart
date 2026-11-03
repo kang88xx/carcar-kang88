@@ -38,7 +38,8 @@ void main() {
           .text
           .style!;
       final foreground = selected.color!.computeLuminance();
-      final background = Palette.green.computeLuminance();
+      final background = buildTheme().chipTheme.selectedColor!
+          .computeLuminance();
       final ratio =
           (foreground > background ? foreground + .05 : background + .05) /
           (foreground > background ? background + .05 : foreground + .05);

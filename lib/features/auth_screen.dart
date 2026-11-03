@@ -102,51 +102,60 @@ class _AuthScreenState extends State<AuthScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Brand(large: true),
-        const SizedBox(height: 42),
+        const SizedBox(height: 36),
         Text(
           '우리 차,\n어디에 주차했더라?',
           style: Theme.of(context).textTheme.headlineLarge?.copyWith(
             fontSize: constraints.maxWidth < 312 ? 28 : 36,
-            height: 1.35,
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 14),
         const Text(
           '한 번 기록하면, 온 가족이 알아요.\n복잡한 지하 주차장에서도 헤매지 않도록.',
-          style: TextStyle(color: Palette.muted, fontSize: 16, height: 1.8),
+          style: TextStyle(color: Palette.muted, fontSize: 16, height: 1.7),
         ),
-        const SizedBox(height: 28),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-          decoration: BoxDecoration(
-            color: Palette.soft,
-            borderRadius: BorderRadius.circular(18),
-          ),
-          child: const Row(
+        const SizedBox(height: 26),
+        Surface(
+          color: Palette.tint,
+          padding: const EdgeInsets.fromLTRB(22, 18, 22, 18),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Icon(
-                Icons.directions_car_filled_outlined,
-                color: Palette.green,
-                size: 32,
+              const Text(
+                'B2',
+                style: TextStyle(
+                  fontSize: 52,
+                  fontWeight: FontWeight.w600,
+                  height: 1,
+                  letterSpacing: -2.5,
+                  color: Palette.ink,
+                ),
               ),
-              SizedBox(width: 18),
-              Flexible(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'B2 · C구역 · 24번',
-                      style: TextStyle(
-                        fontSize: 19,
-                        fontWeight: FontWeight.w700,
+              const SizedBox(width: 18),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'C 구역 · 24번',
+                        style: TextStyle(
+                          fontSize: 19,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -.5,
+                        ),
                       ),
-                    ),
-                    SizedBox(height: 3),
-                    Text(
-                      '이렇게 간단하게 기억해요.',
-                      style: TextStyle(color: Palette.muted, fontSize: 12),
-                    ),
-                  ],
+                      const SizedBox(height: 3),
+                      Text(
+                        '이렇게 간단하게 기억해요.',
+                        style: TextStyle(
+                          color: Palette.ink.withValues(alpha: .62),
+                          fontSize: 12.5,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -156,6 +165,8 @@ class _AuthScreenState extends State<AuthScreen> {
     ),
   );
   Widget _formPanel() => Surface(
+    padding: const EdgeInsets.all(24),
+    radius: 28,
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -170,7 +181,7 @@ class _AuthScreenState extends State<AuthScreen> {
               : 'Google로 시작하고, 차량을 등록하거나 가족의 초대를 받아요.',
           style: const TextStyle(color: Palette.muted, height: 1.6),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 22),
         if (widget.startupError != null)
           StatusNotice(widget.startupError!, error: true),
         if (widget.startupNotice != null) StatusNotice(widget.startupNotice!),
@@ -191,19 +202,16 @@ class _AuthScreenState extends State<AuthScreen> {
                     height: 20,
                   ),
             label: const Text('Google로 계속하기'),
-            style: OutlinedButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: Palette.ink,
-            ),
+            style: OutlinedButton.styleFrom(minimumSize: const Size(48, 56)),
           ),
           const SizedBox(height: 12),
           const Text(
             '별도의 차자리 비밀번호나 인증 문자는 필요 없어요.',
             style: TextStyle(fontSize: 12, color: Palette.muted, height: 1.6),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           const Divider(),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
         ],
         widget.client == null
             ? BusyButton(
@@ -215,7 +223,7 @@ class _AuthScreenState extends State<AuthScreen> {
                 onPressed: _busy ? null : widget.onDemo,
                 child: const Text('가입 없이 먼저 둘러보기'),
               ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
         const Text(
           '체험 기록은 이 기기에만 저장돼요.\n실제 가족 공유는 Google 로그인 후 사용할 수 있어요.',
           textAlign: TextAlign.center,

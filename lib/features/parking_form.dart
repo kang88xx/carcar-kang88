@@ -161,156 +161,137 @@ class _ParkingFormState extends State<ParkingForm> {
   @override
   Widget build(BuildContext context) {
     final vehicle = widget.controller.vehicle;
+    final locked = _busy || _scanning;
     return PopScope(
       canPop: !_busy && !_scanning && !_dirty,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _close();
       },
-      child: Dialog(
-        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 540),
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              mainAxisSize: MainAxisSize.min,
+      child: SheetDialog(
+        title: '어디에 주차했나요?',
+        subtitle: vehicle?.name ?? '주차 기록',
+        closeTooltip: '기록 창 닫기',
+        onClose: locked ? null : _close,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        '어디에 주차했나요?',
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: _busy || _scanning ? null : _close,
-                      tooltip: '기록 창 닫기',
-                      icon: const Icon(Icons.close_rounded),
-                    ),
-                  ],
-                ),
-                Text(
-                  vehicle?.name ?? '주차 기록',
-                  style: const TextStyle(color: Palette.muted),
-                ),
-                const SizedBox(height: 24),
-                OutlinedButton.icon(
-                  onPressed: _busy || _scanning ? null : _capture,
-                  icon: _scanning
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.photo_camera_outlined),
-                  label: Text(
-                    _scanning ? '사진에서 글자를 읽고 있어요' : '표지판 촬영으로 빠르게 입력',
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: locked ? null : _capture,
+                    icon: _scanning
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.photo_camera_outlined, size: 20),
+                    label: Text(_scanning ? '글자를 읽고 있어요' : '표지판 촬영'),
                   ),
                 ),
-                if (NativeBridge.supportsOcr)
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: _busy || _scanning
-                          ? null
-                          : () => _capture(gallery: true),
-                      child: const Text('앨범에서 선택'),
-                    ),
+                if (NativeBridge.supportsOcr) ...[
+                  const SizedBox(width: 8),
+                  OutlinedButton.icon(
+                    onPressed: locked ? null : () => _capture(gallery: true),
+                    icon: const Icon(Icons.photo_library_outlined, size: 20),
+                    label: const Text('앨범'),
                   ),
-                const SizedBox(height: 20),
-                if (_ocrNotice != null) StatusNotice(_ocrNotice!),
-                _choices(
-                  '층수',
-                  vehicle?.floors ?? [],
-                  _floor,
-                  (value) => setState(() {
-                    _floor = value;
-                    _error = null;
-                    _dirty = true;
-                  }),
-                ),
-                const SizedBox(height: 24),
-                _choices(
-                  '구역',
-                  vehicle?.zones ?? [],
-                  _zone,
-                  (value) => setState(() {
-                    _zone = value;
-                    _error = null;
-                    _dirty = true;
-                  }),
-                ),
-                const SizedBox(height: 24),
-                TextField(
-                  controller: _spot,
-                  maxLength: 20,
-                  enabled: !_busy && !_scanning,
-                  decoration: const InputDecoration(
-                    labelText: '주차 번호 (선택)',
-                    hintText: '예: 24',
-                  ),
-                  onChanged: (_) => setState(() {
-                    _dirty = true;
-                    _error = null;
-                  }),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _note,
-                  maxLength: 500,
-                  enabled: !_busy && !_scanning,
-                  minLines: 2,
-                  maxLines: 3,
-                  decoration: const InputDecoration(
-                    labelText: '가족에게 남길 메모 (선택)',
-                    hintText: '예: 엘리베이터 입구 옆',
-                  ),
-                  onChanged: (_) => setState(() {
-                    _dirty = true;
-                    _error = null;
-                  }),
-                ),
-                const SizedBox(height: 10),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Palette.soft,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Text(
-                    _floor != null && _zone != null
-                        ? '$_floor · $_zone구역${_spot.text.trim().isEmpty ? '' : ' · ${_spot.text.trim()}번'}'
-                        : '층수와 구역을 선택해 주세요.',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                if (_error != null) StatusNotice(_error!, error: true),
-                BusyButton(
-                  label: widget.controller.isDemo
-                      ? '이 위치로 체험 기록 저장'
-                      : '이 위치로 주차 기록 저장',
-                  busy: _busy,
-                  onPressed: _scanning ? null : _save,
-                  icon: Icons.check_rounded,
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  widget.controller.isDemo
-                      ? '체험 데이터는 이 기기에만 저장돼요.'
-                      : '저장이 완료되면 가족과 같은 위치를 확인할 수 있어요.',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
+                ],
               ],
             ),
-          ),
+            const SizedBox(height: 22),
+            if (_ocrNotice != null) StatusNotice(_ocrNotice!),
+            _choices(
+              '층수',
+              vehicle?.floors ?? [],
+              _floor,
+              (value) => setState(() {
+                _floor = value;
+                _error = null;
+                _dirty = true;
+              }),
+            ),
+            const SizedBox(height: 22),
+            _choices(
+              '구역',
+              vehicle?.zones ?? [],
+              _zone,
+              (value) => setState(() {
+                _zone = value;
+                _error = null;
+                _dirty = true;
+              }),
+            ),
+            const SizedBox(height: 22),
+            TextField(
+              controller: _spot,
+              maxLength: 20,
+              enabled: !locked,
+              decoration: const InputDecoration(
+                labelText: '주차 번호 (선택)',
+                hintText: '예: 24',
+              ),
+              onChanged: (_) => setState(() {
+                _dirty = true;
+                _error = null;
+              }),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _note,
+              maxLength: 500,
+              enabled: !locked,
+              minLines: 2,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: '가족에게 남길 메모 (선택)',
+                hintText: '예: 엘리베이터 입구 옆',
+              ),
+              onChanged: (_) => setState(() {
+                _dirty = true;
+                _error = null;
+              }),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+              decoration: BoxDecoration(
+                color: Palette.tint,
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Text(
+                _floor != null && _zone != null
+                    ? '$_floor · $_zone구역${_spot.text.trim().isEmpty ? '' : ' · ${_spot.text.trim()}번'}'
+                    : '층수와 구역을 선택해 주세요.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 19,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -.4,
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            if (_error != null) StatusNotice(_error!, error: true),
+            BusyButton(
+              label: widget.controller.isDemo
+                  ? '이 위치로 체험 기록 저장'
+                  : '이 위치로 주차 기록 저장',
+              busy: _busy,
+              onPressed: _scanning ? null : _save,
+              icon: Icons.check_rounded,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              widget.controller.isDemo
+                  ? '체험 데이터는 이 기기에만 저장돼요.'
+                  : '저장이 완료되면 가족과 같은 위치를 확인할 수 있어요.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
         ),
       ),
     );
@@ -327,8 +308,8 @@ class _ParkingFormState extends State<ParkingForm> {
       Text(label, style: Theme.of(context).textTheme.titleMedium),
       const SizedBox(height: 10),
       Wrap(
-        spacing: 10,
-        runSpacing: 10,
+        spacing: 8,
+        runSpacing: 8,
         children: options
             .map(
               (value) => ChoiceChip(

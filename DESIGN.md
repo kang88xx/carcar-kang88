@@ -4,7 +4,7 @@
 Active · 2026-11-02. Flutter Android/iOS and browser preview. Evidence: docs/PRD.md, ARCHITECTURE.md, DECISIONS.md, ROADMAP_AND_QA.md and the user's physical-iPhone lock-screen/Dynamic Island captures. Latest product direction: Google sign-in, one family vehicle per account, owner-issued invitation links/codes, and floor-number launcher icons.
 
 ## Brand
-차자리 · 가족과 함께 기억하는 우리 차의 자리. 앱 이름은 런처 라벨과 앱 안에서만 쓰고, 아이콘·위젯에는 적지 않는다. Calm, friendly, practical. Warm ivory, deep forest green and a small lime accent. Avoid noisy gradients, technical jargon, fake sync indicators and decorative statistics.
+차자리 · 가족과 함께 기억하는 우리 차의 자리. 앱 이름은 런처 라벨과 앱 안에서만 쓰고, 아이콘·위젯에는 적지 않는다. Calm, editorial, practical (2026-11-03 Future Pro 참고 재설계). Neutral canvas, borderless white cards, ink pill actions, one pastel periwinkle hero tint and a lime highlight. Avoid noisy gradients, technical jargon, fake sync indicators and decorative statistics.
 
 ## Product goals
 Find the current parking location immediately. Save with floor and zone taps plus explicit confirmation. Share only through authorized membership. No automatic location inference or paid OCR.
@@ -19,16 +19,16 @@ Welcome/Google sign-in → register one new vehicle or join the owner's invitati
 Location first; one primary action per screen; explicit server confirmation; plain language for errors; distinguish local demo from connected account at all times.
 
 ## Visual language
-Canvas #F7F8F4; ink #203C34; brand #295C49; accent #DCEBB4; white cards; subdued borders #E4E9E1. 8px spacing rhythm, 20–28px card radii. System Korean font fallback. Material outlined icons. No external image or font request required. Motion 180–250ms respecting reduced motion.
+Canvas #F3F3F1; ink #17201C (text and primary pill buttons); green #2F6B52 only for toggles and confirmations; muted #6C726E; hairline #E8E9E5; lime #D9F27C for the selected tab and 최근 badge; periwinkle tint #DCE3F2 for the hero location card, shared-vehicle card and form summary; soft #E9EAE6 for secondary pills and chips. Cards are white with no border, 24–28px radius; every button and chip is a full pill. Headlines are large, medium-weight (w500) sans with tight tracking, like a time-of-day greeting; section titles 20px w600; small muted group labels sit on the canvas above grouped cards. NotoSansKR everywhere, including button and chip text. Material rounded icons. No external image or font request required. Motion 180–250ms respecting reduced motion.
 
 ## Components
-App theme owns colors. Location card, section heading, primary action, choice chip, empty state, status banner, member avatar, settings tile. Consistent busy/error/disabled states. Widget guide uses the existing pale green surface with a clear guide and settings action. Home widgets use the deep ink surface with white location text, floor chips (up to 12, selected chip in lime), a zone cycle control and a lime 등록 button; no app name or title row. Live Activity is a compact two-line location row with a visible 44pt end control; ending it preserves parking data. Compact Dynamic Island groups car and floor together on the leading side. Launcher variants show only the floor label F1–F5 or B1–B6, replacing user-facing color selection.
+App theme owns colors. Greeting header with round refresh and avatar controls; floating pill tab bar (NavigationBar in a white stadium, lime indicator) that stays above snackbars; hero group (tinted location card with 76px floor, zone and spot, author/time row, then a translucent quick-action strip of circular icons: 사진으로 · 차량 찾기 · 이력 보기 · 위젯); full-width ink pill primary action; dismissable white info banner with an ink pill CTA; white record list rows with circular floor badges; group label + grouped white card rows with chevrons (ActionRow) for settings; sheet dialog (Dialog pinned to the bottom with a grabber on phones, centered card on wide screens) for parking, vehicle and apartment forms; AlertDialog for confirmations. Consistent busy/error/disabled states. Home widgets use the deep ink surface with white location text, floor chips (up to 12, selected chip in lime), a zone cycle control and a lime 등록 button; no app name or title row. Live Activity is a compact two-line location row with a visible 44pt end control; ending it preserves parking data. Compact Dynamic Island groups car and floor together on the leading side. Launcher variants show only the floor label F1–F5 or B1–B6, replacing user-facing color selection.
 
 ## Accessibility
 Target WCAG AA. Minimum 48 logical-pixel hit targets, semantic labels on icon controls, visible keyboard focus, form labels and validation, scrollable forms, no color-only status. Allow text scaling and reduced motion.
 
 ## Responsive behavior
-Mobile bottom navigation below 760px; desktop left navigation and bounded 1040px content. Dialogs max 560px; forms scroll with keyboard. Support 320px phones and large text.
+Mobile floating pill navigation below 760px; desktop white sidebar card and bounded 1056px content. Dialogs max 560px; forms scroll with keyboard. Support 320px phones and large text.
 
 ## Interaction states
 Explicit loading and retry; first-car empty state; no-record state; no-history search result; server error preserves draft; no save success before acknowledgment; camera rejection falls back to manual entry. Demo records persist locally under a separate key. Logout clears native snapshots.

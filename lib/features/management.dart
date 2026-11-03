@@ -116,69 +116,38 @@ class _EntryDialogState extends State<_EntryDialog> {
   @override
   Widget build(BuildContext context) => PopScope(
     canPop: !_busy,
-    child: Dialog(
-      insetPadding: const EdgeInsets.all(20),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 500),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Form(
-            key: _form,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        widget.title,
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: _busy ? null : () => Navigator.pop(context),
-                      tooltip: '닫기',
-                      icon: const Icon(Icons.close_rounded),
-                    ),
-                  ],
-                ),
-                if (widget.description != null) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    widget.description!,
-                    style: const TextStyle(color: Palette.muted),
+    child: SheetDialog(
+      title: widget.title,
+      subtitle: widget.description,
+      onClose: _busy ? null : () => Navigator.pop(context),
+      maxWidth: 500,
+      child: Form(
+        key: _form,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (_error != null) StatusNotice(_error!, error: true),
+            ...List.generate(
+              widget.fields.length,
+              (i) => Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: TextFormField(
+                  controller: _controllers[i],
+                  enabled: !_busy,
+                  maxLength: widget.maxLengths[i],
+                  decoration: InputDecoration(
+                    labelText: widget.fields[i],
+                    hintText: widget.hints[i],
                   ),
-                ],
-                const SizedBox(height: 24),
-                if (_error != null) StatusNotice(_error!, error: true),
-                ...List.generate(
-                  widget.fields.length,
-                  (i) => Padding(
-                    padding: const EdgeInsets.only(bottom: 18),
-                    child: TextFormField(
-                      controller: _controllers[i],
-                      enabled: !_busy,
-                      maxLength: widget.maxLengths[i],
-                      decoration: InputDecoration(
-                        labelText: widget.fields[i],
-                        hintText: widget.hints[i],
-                      ),
-                      validator: (value) =>
-                          value == null || value.trim().isEmpty
-                          ? '${widget.fields[i]}을(를) 입력해 주세요.'
-                          : null,
-                    ),
-                  ),
+                  validator: (value) => value == null || value.trim().isEmpty
+                      ? '${widget.fields[i]}을(를) 입력해 주세요.'
+                      : null,
                 ),
-                BusyButton(
-                  label: widget.button,
-                  onPressed: _submit,
-                  busy: _busy,
-                ),
-              ],
+              ),
             ),
-          ),
+            BusyButton(label: widget.button, onPressed: _submit, busy: _busy),
+          ],
         ),
       ),
     ),
@@ -286,68 +255,86 @@ class _FamilyScreenState extends State<FamilyScreen> {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      Text('우리 가족, 같은 자리', style: Theme.of(context).textTheme.headlineMedium),
-      const SizedBox(height: 8),
       const Text(
         '초대한 가족만 우리 차의 위치를 볼 수 있어요.',
         style: TextStyle(color: Palette.muted),
       ),
-      const SizedBox(height: 28),
+      const SizedBox(height: 24),
+      const GroupLabel('공유 중인 차량'),
       Surface(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        color: Palette.tint,
+        padding: const EdgeInsets.fromLTRB(22, 20, 22, 20),
+        child: Row(
           children: [
-            const SectionTitle('공유 중인 차량'),
-            Row(
-              children: [
-                Icon(
-                  Icons.directions_car_filled_outlined,
-                  size: 46,
-                  color: Palette.green,
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        c.vehicle!.name,
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                      Text(
-                        c.vehicle!.plate,
-                        style: const TextStyle(color: Palette.muted),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+            Container(
+              width: 54,
+              height: 54,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.directions_car_filled_outlined,
+                size: 28,
+                color: Palette.ink,
+              ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    c.vehicle!.name,
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${c.vehicle!.plate} · ${c.vehicle!.apartment}',
+                    style: TextStyle(
+                      color: Palette.ink.withValues(alpha: .65),
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
       const SizedBox(height: 24),
+      GroupLabel('함께하는 가족 ${c.members.length}명'),
       Surface(
+        padding: const EdgeInsets.symmetric(vertical: 6),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            SectionTitle('함께하는 가족 ${c.members.length}명'),
-            ...c.members.map(
-              (member) => ListTile(
-                contentPadding: EdgeInsets.zero,
+            for (final (i, member) in c.members.indexed) ...[
+              if (i > 0)
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 18),
+                  child: Divider(),
+                ),
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 2,
+                ),
                 leading: CircleAvatar(
-                  backgroundColor: Palette.soft,
+                  backgroundColor: i.isEven ? Palette.tint : Palette.lime,
                   child: Text(
                     member.name.characters.first,
-                    style: const TextStyle(color: Palette.green),
+                    style: const TextStyle(
+                      color: Palette.ink,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
                 title: Text(
                   '${member.name}${member.id == c.repository.userId ? ' (나)' : ''}',
                   style: const TextStyle(
                     fontWeight: FontWeight.w600,
-                    fontSize: 14,
+                    fontSize: 15,
                   ),
                 ),
                 subtitle: Text(
@@ -382,34 +369,34 @@ class _FamilyScreenState extends State<FamilyScreen> {
                       )
                     : null,
               ),
-            ),
-            const SizedBox(height: 18),
-            if (c.isOwner)
-              BusyButton(
-                label: c.isDemo ? '가족 초대 안내' : '가족 초대 코드 만들기',
-                icon: Icons.person_add_alt_1_outlined,
-                onPressed: _invite,
-                busy: _busy,
-              )
-            else
-              OutlinedButton(
-                onPressed: _busy
-                    ? null
-                    : () async {
-                        if (await confirmAction(
-                          context,
-                          title: '가족 차량에서 나갈까요?',
-                          message: '다시 참여하려면 새로운 초대가 필요해요.',
-                          action: '나가기',
-                        )) {
-                          await _run(() => c.repository.leave(c.vehicle!.id));
-                        }
-                      },
-                child: const Text('이 차량에서 나가기'),
-              ),
+            ],
           ],
         ),
       ),
+      const SizedBox(height: 16),
+      if (c.isOwner)
+        BusyButton(
+          label: c.isDemo ? '가족 초대 안내' : '가족 초대 코드 만들기',
+          icon: Icons.person_add_alt_1_outlined,
+          onPressed: _invite,
+          busy: _busy,
+        )
+      else
+        OutlinedButton(
+          onPressed: _busy
+              ? null
+              : () async {
+                  if (await confirmAction(
+                    context,
+                    title: '가족 차량에서 나갈까요?',
+                    message: '다시 참여하려면 새로운 초대가 필요해요.',
+                    action: '나가기',
+                  )) {
+                    await _run(() => c.repository.leave(c.vehicle!.id));
+                  }
+                },
+          child: const Text('이 차량에서 나가기'),
+        ),
       const SizedBox(height: 20),
     ],
   );
@@ -638,47 +625,50 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      Text('나에게 맞게 사용하기', style: Theme.of(context).textTheme.headlineMedium),
-      const SizedBox(height: 8),
       const Text('필요한 기능만 편안하게 설정하세요.', style: TextStyle(color: Palette.muted)),
-      const SizedBox(height: 28),
-      if (c.vehicle != null)
+      const SizedBox(height: 24),
+      if (c.vehicle != null) ...[
+        const GroupLabel('우리 주차장'),
         Surface(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.symmetric(vertical: 6),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SectionTitle('우리 주차장'),
-              _tile(
-                Icons.apartment_outlined,
-                c.vehicle!.apartment,
-                '층수 ${c.vehicle!.floors.join(' · ')}\n구역 ${c.vehicle!.zones.join(' · ')}',
-                c.isOwner ? _apartment : null,
+              ActionRow(
+                icon: Icons.apartment_outlined,
+                title: c.vehicle!.apartment,
+                subtitle:
+                    '층수 ${c.vehicle!.floors.join(' · ')}\n구역 ${c.vehicle!.zones.join(' · ')}',
+                onTap: c.isOwner ? _apartment : null,
               ),
               if (!c.isOwner)
-                const Text(
-                  '차량 소유자가 주차장 설정을 변경할 수 있어요.',
-                  style: TextStyle(fontSize: 12, color: Palette.muted),
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(18, 0, 18, 10),
+                  child: Text(
+                    '차량 소유자가 주차장 설정을 변경할 수 있어요.',
+                    style: TextStyle(fontSize: 12, color: Palette.muted),
+                  ),
                 ),
             ],
           ),
         ),
-      const SizedBox(height: 20),
+        const SizedBox(height: 22),
+      ],
+      const GroupLabel('이 기기에서 보기'),
       Surface(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.symmetric(vertical: 6),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const SectionTitle('이 기기에서 보기'),
             if (NativeBridge.supportsLauncherIcons) ...[
               LauncherIconSetting(controller: c),
-              const Divider(),
+              const _RowDivider(),
             ],
-            _tile(
-              Icons.near_me_outlined,
-              '차량 찾기 표시',
-              '원할 때 시작하고, 필요 없을 때 종료해요.',
-              c.latest == null
+            ActionRow(
+              icon: Icons.near_me_outlined,
+              title: '차량 찾기 표시',
+              subtitle: '원할 때 시작하고, 필요 없을 때 종료해요.',
+              onTap: c.latest == null
                   ? null
                   : () => openFinding(
                       context,
@@ -687,27 +677,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       notifications: widget.notifications,
                     ),
             ),
-            const Divider(),
+            const _RowDivider(),
             KeyedSubtree(
               key: widget.widgetSectionKey,
-              child: _tile(
-                Icons.widgets_outlined,
-                '홈 화면 위젯',
-                '마지막으로 확인한 주차 위치를 보여줘요.',
-                () => showWidgetGuide(context, showSettingsAction: false),
+              child: ActionRow(
+                icon: Icons.widgets_outlined,
+                title: '홈 화면 위젯',
+                subtitle: '마지막으로 확인한 주차 위치를 보여줘요.',
+                onTap: () =>
+                    showWidgetGuide(context, showSettingsAction: false),
               ),
             ),
+            const _RowDivider(),
             SwitchListTile.adaptive(
-              contentPadding: EdgeInsets.zero,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 18,
+                vertical: 4,
+              ),
               title: const Text(
                 '위젯에서 바로 기록',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
               ),
               subtitle: Text(
                 c.isDemo
                     ? '실제 계정에서 사용할 수 있어요.'
                     : '이 기기에서 허용해요. 로그인 만료 시 앱을 다시 열어 주세요.',
-                style: const TextStyle(fontSize: 12, color: Palette.muted),
+                style: const TextStyle(fontSize: 12.5, color: Palette.muted),
               ),
               value: c.widgetQuickSaveEnabled,
               onChanged:
@@ -740,26 +735,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ],
         ),
       ),
-      const SizedBox(height: 20),
+      const SizedBox(height: 22),
+      NotificationSettings(controller: widget.notifications, isDemo: c.isDemo),
+      const SizedBox(height: 22),
+      const GroupLabel('개인정보와 계정'),
       Surface(
-        padding: const EdgeInsets.all(20),
-        child: NotificationSettings(
-          controller: widget.notifications,
-          isDemo: c.isDemo,
-        ),
-      ),
-      const SizedBox(height: 20),
-      Surface(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.symmetric(vertical: 6),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const SectionTitle('개인정보와 계정'),
-            _tile(
-              Icons.person_outline_rounded,
-              '내 이름',
-              '가족과 주차 기록에 표시할 이름을 바꿔요.',
-              _busy
+            ActionRow(
+              icon: Icons.person_outline_rounded,
+              title: '내 이름',
+              subtitle: '가족과 주차 기록에 표시할 이름을 바꿔요.',
+              onTap: _busy
                   ? null
                   : () async {
                       final changed = await openProfileEditor(
@@ -769,19 +758,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       if (changed && mounted) await c.refresh();
                     },
             ),
-            const Divider(),
-            _tile(
-              Icons.shield_outlined,
-              '개인정보 처리 안내',
-              '사진은 기기에서만 읽고 업로드하지 않아요.',
-              () => _info('개인정보 처리 안내', _privacy),
+            const _RowDivider(),
+            ActionRow(
+              icon: Icons.shield_outlined,
+              title: '개인정보 처리 안내',
+              subtitle: '사진은 기기에서만 읽고 업로드하지 않아요.',
+              onTap: () => _info('개인정보 처리 안내', _privacy),
             ),
-            const Divider(),
-            _tile(
-              Icons.logout_rounded,
-              c.isDemo ? '체험 종료' : '로그아웃',
-              '이 기기의 위젯과 차량 찾기 표시도 지워져요.',
-              _busy
+            const _RowDivider(),
+            ActionRow(
+              icon: Icons.logout_rounded,
+              title: c.isDemo ? '체험 종료' : '로그아웃',
+              subtitle: '이 기기의 위젯과 차량 찾기 표시도 지워져요.',
+              onTap: _busy
                   ? null
                   : () async {
                       setState(() => _busy = true);
@@ -795,12 +784,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       }
                     },
             ),
-            const Divider(),
-            _tile(
-              Icons.delete_outline_rounded,
-              c.isDemo ? '체험 데이터 초기화' : '계정 삭제',
-              c.isDemo ? '기기에 저장한 체험 기록을 지워요.' : '내 계정과 소유한 차량 데이터를 삭제해요.',
-              _busy ? null : _delete,
+            const _RowDivider(),
+            ActionRow(
+              icon: Icons.delete_outline_rounded,
+              destructive: true,
+              title: c.isDemo ? '체험 데이터 초기화' : '계정 삭제',
+              subtitle: c.isDemo
+                  ? '기기에 저장한 체험 기록을 지워요.'
+                  : '내 계정과 소유한 차량 데이터를 삭제해요.',
+              onTap: _busy ? null : _delete,
             ),
           ],
         ),
@@ -812,34 +804,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         style: TextStyle(fontSize: 12, color: Palette.muted, height: 1.8),
       ),
     ],
-  );
-  Widget _tile(
-    IconData icon,
-    String title,
-    String subtitle,
-    VoidCallback? action,
-  ) => ListTile(
-    contentPadding: EdgeInsets.zero,
-    leading: Icon(icon, color: Palette.green, size: 23),
-    title: Text(
-      title,
-      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-    ),
-    subtitle: Padding(
-      padding: const EdgeInsets.only(top: 5),
-      child: Text(
-        subtitle,
-        style: const TextStyle(fontSize: 12, color: Palette.muted, height: 1.7),
-      ),
-    ),
-    trailing: action == null
-        ? null
-        : const Icon(
-            Icons.chevron_right_rounded,
-            size: 20,
-            color: Palette.muted,
-          ),
-    onTap: action,
   );
   void _info(String title, String text) => showDialog<void>(
     context: context,
@@ -854,6 +818,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       ],
     ),
+  );
+}
+
+class _RowDivider extends StatelessWidget {
+  const _RowDivider();
+  @override
+  Widget build(BuildContext context) => const Padding(
+    padding: EdgeInsets.symmetric(horizontal: 18),
+    child: Divider(),
   );
 }
 
