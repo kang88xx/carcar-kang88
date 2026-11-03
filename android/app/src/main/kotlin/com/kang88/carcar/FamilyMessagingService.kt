@@ -20,7 +20,7 @@ class FamilyMessagingService : FirebaseMessagingService() {
             val builder = if (Build.VERSION.SDK_INT >= 26) Notification.Builder(this, FamilyPushState.CHANNEL) else Notification.Builder(this)
             builder.setSmallIcon(R.drawable.ic_parking_notification)
                 .setContentTitle("새 주차 기록이 있어요")
-                .setContentText("차곡에서 가족의 최신 주차 위치를 확인해 주세요.")
+                .setContentText("차자리에서 가족의 최신 주차 위치를 확인해 주세요.")
                 .setContentIntent(open).setAutoCancel(true)
                 .setVisibility(Notification.VISIBILITY_PRIVATE)
                 .setOnlyAlertOnce(false)

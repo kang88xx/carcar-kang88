@@ -26,12 +26,26 @@ object WidgetActions {
         } else state.put("status", if (demo) "체험은 앱에서 기록해 주세요" else "앱을 열어 로그인 갱신")
         state
     }
+    /** Floor or zone choices the signed-in owner configured; empty without a live widget session. */
+    fun options(c: Context, field: String): List<String> = synchronized(WidgetSession) {
+        val values = WidgetSession.read(c)?.optJSONArray(field + "s") ?: return@synchronized emptyList()
+        (0 until values.length()).map { values.getString(it) }
+    }
+    /** Direct tap on a floor/zone chip. The value must be one of the configured options. */
+    fun select(c: Context, field: String, selected: String) = synchronized(WidgetSession) {
+        require(field == "floor" || field == "zone")
+        val value = display(c)
+        if (!value.optBoolean("enabled") || value.optBoolean("busy")) return@synchronized
+        if (selected !in options(c, field)) return@synchronized
+        value.put(field, selected).put("requestId", UUID.randomUUID().toString()).put("status", "등록을 누르면 서버에 저장돼요")
+        write(c, value)
+    }
     fun cycle(c: Context, field: String) = synchronized(WidgetSession) {
         val value = display(c)
         if (!value.optBoolean("enabled") || value.optBoolean("busy")) return@synchronized
         val values = WidgetSession.read(c)!!.getJSONArray(field + "s")
         val current = (0 until values.length()).firstOrNull { values.getString(it) == value.optString(field) } ?: 0
-        value.put(field, values.getString((current + 1) % values.length())).put("requestId", UUID.randomUUID().toString()).put("status", "선택 후 저장을 눌러 주세요")
+        value.put(field, values.getString((current + 1) % values.length())).put("requestId", UUID.randomUUID().toString()).put("status", "등록을 누르면 서버에 저장돼요")
         write(c, value)
     }
     fun save(c: Context) {

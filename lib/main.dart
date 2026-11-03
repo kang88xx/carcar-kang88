@@ -302,7 +302,7 @@ class _CarcarAppState extends State<CarcarApp> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) => MaterialApp(
     navigatorKey: _navigatorKey,
-    title: '차곡 · 우리 차의 자리',
+    title: '차자리 · 우리 차의 자리',
     debugShowCheckedModeBanner: false,
     theme: buildTheme(),
     locale: const Locale('ko'),

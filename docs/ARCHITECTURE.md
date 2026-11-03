@@ -6,7 +6,7 @@
 
 - `lib/main.dart`가 인증·복구 세션을 분기하고 계정 변경 시 컨트롤러와 네이티브 상태를 정리합니다. `core/repository.dart`는 실제 Supabase와 별도 로컬 체험 저장소의 공통 경계입니다. `core/app_controller.dart`가 연결된 차량 한 대·최신 기록·Realtime을 관리합니다. 계정 전환 시 이전 등록·참여 창을 닫고, 오래된 컨트롤러의 변경 요청을 차단합니다.
 - 화면은 `features/`의 파일 단위로 구성합니다. `device_notifications.dart`는 기기별 서버 설정·권한·토큰 등록을 관리합니다. `NativeBridge`가 OCR, 위젯, 차량 찾기, 알림, iOS·Android 층수 런처 아이콘을 연결합니다.
-- 인증·PostgreSQL·Realtime은 차곡 전용 Supabase Free 서울 프로젝트를 사용합니다. 차량·초대·주차 저장은 권한을 검사하는 SQL RPC이며 주차 이력과 최신 포인터를 같은 트랜잭션에서 확정합니다. 사진 Storage와 서버 OCR은 사용하지 않습니다.
+- 인증·PostgreSQL·Realtime은 차자리 전용 Supabase Free 서울 프로젝트를 사용합니다. 차량·초대·주차 저장은 권한을 검사하는 SQL RPC이며 주차 이력과 최신 포인터를 같은 트랜잭션에서 확정합니다. 사진 Storage와 서버 OCR은 사용하지 않습니다.
 - 알림 설정과 토큰은 `private` 스키마에 보관합니다. 주차 트랜잭션은 발송 작업만 추가하고, Vault 인증을 사용하는 매분 예약 작업이 필요한 경우에만 `parking-push` Edge Function을 호출합니다. worker는 발송 직전 권한·기기 설정을 재검사하고 APNs HTTP/2 또는 FCM data-only로 전송합니다. 전송 실패는 이미 저장된 주차 기록을 취소하지 않습니다. [푸시 구조와 배포](../supabase/deployment/PUSH.md).
 - 위젯은 짧은 수명의 사용자 access token만 플랫폼 보안 저장소에 보관합니다. refresh token과 서버 비밀키를 전달하지 않습니다. 서버 확인 전 성공 표시를 하지 않으며 계정·차량 전환 뒤 늦은 응답을 폐기합니다.
 - 로그인 진입은 Supabase Google OAuth이며 네이티브 복귀 주소는 `com.kang88.carcar://login-callback`입니다. 기존 비밀번호 복구 링크 처리는 호환 경로로 남아 있지만 새 가입 화면은 이메일/비밀번호를 받지 않습니다. Google 클라이언트 비밀키는 Supabase에만 둡니다. 실제 인증 플랫폼 설정 및 로그인 왕복 검증 여부는 릴리스 기록을 따릅니다.

@@ -2,7 +2,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <application
-        android:label="차곡"
+        android:label="차자리"
         android:allowBackup="false"
         android:fullBackupContent="false"
         android:name="${applicationName}"
@@ -50,7 +50,7 @@
         <!-- Keep MainActivity enabled for deep links and existing explicit intents. -->
         <activity-alias android:name=".LauncherDefault" android:targetActivity=".MainActivity"
             android:enabled="true" android:exported="true"
-            android:icon="@mipmap/ic_launcher" android:label="차곡">
+            android:icon="@mipmap/ic_launcher" android:label="차자리">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -58,7 +58,7 @@
         </activity-alias>
         <activity-alias android:name=".LauncherFloorF1" android:targetActivity=".MainActivity"
             android:enabled="false" android:exported="true"
-            android:icon="@mipmap/ic_launcher_floor_f1" android:label="차곡">
+            android:icon="@mipmap/ic_launcher_floor_f1" android:label="차자리">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -66,7 +66,7 @@
         </activity-alias>
         <activity-alias android:name=".LauncherFloorF2" android:targetActivity=".MainActivity"
             android:enabled="false" android:exported="true"
-            android:icon="@mipmap/ic_launcher_floor_f2" android:label="차곡">
+            android:icon="@mipmap/ic_launcher_floor_f2" android:label="차자리">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -74,7 +74,7 @@
         </activity-alias>
         <activity-alias android:name=".LauncherFloorF3" android:targetActivity=".MainActivity"
             android:enabled="false" android:exported="true"
-            android:icon="@mipmap/ic_launcher_floor_f3" android:label="차곡">
+            android:icon="@mipmap/ic_launcher_floor_f3" android:label="차자리">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -82,7 +82,7 @@
         </activity-alias>
         <activity-alias android:name=".LauncherFloorF4" android:targetActivity=".MainActivity"
             android:enabled="false" android:exported="true"
-            android:icon="@mipmap/ic_launcher_floor_f4" android:label="차곡">
+            android:icon="@mipmap/ic_launcher_floor_f4" android:label="차자리">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -90,7 +90,7 @@
         </activity-alias>
         <activity-alias android:name=".LauncherFloorF5" android:targetActivity=".MainActivity"
             android:enabled="false" android:exported="true"
-            android:icon="@mipmap/ic_launcher_floor_f5" android:label="차곡">
+            android:icon="@mipmap/ic_launcher_floor_f5" android:label="차자리">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -98,7 +98,7 @@
         </activity-alias>
         <activity-alias android:name=".LauncherFloorB1" android:targetActivity=".MainActivity"
             android:enabled="false" android:exported="true"
-            android:icon="@mipmap/ic_launcher_floor_b1" android:label="차곡">
+            android:icon="@mipmap/ic_launcher_floor_b1" android:label="차자리">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -106,7 +106,7 @@
         </activity-alias>
         <activity-alias android:name=".LauncherFloorB2" android:targetActivity=".MainActivity"
             android:enabled="false" android:exported="true"
-            android:icon="@mipmap/ic_launcher_floor_b2" android:label="차곡">
+            android:icon="@mipmap/ic_launcher_floor_b2" android:label="차자리">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -114,7 +114,7 @@
         </activity-alias>
         <activity-alias android:name=".LauncherFloorB3" android:targetActivity=".MainActivity"
             android:enabled="false" android:exported="true"
-            android:icon="@mipmap/ic_launcher_floor_b3" android:label="차곡">
+            android:icon="@mipmap/ic_launcher_floor_b3" android:label="차자리">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -122,7 +122,7 @@
         </activity-alias>
         <activity-alias android:name=".LauncherFloorB4" android:targetActivity=".MainActivity"
             android:enabled="false" android:exported="true"
-            android:icon="@mipmap/ic_launcher_floor_b4" android:label="차곡">
+            android:icon="@mipmap/ic_launcher_floor_b4" android:label="차자리">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -130,7 +130,7 @@
         </activity-alias>
         <activity-alias android:name=".LauncherFloorB5" android:targetActivity=".MainActivity"
             android:enabled="false" android:exported="true"
-            android:icon="@mipmap/ic_launcher_floor_b5" android:label="차곡">
+            android:icon="@mipmap/ic_launcher_floor_b5" android:label="차자리">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -138,7 +138,7 @@
         </activity-alias>
         <activity-alias android:name=".LauncherFloorB6" android:targetActivity=".MainActivity"
             android:enabled="false" android:exported="true"
-            android:icon="@mipmap/ic_launcher_floor_b6" android:label="차곡">
+            android:icon="@mipmap/ic_launcher_floor_b6" android:label="차자리">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

@@ -28,8 +28,8 @@ def centered(draw, text, font, center):
 def draw_icon(label, transparent=False):
     image = Image.new('RGBA' if transparent else 'RGB', (1024, 1024), (0, 0, 0, 0) if transparent else BACKGROUND)
     draw = ImageDraw.Draw(image)
-    centered(draw, label, ImageFont.truetype(str(FONT), 480), (512, 465))
-    centered(draw, '차곡', ImageFont.truetype(str(FONT), 92), (512, 745))
+    # Floor label only: the launcher shows the app name beneath the icon already.
+    centered(draw, label, ImageFont.truetype(str(FONT), 520), (512, 512))
     return image
 
 
@@ -40,8 +40,7 @@ def main():
             f'<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">'
             f'<rect width="1024" height="1024" fill="{BACKGROUND}"/>'
             f'<g fill="{FOREGROUND}" font-family="Noto Sans KR" font-weight="700" text-anchor="middle">'
-            f'<text x="512" y="465" dominant-baseline="central" font-size="480">{label}</text>'
-            '<text x="512" y="745" dominant-baseline="central" font-size="92">차곡</text></g></svg>\n'
+            f'<text x="512" y="512" dominant-baseline="central" font-size="520">{label}</text></g></svg>\n'
         )
         opaque = draw_icon(label)
         foreground = draw_icon(label, transparent=True)

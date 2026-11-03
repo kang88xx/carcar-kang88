@@ -101,6 +101,23 @@ enum WidgetSession {
         } else { value["status"] = demo ? "체험은 앱에서 기록해 주세요" : "앱을 열어 로그인 갱신" }
         return value
     }
+    /// Direct tap on a floor/zone chip; the value must be one of the owner's configured options.
+    static func select(_ field: String, _ selected: String) throws {
+        guard field == "floor" || field == "zone" else { throw Failure.invalid }
+        try locked {
+            var value = try display()
+            guard value["enabled"] as? Bool == true, value["busy"] as? Bool != true,
+                  let options = try read()?[field + "s"] as? [String], options.contains(selected) else { return }
+            value[field] = selected
+            value["requestId"] = UUID().uuidString
+            value["status"] = "등록을 누르면 서버에 저장돼요"
+            try write(value)
+        }
+    }
+    /// Options to render as chips; empty without a live widget session. Call while holding the lock.
+    static func options(_ field: String) -> [String] {
+        (try? read()?[field + "s"] as? [String]) ?? []
+    }
     static func cycle(_ field: String) throws {
         try locked {
             var value = try display()
@@ -109,7 +126,7 @@ enum WidgetSession {
             let index = options.firstIndex(of: value[field] as? String ?? "") ?? 0
             value[field] = options[(index + 1) % options.count]
             value["requestId"] = UUID().uuidString
-            value["status"] = "선택 후 저장을 눌러 주세요"
+            value["status"] = "등록을 누르면 서버에 저장돼요"
             try write(value)
         }
     }

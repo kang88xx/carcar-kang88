@@ -6,12 +6,15 @@ struct ParkingActionIntent: AppIntent {
     static var title: LocalizedStringResource = "주차 위치 기록"
     static var openAppWhenRun: Bool = false
     @Parameter(title: "동작") var action: String
+    /// Set for a direct chip tap; nil cycles to the next option.
+    @Parameter(title: "값") var value: String?
     init() { action = "save" }
-    init(_ action: String) { self.action = action }
+    init(_ action: String, value: String? = nil) { self.action = action; self.value = value }
     func perform() async throws -> some IntentResult {
         defer { WidgetCenter.shared.reloadAllTimelines() }
-        if ["floor", "zone"].contains(action) { try WidgetSession.cycle(action) }
-        else if action == "save" { try await save() }
+        if ["floor", "zone"].contains(action) {
+            if let value = value { try WidgetSession.select(action, value) } else { try WidgetSession.cycle(action) }
+        } else if action == "save" { try await save() }
         return .result()
     }
     private func save() async throws {

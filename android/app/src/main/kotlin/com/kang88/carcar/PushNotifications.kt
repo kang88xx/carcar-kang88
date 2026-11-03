@@ -96,12 +96,12 @@ class PushNotifications(private val activity: Activity) {
         handler.postDelayed(work, 25_000)
         FamilyPushState.createChannel(activity)
         if (Build.VERSION.SDK_INT >= 33 && activity.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-            if (!requestPermission) { fail("push_permission_required", "설정에서 차곡의 알림을 허용해 주세요."); return }
+            if (!requestPermission) { fail("push_permission_required", "설정에서 차자리의 알림을 허용해 주세요."); return }
             FamilyPushState.preferences(activity).edit().putBoolean("permissionRequested", true).apply()
             awaitingPermission = true
             activity.requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), PERMISSION_REQUEST)
         } else if (!FamilyPushState.permissionGranted(activity)) {
-            fail("push_permission_required", "설정에서 차곡의 가족 주차 알림을 허용해 주세요.")
+            fail("push_permission_required", "설정에서 차자리의 가족 주차 알림을 허용해 주세요.")
         } else requestToken(messaging, generation)
     }
 
@@ -110,7 +110,7 @@ class PushNotifications(private val activity: Activity) {
         val generation = attempt ?: return
         if (!FamilyPushState.gate.isCurrent(generation) || pending == null) return
         if (!granted || !FamilyPushState.permissionGranted(activity)) {
-            fail("push_permission_required", "설정에서 차곡의 알림을 허용해 주세요."); return
+            fail("push_permission_required", "설정에서 차자리의 알림을 허용해 주세요."); return
         }
         val messaging = FamilyPushState.messaging(activity)
         if (messaging == null) fail("push_unconfigured", "가족 알림 연결을 확인해 주세요.")
@@ -130,7 +130,7 @@ class PushNotifications(private val activity: Activity) {
             val token = if (task.isSuccessful) task.result else null
             if (token.isNullOrEmpty()) { fail("push_registration_failed", "알림 등록을 완료하지 못했어요. 연결 상태를 확인해 주세요."); return@addOnCompleteListener }
             if (!FamilyPushState.permissionGranted(activity)) {
-                fail("push_permission_required", "설정에서 차곡의 알림을 허용해 주세요."); return@addOnCompleteListener
+                fail("push_permission_required", "설정에서 차자리의 알림을 허용해 주세요."); return@addOnCompleteListener
             }
             if (!FamilyPushState.setEnabled(activity, true)) {
                 fail("push_storage_failed", "알림 설정을 저장하지 못했어요."); return@addOnCompleteListener

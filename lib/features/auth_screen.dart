@@ -53,7 +53,7 @@ class _AuthScreenState extends State<AuthScreen> {
       }
       if (mounted) {
         setState(
-          () => _notice = 'Google에서 로그인하면 차곡으로 돌아와요. 취소했다면 다시 시작할 수 있어요.',
+          () => _notice = 'Google에서 로그인하면 차자리로 돌아와요. 취소했다면 다시 시작할 수 있어요.',
         );
       }
     } on Object catch (error) {
@@ -160,7 +160,7 @@ class _AuthScreenState extends State<AuthScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          widget.client == null ? '차곡을 먼저 만나보세요' : '우리 가족의 차 한 대',
+          widget.client == null ? '차자리를 먼저 만나보세요' : '우리 가족의 차 한 대',
           style: Theme.of(context).textTheme.titleLarge,
         ),
         const SizedBox(height: 8),
@@ -198,7 +198,7 @@ class _AuthScreenState extends State<AuthScreen> {
           ),
           const SizedBox(height: 12),
           const Text(
-            '별도의 차곡 비밀번호나 인증 문자는 필요 없어요.',
+            '별도의 차자리 비밀번호나 인증 문자는 필요 없어요.',
             style: TextStyle(fontSize: 12, color: Palette.muted, height: 1.6),
           ),
           const SizedBox(height: 20),

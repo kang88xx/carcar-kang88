@@ -4,7 +4,7 @@
 Active · 2026-11-02. Flutter Android/iOS and browser preview. Evidence: docs/PRD.md, ARCHITECTURE.md, DECISIONS.md, ROADMAP_AND_QA.md and the user's physical-iPhone lock-screen/Dynamic Island captures. Latest product direction: Google sign-in, one family vehicle per account, owner-issued invitation links/codes, and floor-number launcher icons.
 
 ## Brand
-차곡 · 가족과 함께 기억하는 우리 차의 자리. Calm, friendly, practical. Warm ivory, deep forest green and a small lime accent. Avoid noisy gradients, technical jargon, fake sync indicators and decorative statistics.
+차자리 · 가족과 함께 기억하는 우리 차의 자리. 앱 이름은 런처 라벨과 앱 안에서만 쓰고, 아이콘·위젯에는 적지 않는다. Calm, friendly, practical. Warm ivory, deep forest green and a small lime accent. Avoid noisy gradients, technical jargon, fake sync indicators and decorative statistics.
 
 ## Product goals
 Find the current parking location immediately. Save with floor and zone taps plus explicit confirmation. Share only through authorized membership. No automatic location inference or paid OCR.
@@ -22,7 +22,7 @@ Location first; one primary action per screen; explicit server confirmation; pla
 Canvas #F7F8F4; ink #203C34; brand #295C49; accent #DCEBB4; white cards; subdued borders #E4E9E1. 8px spacing rhythm, 20–28px card radii. System Korean font fallback. Material outlined icons. No external image or font request required. Motion 180–250ms respecting reduced motion.
 
 ## Components
-App theme owns colors. Location card, section heading, primary action, choice chip, empty state, status banner, member avatar, settings tile. Consistent busy/error/disabled states. Widget guide uses the existing pale green surface with a clear guide and settings action. Live Activity is a compact two-line location row with a visible 44pt end control; ending it preserves parking data. Compact Dynamic Island groups car and floor together on the leading side. Launcher variants show F1–F5 or B1–B6, replacing user-facing color selection.
+App theme owns colors. Location card, section heading, primary action, choice chip, empty state, status banner, member avatar, settings tile. Consistent busy/error/disabled states. Widget guide uses the existing pale green surface with a clear guide and settings action. Home widgets use the deep ink surface with white location text, floor chips (up to 12, selected chip in lime), a zone cycle control and a lime 등록 button; no app name or title row. Live Activity is a compact two-line location row with a visible 44pt end control; ending it preserves parking data. Compact Dynamic Island groups car and floor together on the leading side. Launcher variants show only the floor label F1–F5 or B1–B6, replacing user-facing color selection.
 
 ## Accessibility
 Target WCAG AA. Minimum 48 logical-pixel hit targets, semantic labels on icon controls, visible keyboard focus, form labels and validation, scrollable forms, no color-only status. Allow text scaling and reduced motion.

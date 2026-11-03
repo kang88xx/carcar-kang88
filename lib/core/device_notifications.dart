@@ -217,7 +217,7 @@ class DeviceNotificationController extends ChangeNotifier {
           'push_permission_required',
           'push_permission_denied',
         ].contains(failure.code)) {
-      return '알림 권한이 꺼져 있어요. 기기 설정에서 차곡 알림을 허용해 주세요.';
+      return '알림 권한이 꺼져 있어요. 기기 설정에서 차자리 알림을 허용해 주세요.';
     }
     if (failure is PlatformException &&
         [
@@ -341,7 +341,7 @@ class DeviceNotificationController extends ChangeNotifier {
         } else if (!status.supported || !status.configured) {
           warning = '이 기기의 알림 서비스가 준비되지 않았어요. 가족 알림을 받을 수 없어요.';
         } else if (!status.granted) {
-          warning = '기기 설정에서 차곡 알림이 꺼져 있어요. 허용한 뒤 앱을 다시 열어 주세요.';
+          warning = '기기 설정에서 차자리 알림이 꺼져 있어요. 허용한 뒤 앱을 다시 열어 주세요.';
         } else {
           final registration = await _registration(
             generation,
@@ -495,9 +495,9 @@ class DeviceNotificationController extends ChangeNotifier {
         if (!serverRevoked) {
           error = localDisabled
               ? '기기 알림은 껐지만 서버 연결 해제를 확인하지 못했어요. 연결된 상태에서 다시 로그인해 알림을 해제해 주세요.'
-              : '서버와 기기 알림 연결 해제를 확인하지 못했어요. 기기 설정에서 차곡 알림을 끄고, 연결된 상태에서 다시 로그인해 알림을 해제해 주세요.';
+              : '서버와 기기 알림 연결 해제를 확인하지 못했어요. 기기 설정에서 차자리 알림을 끄고, 연결된 상태에서 다시 로그인해 알림을 해제해 주세요.';
         } else if (!localDisabled) {
-          error = '서버 알림은 해제했지만 기기 알림 정리를 확인하지 못했어요. 기기 설정에서 차곡 알림을 확인해 주세요.';
+          error = '서버 알림은 해제했지만 기기 알림 정리를 확인하지 못했어요. 기기 설정에서 차자리 알림을 확인해 주세요.';
         }
         saving = false;
         _notify();

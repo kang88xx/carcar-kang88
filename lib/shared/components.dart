@@ -23,7 +23,7 @@ class Brand extends StatelessWidget {
       ),
       const SizedBox(width: 10),
       Text(
-        '차곡',
+        '차자리',
         style: TextStyle(
           fontSize: large ? 30 : 23,
           fontWeight: FontWeight.w800,

@@ -162,7 +162,7 @@ export function createPushSender(env, fetcher = fetch, now = () => Date.now()) {
           },
           body: JSON.stringify({
             aps: {
-              alert: { title: "차곡", body: "가족의 주차 위치가 업데이트됐어요." },
+              alert: { title: "차자리", body: "가족의 주차 위치가 업데이트됐어요." },
               sound: "default",
               category: "carcar_family",
               "thread-id": delivery.vehicle_id,

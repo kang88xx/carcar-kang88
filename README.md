@@ -1,6 +1,8 @@
-# 차곡 · 우리 차의 자리
+# 차자리
 
 가족이 함께 쓰는 차량의 마지막 주차 위치를 기록하는 한국어 Flutter 앱입니다. Android·iOS 네이티브 프로젝트와 화면 확인용 웹 미리보기를 포함합니다.
+
+2026-11-03 앱 이름을 **차곡 → 차자리**로 확정하고 앱·위젯·웹·사이트 표시명에 반영했습니다. 패키지명·Bundle ID·App Group·딥링크 식별자는 호환성을 위해 유지합니다. 자세한 내용은 [결정 기록](docs/DECISIONS.md)을 참고하세요.
 
 소스 기준 저장소는 [kang88xx/carcar-kang88](https://github.com/kang88xx/carcar-kang88)입니다. TestFlight 서명과 배포는 기존 비공개 CI에서 실행하며 인증서·서버 비밀키·계정별 QA 기록은 공개 저장소에 포함하지 않습니다.
 
@@ -21,7 +23,7 @@ cp config/example.json config/local.json
 flutter run --dart-define-from-file=config/local.json
 ```
 
-서버 secret/service_role·APNs·FCM 서버 자격은 앱·위젯에 넣지 않습니다. `android/app/src/main/res/values/firebase.xml`은 차곡 앱의 공개 Firebase 클라이언트 설정이며 서버 인증 키가 아닙니다. 별도 앱으로 운영할 때에는 해당 앱의 Firebase 클라이언트 설정으로 교체하세요.
+서버 secret/service_role·APNs·FCM 서버 자격은 앱·위젯에 넣지 않습니다. `android/app/src/main/res/values/firebase.xml`은 차자리 앱의 공개 Firebase 클라이언트 설정이며 서버 인증 키가 아닙니다. 별도 앱으로 운영할 때에는 해당 앱의 Firebase 클라이언트 설정으로 교체하세요.
 
 ## 구현한 기능
 
@@ -30,10 +32,10 @@ flutter run --dart-define-from-file=config/local.json
 - 소유자/구성원 권한·초대 링크 또는 코드로 가족 참여·24시간 일회용 초대·구성원 제거와 탈퇴
 - 서버 확인 후 주차 저장·중복 요청 방지·검색 가능한 이력·Realtime
 - Android ML Kit·iOS Vision 사진 인식과 편집 가능한 후보; 원본 사진은 서버에 업로드하지 않음
-- 네이티브 위젯의 위치 표시·층과 구역 선택·서버 저장
+- 네이티브 위젯의 위치 표시·층 버튼 직접 선택·구역 선택·서버 등록(앱 이름 없는 고대비 위젯)
 - 기기별 가족 알림·야간 시간대·독립적인 차량 찾기 표시
 - 얇은 iOS Live Activity와 표시 종료 버튼·Dynamic Island의 자동차/층수 묶음
-- 주차 층수에 맞춘 앱 아이콘 11종(F1–F5, B1–B6)·홈 화면 위젯 추가 안내
+- 주차 층수만 표시하는 앱 아이콘 11종(F1–F5, B1–B6)·홈 화면 위젯 추가 안내
 
 ## 검증
 
@@ -64,7 +66,7 @@ bash scripts/preview.sh
 
 Android 개발용 APK는 `build/app/outputs/flutter-apk/app-debug.apk`에 생성됩니다. Play 출시용 서명키는 포함하지 않습니다. 웹 미리보기는 카메라·위젯·푸시의 실제 휴대폰 검증을 대신하지 않습니다.
 
-독립 iOS 서명 환경을 구성할 경우 수동 `Upload TestFlight build` workflow가 요구하는 환경 변수와 GitHub Secrets를 설정해야 합니다. 현재 차곡 배포에는 기존 비공개 CI를 사용합니다. 비밀키를 공개 workflow 파일에 직접 넣지 않습니다.
+독립 iOS 서명 환경을 구성할 경우 수동 `Upload TestFlight build` workflow가 요구하는 환경 변수와 GitHub Secrets를 설정해야 합니다. 현재 차자리 배포에는 기존 비공개 CI를 사용합니다. 비밀키를 공개 workflow 파일에 직접 넣지 않습니다.
 
 ## 설계와 서버
 

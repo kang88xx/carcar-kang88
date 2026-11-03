@@ -8,8 +8,8 @@ final class IconAlertWatcherTests: XCTestCase {
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
         let carcar = XCUIApplication(bundleIdentifier: "com.kang88.carcar")
         let messages = [
-            "You have changed the icon for “차곡”.",
-            "You have changed the icon for \"차곡\"."
+            "You have changed the icon for “차자리”.",
+            "You have changed the icon for \"차자리\"."
         ]
         var dismissed = 0
         let deadline = Date().addingTimeInterval(600)

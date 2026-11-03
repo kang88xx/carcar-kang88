@@ -63,11 +63,11 @@ final class PushNotifications {
             DispatchQueue.main.async {
               guard self.generation == attempt, self.pending != nil else { return }
               if allowed && error == nil { UIApplication.shared.registerForRemoteNotifications() }
-              else { self.finish(error: "push_permission_required", message: "설정에서 차곡의 알림을 허용해 주세요.") }
+              else { self.finish(error: "push_permission_required", message: "설정에서 차자리의 알림을 허용해 주세요.") }
             }
           }
         } else {
-          self.finish(error: "push_permission_required", message: "설정에서 차곡의 알림을 허용해 주세요.")
+          self.finish(error: "push_permission_required", message: "설정에서 차자리의 알림을 허용해 주세요.")
         }
       }
     }

@@ -410,7 +410,7 @@ class _AppShellState extends State<AppShell> {
                 style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
               ),
               subtitle: const Text(
-                '차곡 위젯을 추가하는 방법을 확인해 보세요.',
+                '위젯에서 층을 누르고 바로 등록할 수 있어요.',
                 style: TextStyle(fontSize: 12, height: 1.6),
               ),
               trailing: const Icon(Icons.chevron_right_rounded, size: 20),
@@ -752,7 +752,7 @@ class _AppShellState extends State<AppShell> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('차곡차곡 쌓인 기록', style: Theme.of(context).textTheme.headlineMedium),
+        Text('쌓여 가는 주차 기록', style: Theme.of(context).textTheme.headlineMedium),
         const SizedBox(height: 8),
         Text(
           '${c.vehicle!.name}의 최근 200개 기록을 확인해요.',
@@ -772,7 +772,7 @@ class _AppShellState extends State<AppShell> {
             icon: Icons.history_rounded,
             title: _search.isEmpty ? '아직 기록이 없어요' : '검색한 기록이 없어요',
             description: _search.isEmpty
-                ? '주차 위치를 기록하면 이곳에 차곡차곡 쌓여요.'
+                ? '주차 위치를 기록하면 이곳에 차례로 쌓여요.'
                 : '다른 층수나 구역으로 검색해 보세요.',
           )
         else

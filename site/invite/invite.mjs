@@ -31,7 +31,7 @@ export function mountInvite({ document, location, clipboard }) {
     try {
       if (!clipboard?.writeText) throw new Error('Clipboard unavailable');
       await clipboard.writeText(code);
-      status.textContent = '초대 코드를 복사했어요. 차곡 앱에서 입력해 주세요.';
+      status.textContent = '초대 코드를 복사했어요. 차자리 앱에서 입력해 주세요.';
     } catch {
       field.focus();
       field.select();

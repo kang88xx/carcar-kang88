@@ -7,11 +7,12 @@ private struct ParkingEntry: TimelineEntry {
     let snapshot: [String: String]
     let isDemo: Bool
     var draft: [String: Any] = [:]
+    var floors: [String] = []
 }
 
 private struct ParkingProvider: TimelineProvider {
     func placeholder(in context: Context) -> ParkingEntry {
-        ParkingEntry(date: Date(), snapshot: ["floor": "B2", "zone": "C", "spot": "24"], isDemo: true)
+        ParkingEntry(date: Date(), snapshot: ["floor": "B2", "zone": "C", "spot": "24"], isDemo: true, draft: ["enabled": true, "floor": "B2", "zone": "C"], floors: ["F3", "F2", "F1", "B1", "B2", "B3"])
     }
     func getSnapshot(in context: Context, completion: @escaping (ParkingEntry) -> Void) { completion(read()) }
     func getTimeline(in context: Context, completion: @escaping (Timeline<ParkingEntry>) -> Void) {
@@ -24,15 +25,23 @@ private struct ParkingProvider: TimelineProvider {
     }
     private func read() -> ParkingEntry {
         let raw = UserDefaults(suiteName: "group.com.kang88.carcar")?.dictionary(forKey: "parkingSnapshot") ?? [:]
-        return ParkingEntry(date: Date(), snapshot: raw.compactMapValues { $0 as? String }, isDemo: raw["isDemo"] as? Bool ?? false, draft: (try? WidgetSession.locked { try WidgetSession.display() }) ?? [:])
+        let (draft, floors): ([String: Any], [String]) = (try? WidgetSession.locked { (try WidgetSession.display(), WidgetSession.options("floor")) }) ?? ([:], [])
+        return ParkingEntry(date: Date(), snapshot: raw.compactMapValues { $0 as? String }, isDemo: raw["isDemo"] as? Bool ?? false, draft: draft, floors: floors)
     }
+}
+
+private enum WidgetPalette {
+    static let ink = Color(red: 0.11, green: 0.23, blue: 0.19)
+    static let lime = Color(red: 0.86, green: 0.92, blue: 0.71)
+    static let mist = Color(red: 0.75, green: 0.83, blue: 0.78)
+    static let chip = Color.white.opacity(0.14)
 }
 
 private struct ParkingWidgetView: View {
     let entry: ParkingEntry
     @Environment(\.widgetFamily) private var family
     private var recordTime: String {
-        guard let raw = entry.snapshot["updatedAt"], !raw.isEmpty else { return "기록 시각 확인 필요" }
+        guard let raw = entry.snapshot["updatedAt"], !raw.isEmpty else { return "앱에서 확인" }
         let parser = ISO8601DateFormatter()
         parser.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         var date = parser.date(from: raw)
@@ -40,32 +49,97 @@ private struct ParkingWidgetView: View {
             parser.formatOptions = [.withInternetDateTime]
             date = parser.date(from: raw)
         }
-        guard let date = date else { return "기록 시각 확인 필요" }
-        return "기록 \(date.formatted(date: .numeric, time: .shortened))"
+        guard let date = date else { return "앱에서 확인" }
+        let text = date.formatted(date: .numeric, time: .shortened)
+        return entry.isDemo ? "체험 · \(text)" : text
     }
+    private var location: String? {
+        guard let floor = entry.snapshot["floor"], !floor.isEmpty else { return nil }
+        return "\(floor) · \(entry.snapshot["zone"] ?? "") \(entry.snapshot["spot"] ?? "")".trimmingCharacters(in: .whitespaces)
+    }
+    private var enabled: Bool { entry.draft["enabled"] as? Bool == true }
+    private var interactive: Bool { enabled && entry.draft["busy"] as? Bool != true }
+    private var floors: [String] { enabled ? Array(entry.floors.prefix(12)) : [] }
+    private var large: Bool { family == .systemLarge }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Label(entry.isDemo ? "차곡 · 체험" : "차곡 · 마지막 주차", systemImage: "car.fill")
-                .font(.caption.bold()).foregroundStyle(Color(red: 0.26, green: 0.42, blue: 0.32))
-            if let floor = entry.snapshot["floor"], !floor.isEmpty {
-                Text("\(floor) · \(entry.snapshot["zone"] ?? "") \(entry.snapshot["spot"] ?? "")")
-                    .font(.system(size: 29, weight: .bold, design: .rounded)).minimumScaleFactor(0.6)
-                    .privacySensitive()
-            } else { Text("앱에서 주차 위치를\n확인해 주세요").font(.headline) }
-            Text(recordTime).font(.caption2).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.8)
-            Text(entry.draft["status"] as? String ?? "앱을 열어 최신 위치 확인 · 기록").font(.caption2).foregroundStyle(.secondary)
-            if family == .systemMedium {
-                HStack {
-                    Button(intent: ParkingActionIntent("floor")) { Text(entry.draft["floor"] as? String ?? "층") }.accessibilityLabel("다음 층 선택")
-                    Button(intent: ParkingActionIntent("zone")) { Text(entry.draft["zone"] as? String ?? "구역") }.accessibilityLabel("다음 구역 선택")
-                    Button(intent: ParkingActionIntent("save")) { Text(entry.draft["busy"] as? Bool == true ? "저장 중" : "저장") }
-                }.buttonStyle(.bordered).tint(Color(red: 0.26, green: 0.42, blue: 0.32))
-                    .disabled(entry.draft["enabled"] as? Bool != true || entry.draft["busy"] as? Bool == true)
+        VStack(alignment: .leading, spacing: large ? 6 : 3) {
+            // No app name: the location is the headline.
+            HStack(alignment: .lastTextBaseline, spacing: 8) {
+                if let location = location {
+                    Text(location)
+                        .font(.system(size: large ? 34 : (family == .systemSmall ? 30 : 26), weight: .bold, design: .rounded))
+                        .lineLimit(1).minimumScaleFactor(0.5)
+                        .privacySensitive()
+                } else {
+                    Text("주차 위치 없음").font(.system(.title3, design: .rounded, weight: .bold))
+                }
+                if family != .systemSmall {
+                    Spacer(minLength: 0)
+                    Text(recordTime).font(.caption2).foregroundStyle(WidgetPalette.mist).lineLimit(1).minimumScaleFactor(0.8)
+                }
+            }
+            if family == .systemSmall {
+                Text(recordTime).font(.caption2).foregroundStyle(WidgetPalette.mist).lineLimit(1).minimumScaleFactor(0.8)
+            }
+            Text(entry.draft["status"] as? String ?? "층을 누른 뒤 등록을 누르면 서버에 저장돼요")
+                .font(.caption2).foregroundStyle(WidgetPalette.mist).lineLimit(1).minimumScaleFactor(0.8)
+            if family != .systemSmall {
+                Spacer(minLength: 2)
+                controls
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .containerBackground(Color(red: 0.95, green: 0.96, blue: 0.93), for: .widget)
+        .foregroundStyle(.white)
+        .padding(.horizontal, large ? 16 : 12).padding(.vertical, large ? 16 : 8)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .containerBackground(WidgetPalette.ink, for: .widget)
         .widgetURL(URL(string: "carcar://home"))
+    }
+
+    private var controls: some View {
+        let chipHeight: CGFloat = large ? 44 : 26
+        let actionHeight: CGFloat = large ? 48 : 30
+        let rows = stride(from: 0, to: floors.count, by: 6).map { Array(floors[$0..<min($0 + 6, floors.count)]) }
+        return VStack(spacing: large ? 6 : 3) {
+            ForEach(Array(rows.enumerated()), id: \.offset) { item in
+                HStack(spacing: large ? 6 : 3) {
+                    ForEach(item.element, id: \.self) { floor in
+                        let selected = floor == entry.draft["floor"] as? String
+                        Button(intent: ParkingActionIntent("floor", value: floor)) {
+                            Text(floor)
+                                .font(.system(size: 14, weight: .bold, design: .rounded))
+                                .lineLimit(1).minimumScaleFactor(0.6)
+                                .frame(maxWidth: .infinity, minHeight: chipHeight, maxHeight: chipHeight)
+                                .background(selected ? WidgetPalette.lime : WidgetPalette.chip, in: RoundedRectangle(cornerRadius: 10))
+                                .foregroundStyle(selected ? WidgetPalette.ink : .white)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(selected ? "\(floor) 선택됨" : "\(floor) 선택")
+                    }
+                }
+            }
+            HStack(spacing: large ? 6 : 3) {
+                Button(intent: ParkingActionIntent("zone")) {
+                    Text(enabled ? "\(entry.draft["zone"] as? String ?? "") 구역" : "구역")
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .frame(maxWidth: .infinity, minHeight: actionHeight, maxHeight: actionHeight)
+                        .background(WidgetPalette.chip, in: RoundedRectangle(cornerRadius: 10))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("다음 구역 선택")
+                Button(intent: ParkingActionIntent("save")) {
+                    Text(entry.draft["busy"] as? Bool == true ? "저장 중…" : "등록")
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .frame(maxWidth: .infinity, minHeight: actionHeight, maxHeight: actionHeight)
+                        .background(WidgetPalette.lime, in: RoundedRectangle(cornerRadius: 12))
+                        .foregroundStyle(WidgetPalette.ink)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("선택한 층과 구역을 서버에 등록")
+            }
+        }
+        .disabled(!interactive)
+        .opacity(interactive ? 1 : 0.5)
     }
 }
 
@@ -73,9 +147,10 @@ struct ParkingHomeWidget: Widget {
     let kind = "ParkingHomeWidget"
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: ParkingProvider()) { ParkingWidgetView(entry: $0) }
-            .configurationDisplayName("차곡 · 마지막 주차")
-            .description("마지막으로 확인한 주차 위치를 보고 앱에서 새 기록을 남겨요.")
-            .supportedFamilies([.systemSmall, .systemMedium])
+            .configurationDisplayName("마지막 주차 위치")
+            .description("마지막 주차 위치를 보고 층을 눌러 바로 등록해요.")
+            .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
+            .contentMarginsDisabled()
     }
 }
 
