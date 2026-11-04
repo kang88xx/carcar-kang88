@@ -327,7 +327,9 @@ class _FamilyScreenState extends State<FamilyScreen> {
                     vertical: 2,
                   ),
                   leading: CircleAvatar(
-                    backgroundColor: i.isEven ? Palette.tint : Palette.lime,
+                    backgroundColor: i.isEven
+                        ? Palette.tint
+                        : Palette.highlight,
                     child: Text(
                       member.name.characters.first,
                       style: const TextStyle(

@@ -59,7 +59,7 @@ class ParkingWidget : AppWidgetProvider() {
                 val selected = floor == draft.optString("floor")
                 view.setTextViewText(slotId, floor)
                 view.setInt(slotId, "setBackgroundResource", if (selected) R.drawable.widget_chip_selected else R.drawable.widget_chip)
-                view.setTextColor(slotId, if (selected) 0xFF1B3A30.toInt() else 0xFFFFFFFF.toInt())
+                view.setTextColor(slotId, if (selected) 0xFF1E293B.toInt() else 0xFFFFFFFF.toInt())
                 view.setContentDescription(slotId, if (selected) "$floor 선택됨" else "$floor 선택")
                 view.setBoolean(slotId, "setEnabled", enabled)
                 view.setFloat(slotId, "setAlpha", if (enabled) 1f else 0.45f)

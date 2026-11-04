@@ -93,7 +93,7 @@ class _GuideStep extends StatelessWidget {
           height: 24,
           alignment: Alignment.center,
           decoration: const BoxDecoration(
-            color: Palette.lime,
+            color: Palette.highlight,
             shape: BoxShape.circle,
           ),
           child: Text(

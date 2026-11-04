@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
 
 /// Calm editorial palette: neutral canvas, borderless white cards, ink
-/// primary actions, a pastel tint for the hero card and a lime highlight.
+/// primary actions, a blue tint for the hero card and a pale blue highlight.
 /// Only Regular (400) and Bold (700) NotoSansKR ship, so styles use those two.
 abstract final class Palette {
-  static const canvas = Color(0xFFF3F3F1),
-      ink = Color(0xFF17201C),
-      green = Color(0xFF2F6B52),
-      muted = Color(0xFF5F655F),
-      line = Color(0xFFE8E9E5),
-      lime = Color(0xFFD9F27C),
-      soft = Color(0xFFE9EAE6),
-      tint = Color(0xFFDCE3F2),
-      tintDeep = Color(0xFFC7D2EC),
-      info = Color(0xFFE6EBF6),
+  static const canvas = Color(0xFFF5F7FA),
+      ink = Color(0xFF1E293B),
+      accent = Color(0xFF2563EB),
+      muted = Color(0xFF526176),
+      line = Color(0xFFE2E8F0),
+      highlight = Color(0xFFDBEAFE),
+      soft = Color(0xFFEEF2F6),
+      tint = Color(0xFFE8EFFB),
+      tintDeep = Color(0xFFCBDCF8),
+      info = Color(0xFFEFF6FF),
       rose = Color(0xFFFFEDE7),
       roseInk = Color(0xFF95452D);
 }
@@ -30,7 +30,7 @@ const _font = 'NotoSansKR';
 
 ThemeData buildTheme() {
   final scheme = ColorScheme.fromSeed(
-    seedColor: Palette.green,
+    seedColor: Palette.accent,
     brightness: Brightness.light,
     primary: Palette.ink,
     surface: Colors.white,
@@ -174,7 +174,7 @@ ThemeData buildTheme() {
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: Colors.white,
       surfaceTintColor: Colors.transparent,
-      indicatorColor: Palette.lime,
+      indicatorColor: Palette.highlight,
       indicatorShape: _pill,
       height: 72,
       iconTheme: const WidgetStatePropertyAll(
@@ -199,7 +199,7 @@ ThemeData buildTheme() {
       ),
       trackColor: WidgetStateProperty.resolveWith(
         (states) => states.contains(WidgetState.selected)
-            ? Palette.green
+            ? Palette.accent
             : Palette.soft,
       ),
       trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),

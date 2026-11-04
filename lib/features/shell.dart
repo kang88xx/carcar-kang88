@@ -257,7 +257,7 @@ class _AppShellState extends State<AppShell> {
             child: ListTile(
               shape: const StadiumBorder(),
               selected: _tab == i,
-              selectedTileColor: Palette.lime,
+              selectedTileColor: Palette.highlight,
               selectedColor: Palette.ink,
               leading: Icon(_icons[i]),
               title: Text(
@@ -751,7 +751,7 @@ class _AppShellState extends State<AppShell> {
                         width: 32,
                         height: 32,
                         decoration: BoxDecoration(
-                          color: i.isEven ? Palette.tint : Palette.lime,
+                          color: i.isEven ? Palette.tint : Palette.highlight,
                           shape: BoxShape.circle,
                           border: Border.all(color: Colors.white, width: 2),
                         ),
@@ -867,7 +867,7 @@ class _AppShellState extends State<AppShell> {
                   vertical: 5,
                 ),
                 decoration: const ShapeDecoration(
-                  color: Palette.lime,
+                  color: Palette.highlight,
                   shape: StadiumBorder(),
                 ),
                 child: const Text(

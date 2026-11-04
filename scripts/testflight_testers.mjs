@@ -1,4 +1,4 @@
-// Keep the Chagok internal TestFlight group ready for every upload.
+// Keep the 차자리 internal TestFlight group ready for every upload.
 // Read-only by default; ENSURE=true adds the build to the internal group,
 // turns on automatic distribution for future builds and resends pending
 // invitations for the required testers. Secrets never reach the output.

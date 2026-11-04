@@ -17,7 +17,7 @@ class Brand extends StatelessWidget {
         ),
         child: Icon(
           Icons.local_parking_rounded,
-          color: Palette.lime,
+          color: Palette.highlight,
           size: large ? 34 : 24,
         ),
       ),

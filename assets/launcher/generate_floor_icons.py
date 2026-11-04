@@ -12,8 +12,8 @@ FONT = ROOT / 'assets/fonts/NotoSansKR-Bold.ttf'
 CATALOG = ROOT / 'ios/Runner/Assets.xcassets'
 ANDROID = ROOT / 'android/app/src/main/res'
 FLOORS = [f'F{i}' for i in range(1, 6)] + [f'B{i}' for i in range(1, 7)]
-BACKGROUND = '#295C49'
-FOREGROUND = '#F7F8F4'
+BACKGROUND = '#2563EB'
+FOREGROUND = '#FFFFFF'
 IOS_CONTENTS = json.loads((CATALOG / 'AppIcon.appiconset/Contents.json').read_text())
 DENSITIES = {'mdpi': (48, 108), 'hdpi': (72, 162), 'xhdpi': (96, 216), 'xxhdpi': (144, 324), 'xxxhdpi': (192, 432)}
 
@@ -40,13 +40,13 @@ def main():
             f'<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">'
             f'<rect width="1024" height="1024" fill="{BACKGROUND}"/>'
             f'<g fill="{FOREGROUND}" font-family="Noto Sans KR" font-weight="700" text-anchor="middle">'
-            f'<text x="512" y="512" dominant-baseline="central" font-size="520">{label}</text></g></svg>\n'
+            f'<text x="512" y="512" dominant-baseline="central" font-size="520">{label}</text></g></svg>\n', newline='\n'
         )
         opaque = draw_icon(label)
         foreground = draw_icon(label, transparent=True)
         folder = CATALOG / f'AppIconFloor{label}.appiconset'
         folder.mkdir(exist_ok=True)
-        (folder / 'Contents.json').write_text(json.dumps(IOS_CONTENTS, indent=2) + '\n')
+        (folder / 'Contents.json').write_text(json.dumps(IOS_CONTENTS, indent=2) + '\n', newline='\n')
         for item in IOS_CONTENTS['images']:
             size = round(float(item['size'].split('x')[0]) * int(item['scale'][:-1]))
             opaque.resize((size, size), Image.Resampling.LANCZOS).save(folder / item['filename'])
@@ -63,7 +63,7 @@ def main():
                 '<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">\n'
                 '    <background android:drawable="@color/launcher_background" />\n'
                 f'    <foreground android:drawable="@mipmap/ic_launcher_{identifier}_foreground" />\n'
-                f'{monochrome}</adaptive-icon>\n'
+                f'{monochrome}</adaptive-icon>\n', newline='\n'
             )
     print(f'Generated {len(FLOORS)} floor icons for iPhone, iPad and Android, including adaptive/themed layers.')
 

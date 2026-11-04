@@ -31,9 +31,9 @@ private struct ParkingProvider: TimelineProvider {
 }
 
 private enum WidgetPalette {
-    static let ink = Color(red: 0.11, green: 0.23, blue: 0.19)
-    static let lime = Color(red: 0.86, green: 0.92, blue: 0.71)
-    static let mist = Color(red: 0.75, green: 0.83, blue: 0.78)
+    static let ink = Color(red: 30 / 255, green: 41 / 255, blue: 59 / 255)
+    static let highlight = Color(red: 219 / 255, green: 234 / 255, blue: 254 / 255)
+    static let mist = Color(red: 203 / 255, green: 213 / 255, blue: 225 / 255)
     static let chip = Color.white.opacity(0.14)
 }
 
@@ -110,7 +110,7 @@ private struct ParkingWidgetView: View {
                                 .font(.system(size: 14, weight: .bold, design: .rounded))
                                 .lineLimit(1).minimumScaleFactor(0.6)
                                 .frame(maxWidth: .infinity, minHeight: chipHeight, maxHeight: chipHeight)
-                                .background(selected ? WidgetPalette.lime : WidgetPalette.chip, in: RoundedRectangle(cornerRadius: 10))
+                                .background(selected ? WidgetPalette.highlight : WidgetPalette.chip, in: RoundedRectangle(cornerRadius: 10))
                                 .foregroundStyle(selected ? WidgetPalette.ink : .white)
                         }
                         .buttonStyle(.plain)
@@ -131,7 +131,7 @@ private struct ParkingWidgetView: View {
                     Text(entry.draft["busy"] as? Bool == true ? "저장 중…" : "등록")
                         .font(.system(size: 15, weight: .bold, design: .rounded))
                         .frame(maxWidth: .infinity, minHeight: actionHeight, maxHeight: actionHeight)
-                        .background(WidgetPalette.lime, in: RoundedRectangle(cornerRadius: 12))
+                        .background(WidgetPalette.highlight, in: RoundedRectangle(cornerRadius: 12))
                         .foregroundStyle(WidgetPalette.ink)
                 }
                 .buttonStyle(.plain)
@@ -155,7 +155,7 @@ struct ParkingHomeWidget: Widget {
 }
 
 struct ParkingLiveWidget: Widget {
-    private let ink = Color(red: 0.13, green: 0.24, blue: 0.20)
+    private let ink = WidgetPalette.ink
 
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: ParkingAttributes.self) { context in
@@ -185,7 +185,7 @@ struct ParkingLiveWidget: Widget {
             }
                 .padding(.horizontal, 16).padding(.vertical, 10)
                 .foregroundStyle(ink)
-                .activityBackgroundTint(Color(red: 0.95, green: 0.96, blue: 0.93))
+                .activityBackgroundTint(Color(red: 245 / 255, green: 247 / 255, blue: 250 / 255))
                 .activitySystemActionForegroundColor(ink)
                 .widgetURL(URL(string: "carcar://home"))
         } dynamicIsland: { context in
