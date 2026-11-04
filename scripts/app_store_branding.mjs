@@ -8,10 +8,15 @@ import {pathToFileURL} from 'node:url';
 const origin = 'https://api.appstoreconnect.apple.com';
 const appId = '6829616379';
 const bundleId = 'com.kang88.carcar';
-const appName = '차자리';
+const appName = '차자리 - 가족 주차 기록';
+const currentNames = new Set(['차자리', appName]);
 const groupName = '차자리 내부 테스트';
 const oldNames = new Set(['차곡', '차곡 - 가족 주차 기록']);
 const idPattern = /^[A-Za-z0-9-]+$/;
+const diagnosticCodes = new Set(['ENTITY_ERROR', 'ENTITY_ERROR.ATTRIBUTE.INVALID',
+  'ENTITY_ERROR.ATTRIBUTE.INVALID.DUPLICATE', 'ENTITY_ERROR.ATTRIBUTE.REQUIRED',
+  'STATE_ERROR', 'FORBIDDEN_ERROR', 'NOT_FOUND', 'PARAMETER_ERROR.INVALID',
+  'PARAMETER_ERROR.INVALID.VALUE', 'UNAUTHORIZED_ACCESS']);
 export class BrandingError extends Error {}
 const requireValue = (condition, message) => { if (!condition) throw new BrandingError(message); };
 
@@ -27,6 +32,22 @@ function resource(data, type, id) {
   requireValue(data?.type === type && typeof data.id === 'string' && idPattern.test(data.id)
     && (!id || data.id === id) && data.attributes && typeof data.attributes === 'object', 'Unexpected Apple resource identity or attributes.');
   return data;
+}
+
+async function apiDiagnostic(response) {
+  let errors = [];
+  try {
+    const body = await response.json();
+    if (Array.isArray(body?.errors)) errors = body.errors.slice(0, 10);
+  } catch { /* An absent or non-JSON error body supplies no diagnostic. */ }
+  const codes = [...new Set(errors.map(item => item?.code).filter(code => diagnosticCodes.has(code)))];
+  // Inspect provider text only to choose a fixed category; never emit the text.
+  const detail = errors.flatMap(item => [item?.title, item?.detail])
+    .filter(value => typeof value === 'string').map(value => value.slice(0, 8192)).join(' ').toLowerCase();
+  let reason = 'API_REJECTED';
+  if (/\bname\b/.test(detail) && /already (?:being )?used|already in use|not available|unavailable|trademark|duplicate/.test(detail)) reason = 'NAME_UNAVAILABLE';
+  else if (codes.includes('STATE_ERROR') || /not editable|cannot be (?:edited|modified)|cannot (?:edit|modify)|not allowed.*(?:state|review)|(?:state|review).*not allowed/.test(detail)) reason = 'NOT_EDITABLE';
+  return {status: response.status, codes, reason};
 }
 
 export async function syncAppStoreBranding(env, fetchImpl = fetch) {
@@ -61,8 +82,13 @@ export async function syncAppStoreBranding(env, fetchImpl = fetch) {
       response = await fetchImpl(url, {method, redirect: 'error', headers: {Authorization: 'Bearer ' + token(), 'Content-Type': 'application/json'},
         body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(20_000)});
     } catch { throw new BrandingError('Apple API request failed or timed out.'); }
-    // Do not echo arbitrary provider error bodies, tokens, or request headers.
-    if (!response.ok) throw new BrandingError('Apple API returned HTTP ' + response.status + ' for ' + method + ' ' + url.pathname + '.');
+    if (!response.ok) {
+      const diagnostic = await apiDiagnostic(response);
+      const error = new BrandingError('Apple API returned HTTP ' + response.status + ' for ' + method + ' ' + url.pathname
+        + ' (' + diagnostic.reason + (diagnostic.codes.length ? '; ' + diagnostic.codes.join(', ') : '') + ').');
+      error.diagnostic = diagnostic;
+      throw error;
+    }
     try { return await response.json(); }
     catch { throw new BrandingError('Apple API returned an unreadable response.'); }
   }
@@ -111,15 +137,15 @@ export async function syncAppStoreBranding(env, fetchImpl = fetch) {
   const block = message => summary.blockers.push(message);
   const editable = reports.filter(info => info.state === 'PREPARE_FOR_SUBMISSION');
   if (editable.length > 1) block('Multiple editable app information records require review.');
-  if (!oldNames.has(app.attributes.name) && app.attributes.name !== appName) block('Unexpected current app name; no automatic rename.');
+  if (!oldNames.has(app.attributes.name) && !currentNames.has(app.attributes.name)) block('Unexpected current app name; no automatic rename.');
   const selected = editable.length === 1 ? editable[0] : null;
   const candidates = selected?.localizations.filter(item => item.locale === app.attributes.primaryLocale || item.locale === 'ko' || item.locale === 'ko-KR') ?? [];
   if (selected?.localizations.some(item => !candidates.includes(item) && oldNames.has(item.name))) block('Known old name exists in an unexpected locale; review is required.');
   if (selected && !candidates.some(item => item.locale === app.attributes.primaryLocale)) block('Editable primary localization was not found.');
-  if (!selected && app.attributes.name !== appName) block('No PREPARE_FOR_SUBMISSION app information is available for renaming.');
+  if (!selected && !currentNames.has(app.attributes.name)) block('No PREPARE_FOR_SUBMISSION app information is available for renaming.');
   const planned = [];
   for (const item of candidates) {
-    if (item.name === appName) continue;
+    if (currentNames.has(item.name)) continue;
     if (!oldNames.has(item.name)) { block('Unexpected localization name for ' + item.locale + '; no automatic rename.'); continue; }
     planned.push({type: 'appInfoLocalizations', item, name: appName});
   }
@@ -128,23 +154,31 @@ export async function syncAppStoreBranding(env, fetchImpl = fetch) {
   for (const item of matchingGroups) if (item.name !== groupName) planned.push({type: 'betaGroups', item, name: groupName});
   // All preconditions are evaluated before any mutation.
   if (summary.blockers.length === 0 && ensure) {
-    for (const {type, item, name} of planned) {
-      const path = '/v1/' + type + '/' + item.id;
-      const body = {data: {type, id: item.id, attributes: {name}}};
-      allowedWrites.set(path, JSON.stringify(body));
-      await request(path, 'PATCH', body);
-      const verified = resource((await request(path)).data, type, item.id);
-      requireValue(verified.attributes.name === name, 'Apple did not confirm the requested name change.');
-      if (type === 'appInfoLocalizations') requireValue(verified.attributes.locale === item.locale, 'Apple localization changed unexpectedly.');
-      else requireValue(verified.attributes.isInternalGroup === true, 'Apple group changed unexpectedly.');
-      item.name = verified.attributes.name;
+    try {
+      for (const {type, item, name} of planned) {
+        const path = '/v1/' + type + '/' + item.id;
+        const body = {data: {type, id: item.id, attributes: {name}}};
+        allowedWrites.set(path, JSON.stringify(body));
+        await request(path, 'PATCH', body);
+        const verified = resource((await request(path)).data, type, item.id);
+        requireValue(verified.attributes.name === name, 'Apple did not confirm the requested name change.');
+        if (type === 'appInfoLocalizations') requireValue(verified.attributes.locale === item.locale, 'Apple localization changed unexpectedly.');
+        else requireValue(verified.attributes.isInternalGroup === true, 'Apple group changed unexpectedly.');
+        item.name = verified.attributes.name;
+      }
+      const verifiedApp = checkedApp((await request(appPath)).data);
+      requireValue(verifiedApp.attributes.primaryLocale === app.attributes.primaryLocale, 'Apple primary locale changed unexpectedly.');
+      summary.app.name = verifiedApp.attributes.name;
+    } catch (cause) {
+      const error = cause instanceof BrandingError ? cause : new BrandingError('App Store branding update failed; details were withheld.');
+      summary.error = {message: error.message, ...error.diagnostic};
+      block(error.message);
+      if (env.APP_STORE_BRANDING_SUMMARY_PATH) await writeFile(env.APP_STORE_BRANDING_SUMMARY_PATH, JSON.stringify(summary, null, 2) + '\n');
+      throw error;
     }
-    const verifiedApp = checkedApp((await request(appPath)).data);
-    requireValue(verifiedApp.attributes.primaryLocale === app.attributes.primaryLocale, 'Apple primary locale changed unexpectedly.');
-    summary.app.name = verifiedApp.attributes.name;
   }
-  summary.ready = summary.blockers.length === 0 && summary.app.name === appName
-    && candidates.every(item => item.name === appName) && matchingGroups.every(item => item.name === groupName);
+  summary.ready = summary.blockers.length === 0 && currentNames.has(summary.app.name)
+    && candidates.every(item => currentNames.has(item.name)) && matchingGroups.every(item => item.name === groupName);
   if (!summary.ready && summary.blockers.length === 0) block(ensure ? 'App or group name readback is not yet the requested brand.' : 'Known old brand remains; read-only mode made no changes.');
   if (env.APP_STORE_BRANDING_SUMMARY_PATH) await writeFile(env.APP_STORE_BRANDING_SUMMARY_PATH, JSON.stringify(summary, null, 2) + '\n');
   return summary;

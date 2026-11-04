@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
 import {generateKeyPairSync} from 'node:crypto';
+import {mkdtemp, readFile, rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
 import test from 'node:test';
 import {safeBrandingUrl, syncAppStoreBranding} from './app_store_branding.mjs';
 
@@ -58,10 +61,10 @@ test('known names update with minimal PATCH then independent GET verification', 
   const data = state(), {fetchImpl, calls} = fakeApple(data);
   const result = await syncAppStoreBranding(ensureEnv, fetchImpl);
   assert.equal(result.ready, true);
-  assert.equal(result.app.name, '차자리');
+  assert.equal(result.app.name, '차자리 - 가족 주차 기록');
   assert.equal(result.app.nameBefore, '차곡 - 가족 주차 기록');
   assert.deepEqual(calls.filter(call => call.method === 'PATCH'), [
-    {method: 'PATCH', path: '/v1/appInfoLocalizations/loc1', body: {data: {type: 'appInfoLocalizations', id: 'loc1', attributes: {name: '차자리'}}}},
+    {method: 'PATCH', path: '/v1/appInfoLocalizations/loc1', body: {data: {type: 'appInfoLocalizations', id: 'loc1', attributes: {name: '차자리 - 가족 주차 기록'}}}},
     {method: 'PATCH', path: '/v1/betaGroups/group1', body: {data: {type: 'betaGroups', id: 'group1', attributes: {name: '차자리 내부 테스트'}}}},
   ]);
   for (const path of ['/v1/appInfoLocalizations/loc1', '/v1/betaGroups/group1']) {
@@ -82,6 +85,22 @@ test('already-correct brand is idempotent', async () => {
   assert.equal(result.ready, true);
   assert.deepEqual(result.writes, []);
   assert.ok(calls.every(call => call.method === 'GET'));
+});
+
+test('both existing current brand forms are accepted without forcing a descriptor', async () => {
+  for (const name of ['차자리', '차자리 - 가족 주차 기록']) {
+    const data = state();
+    data.app.attributes.name = name;
+    data.localizations.info1[0].attributes.name = name;
+    data.groups[0].attributes.name = '차자리 내부 테스트';
+    const {fetchImpl, calls} = fakeApple(data);
+    const result = await syncAppStoreBranding(ensureEnv, fetchImpl);
+    assert.equal(result.ready, true);
+    assert.equal(result.app.name, name);
+    assert.equal(result.appInfos[0].localizations[0].name, name);
+    assert.deepEqual(result.writes, []);
+    assert.ok(calls.every(call => call.method === 'GET'));
+  }
 });
 
 test('wrong app setting, returned app identity, and bundle are rejected before writes', async () => {
@@ -201,4 +220,55 @@ test('untrusted resource identity and invalid key fail with bounded errors', asy
   await assert.rejects(syncAppStoreBranding(ensureEnv, fetchImpl), /resource identity/);
   assert.ok(calls.every(call => call.method === 'GET'));
   await assert.rejects(syncAppStoreBranding({...env, APP_STORE_CONNECT_API_KEY_P8_BASE64: 'not-a-key'}, fetchImpl), /Invalid App Store Connect private key/);
+});
+
+test('409 diagnostics expose only fixed categories and approved codes, saving failure evidence', async () => {
+  const secret = 'never-log-provider-secret';
+  const cases = [
+    {code: 'ENTITY_ERROR.ATTRIBUTE.INVALID.DUPLICATE', detail: 'The app name you entered is already being used. ' + secret, reason: 'NAME_UNAVAILABLE', codes: ['ENTITY_ERROR.ATTRIBUTE.INVALID.DUPLICATE']},
+    {code: 'ENTITY_ERROR.ATTRIBUTE.INVALID', detail: 'This app name is not available. If you have trademark rights contact support. ' + secret, reason: 'NAME_UNAVAILABLE', codes: ['ENTITY_ERROR.ATTRIBUTE.INVALID']},
+    {code: 'STATE_ERROR', detail: 'The name cannot be modified while in review. ' + secret, reason: 'NOT_EDITABLE', codes: ['STATE_ERROR']},
+    {code: secret, detail: 'Unknown provider failure: ' + secret, reason: 'API_REJECTED', codes: []},
+  ];
+  const directory = await mkdtemp(join(tmpdir(), 'carcar-branding-test-'));
+  try {
+    for (const [index, item] of cases.entries()) {
+      const path = join(directory, index + '.json');
+      const {fetchImpl, calls} = fakeApple(state(), call => call.method === 'PATCH'
+        ? {ok: false, status: 409, json: async () => ({errors: [{code: item.code, detail: item.detail}], authorization: secret})} : null);
+      await assert.rejects(syncAppStoreBranding({...ensureEnv, APP_STORE_BRANDING_SUMMARY_PATH: path}, fetchImpl), error => {
+        assert.match(error.message, /HTTP 409/);
+        assert.ok(error.message.includes(item.reason));
+        assert.ok(!error.message.includes(secret));
+        assert.deepEqual(error.diagnostic, {status: 409, codes: item.codes, reason: item.reason});
+        return true;
+      });
+      const raw = await readFile(path, 'utf8'), report = JSON.parse(raw);
+      assert.equal(report.ready, false);
+      assert.equal(report.error.reason, item.reason);
+      assert.equal(report.error.status, 409);
+      assert.deepEqual(report.error.codes, item.codes);
+      assert.equal(report.app.name, '차곡 - 가족 주차 기록');
+      assert.equal(report.appInfos[0].localizations[0].name, '차곡 - 가족 주차 기록');
+      assert.deepEqual(report.writes, ['PATCH /v1/appInfoLocalizations/loc1']);
+      assert.ok(!raw.includes(secret));
+      assert.ok(!raw.includes(key));
+      assert.equal(calls.filter(call => call.method === 'PATCH').length, 1);
+    }
+  } finally { await rm(directory, {recursive: true, force: true}); }
+});
+
+test('a later group failure preserves confirmed localization changes in the artifact', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'carcar-branding-test-'));
+  try {
+    const path = join(directory, 'partial.json');
+    const {fetchImpl} = fakeApple(state(), call => call.method === 'PATCH' && call.path === '/v1/betaGroups/group1'
+      ? {ok: false, status: 409, json: async () => ({errors: [{code: 'STATE_ERROR', detail: 'Cannot modify this group.'}]})} : null);
+    await assert.rejects(syncAppStoreBranding({...ensureEnv, APP_STORE_BRANDING_SUMMARY_PATH: path}, fetchImpl), /NOT_EDITABLE/);
+    const report = JSON.parse(await readFile(path, 'utf8'));
+    assert.equal(report.ready, false);
+    assert.equal(report.appInfos[0].localizations[0].name, '차자리 - 가족 주차 기록');
+    assert.equal(report.groups[0].name, '차곡 내부 테스트');
+    assert.deepEqual(report.writes, ['PATCH /v1/appInfoLocalizations/loc1', 'PATCH /v1/betaGroups/group1']);
+  } finally { await rm(directory, {recursive: true, force: true}); }
 });
