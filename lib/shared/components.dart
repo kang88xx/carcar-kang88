@@ -260,7 +260,7 @@ class RoundCloseButton extends StatelessWidget {
     style: IconButton.styleFrom(
       backgroundColor: Palette.soft,
       disabledBackgroundColor: Palette.canvas,
-      fixedSize: const Size(44, 44),
+      fixedSize: const Size(48, 48),
     ),
     icon: const Icon(Icons.close_rounded, size: 22),
   );
@@ -287,6 +287,8 @@ class SheetDialog extends StatelessWidget {
     required this.title,
     required this.child,
     this.subtitle,
+    this.footer,
+    this.pinFooter = true,
     this.closeTooltip = '닫기',
     this.onClose,
     this.maxWidth = 540,
@@ -294,6 +296,12 @@ class SheetDialog extends StatelessWidget {
   final String title;
   final String? subtitle;
   final Widget child;
+
+  /// Confirmation controls kept below the scrolling content when space allows.
+  final Widget? footer;
+
+  /// Long confirmations can opt into the content's scroll area.
+  final bool pinFooter;
   final String closeTooltip;
   final VoidCallback? onClose;
   final double maxWidth;
@@ -327,64 +335,91 @@ class SheetDialog extends StatelessWidget {
             maxWidth: sheet ? double.infinity : maxWidth,
             maxHeight: size.height * (sheet ? .92 : .88),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: EdgeInsets.fromLTRB(24, sheet ? 18 : 24, 16, 0),
-                child: MediaQuery.withClampedTextScaling(
-                  maxScaleFactor: headlineMaxTextScale,
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Semantics(
-                          header: true,
-                          child: Text(
-                            title,
-                            style: Theme.of(context).textTheme.titleLarge
-                                ?.copyWith(fontSize: sheet ? 20 : 22),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              // Dialog has already removed keyboard insets from these bounds.
+              // Large text or a short viewport needs one scrollable region.
+              final pinnedFooter =
+                  footer != null &&
+                  pinFooter &&
+                  constraints.maxHeight >= 650 &&
+                  MediaQuery.textScalerOf(context).scale(16) <= 20.8;
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(24, sheet ? 18 : 24, 16, 0),
+                    child: MediaQuery.withClampedTextScaling(
+                      maxScaleFactor: headlineMaxTextScale,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Semantics(
+                              header: true,
+                              child: Text(
+                                title,
+                                style: Theme.of(context).textTheme.titleLarge
+                                    ?.copyWith(fontSize: sheet ? 20 : 22),
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      RoundCloseButton(
-                        tooltip: closeTooltip,
-                        onPressed: onClose,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              Flexible(
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.fromLTRB(
-                    24 + (sheet ? padding.left : 0),
-                    subtitle == null ? 18 : 6,
-                    24 + (sheet ? padding.right : 0),
-                    24 + (sheet ? padding.bottom : 0),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (subtitle != null) ...[
-                        Text(
-                          subtitle!,
-                          style: const TextStyle(
-                            color: Palette.muted,
-                            fontSize: 13.5,
-                            height: 1.5,
+                          const SizedBox(width: 12),
+                          RoundCloseButton(
+                            tooltip: closeTooltip,
+                            onPressed: onClose,
                           ),
-                        ),
-                        const SizedBox(height: 18),
-                      ],
-                      child,
-                    ],
+                        ],
+                      ),
+                    ),
                   ),
-                ),
-              ),
-            ],
+                  Flexible(
+                    child: SingleChildScrollView(
+                      padding: EdgeInsets.fromLTRB(
+                        24 + (sheet ? padding.left : 0),
+                        subtitle == null ? 18 : 6,
+                        24 + (sheet ? padding.right : 0),
+                        pinnedFooter ? 18 : 24 + (sheet ? padding.bottom : 0),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (subtitle != null) ...[
+                            Text(
+                              subtitle!,
+                              style: const TextStyle(
+                                color: Palette.muted,
+                                fontSize: 13.5,
+                                height: 1.5,
+                              ),
+                            ),
+                            const SizedBox(height: 18),
+                          ],
+                          child,
+                          if (footer != null && !pinnedFooter) ...[
+                            const SizedBox(height: 18),
+                            footer!,
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (pinnedFooter) ...[
+                    const Divider(),
+                    Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        24 + (sheet ? padding.left : 0),
+                        16,
+                        24 + (sheet ? padding.right : 0),
+                        20 + (sheet ? padding.bottom : 0),
+                      ),
+                      child: footer,
+                    ),
+                  ],
+                ],
+              );
+            },
           ),
         ),
       ),

@@ -4,7 +4,10 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const output = path.resolve(__dirname, '../docs/qa');
+const output = process.env.QA_OUTPUT
+  ? path.resolve(process.env.QA_OUTPUT)
+  : path.resolve(__dirname, '../docs/qa');
+fs.mkdirSync(output, {recursive:true});
 (async () => {
   const browser = await chromium.launch({headless:true,
     ...(process.env.CHROME_EXECUTABLE ? {executablePath:process.env.CHROME_EXECUTABLE} : {}),
@@ -52,7 +55,7 @@ const output = path.resolve(__dirname, '../docs/qa');
     check('Unsaved draft close is confirmed and cancel keeps draft');
     await context.setOffline(true);
     await page.getByRole('button',{name:'이 위치로 체험 기록 저장'}).click();
-    await page.waitForFunction(() => document.body.innerText.includes('52번 자리'));
+    await page.waitForFunction(() => document.body.innerText.includes('현재 주차 위치 B3 · D구역 · 52번'));
     check('Local demo saves while offline (not a server sync claim)');
     await context.setOffline(false);
     await capture('04-confirmed.png');
@@ -78,7 +81,7 @@ const output = path.resolve(__dirname, '../docs/qa');
     await page.reload({waitUntil:'domcontentloaded'});
     await enableSemantics();
     await page.getByRole('button',{name:/^(체험 시작하기|가입 없이 먼저 둘러보기)$/}).click();
-    await page.waitForFunction(() => document.body.innerText.includes('52번 자리'));
+    await page.waitForFunction(() => document.body.innerText.includes('현재 주차 위치 B3 · D구역 · 52번'));
     check('Logout/reload/re-entry restores only the local demo record');
     await page.setViewportSize({width:320,height:740});await capture('08-small-phone.png');
     check('320px viewport renders');

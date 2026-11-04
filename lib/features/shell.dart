@@ -310,7 +310,7 @@ class _AppShellState extends State<AppShell> {
         onPressed: c.loading ? null : c.refresh,
         style: IconButton.styleFrom(
           backgroundColor: Colors.white,
-          fixedSize: const Size(42, 42),
+          fixedSize: const Size(48, 48),
         ),
         icon: const Icon(Icons.refresh_rounded, size: 21),
       ),
@@ -320,7 +320,7 @@ class _AppShellState extends State<AppShell> {
         onPressed: () => _navigate(3),
         style: IconButton.styleFrom(
           backgroundColor: Palette.ink,
-          fixedSize: const Size(42, 42),
+          fixedSize: const Size(48, 48),
         ),
         icon: Text(
           name == null ? '나' : name.characters.first,
@@ -332,6 +332,24 @@ class _AppShellState extends State<AppShell> {
         ),
       ),
     ];
+    if (_tab == 0) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              if (!wide) const Expanded(child: Brand()) else const Spacer(),
+              ...controls,
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            headline,
+            style: const TextStyle(color: Palette.muted, fontSize: 14),
+          ),
+        ],
+      );
+    }
     if (wide) {
       return Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -395,88 +413,140 @@ class _AppShellState extends State<AppShell> {
     ),
   );
 
-  Widget _home() => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      const SectionTitle('지금 우리 차'),
-      _heroGroup(),
-      const SizedBox(height: 16),
-      BusyButton(
-        label: '주차 위치 기록하기',
-        icon: Icons.add_rounded,
-        onPressed: () => openParkingForm(context, c),
-      ),
-      const SizedBox(height: 26),
-      if (!_bannerHidden) ...[_widgetBanner(), const SizedBox(height: 26)],
-      if (c.records.isNotEmpty) ...[
-        SectionTitle(
-          '최근 주차 기록',
-          trailing: TextButton(
-            onPressed: () => _navigate(1),
-            child: const Text('전체 보기'),
+  Widget _home() => LayoutBuilder(
+    builder: (context, constraints) {
+      final primary = Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _vehicleHeading(),
+          const SizedBox(height: 18),
+          _heroGroup(),
+          const SizedBox(height: 14),
+          _quickActions(),
+        ],
+      );
+      final secondary = Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (!_bannerHidden) ...[_widgetBanner(), const SizedBox(height: 24)],
+          if (c.records.isNotEmpty) ...[
+            SectionTitle(
+              '최근 주차 기록',
+              trailing: TextButton(
+                onPressed: () => _navigate(1),
+                child: const Text('전체 보기'),
+              ),
+            ),
+            _recordList(c.records.take(3).toList()),
+            const SizedBox(height: 18),
+          ],
+          _familyRow(),
+        ],
+      );
+      if (constraints.maxWidth >= 840) {
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(flex: 6, child: primary),
+            const SizedBox(width: 28),
+            Expanded(flex: 5, child: secondary),
+          ],
+        );
+      }
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [primary, const SizedBox(height: 24), secondary],
+      );
+    },
+  );
+
+  Widget _vehicleHeading() {
+    final vehicle = c.vehicle!;
+    return Row(
+      children: [
+        Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: const Icon(Icons.directions_car_outlined, size: 26),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(vehicle.name, style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 3),
+              Text(
+                '${vehicle.plate} · ${vehicle.apartment}',
+                style: const TextStyle(color: Palette.muted, fontSize: 12),
+              ),
+            ],
           ),
         ),
-        _recordList(c.records.take(3).toList()),
-        const SizedBox(height: 14),
       ],
-      _familyRow(),
-    ],
-  );
+    );
+  }
 
   Widget _heroGroup() => Surface(
     color: Palette.tint,
-    padding: const EdgeInsets.all(10),
+    padding: const EdgeInsets.all(24),
     radius: 28,
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _locationCard(),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: .42),
-            borderRadius: BorderRadius.circular(22),
+        const SizedBox(height: 24),
+        BusyButton(
+          label: '주차 위치 기록하기',
+          icon: Icons.add_rounded,
+          onPressed: () => openParkingForm(context, c),
+        ),
+      ],
+    ),
+  );
+
+  Widget _quickActions() => Surface(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: QuickAction(
+            icon: Icons.photo_camera_outlined,
+            label: '사진 기록',
+            onTap: () => openParkingForm(context, c, camera: true),
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: QuickAction(
-                  icon: Icons.photo_camera_outlined,
-                  label: '사진 기록',
-                  onTap: () => openParkingForm(context, c, camera: true),
-                ),
-              ),
-              Expanded(
-                child: QuickAction(
-                  icon: Icons.near_me_outlined,
-                  label: '차량 찾기',
-                  onTap: c.latest == null
-                      ? null
-                      : () => openFinding(
-                          context,
-                          c,
-                          widget.preferences,
-                          notifications: widget.notifications,
-                        ),
-                ),
-              ),
-              Expanded(
-                child: QuickAction(
-                  icon: Icons.history_rounded,
-                  label: '이력 보기',
-                  onTap: () => _navigate(1),
-                ),
-              ),
-              Expanded(
-                child: QuickAction(
-                  icon: Icons.widgets_outlined,
-                  label: '위젯',
-                  onTap: _widgetGuide,
-                ),
-              ),
-            ],
+        ),
+        Expanded(
+          child: QuickAction(
+            icon: Icons.near_me_outlined,
+            label: '차량 찾기',
+            onTap: c.latest == null
+                ? null
+                : () => openFinding(
+                    context,
+                    c,
+                    widget.preferences,
+                    notifications: widget.notifications,
+                  ),
+          ),
+        ),
+        Expanded(
+          child: QuickAction(
+            icon: Icons.history_rounded,
+            label: '이력 보기',
+            onTap: () => _navigate(1),
+          ),
+        ),
+        Expanded(
+          child: QuickAction(
+            icon: Icons.widgets_outlined,
+            label: '위젯',
+            onTap: _widgetGuide,
           ),
         ),
       ],
@@ -486,194 +556,121 @@ class _AppShellState extends State<AppShell> {
   Widget _locationCard() {
     final r = c.latest;
     if (r == null) {
-      return Container(
-        padding: const EdgeInsets.all(22),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: .6),
-          borderRadius: BorderRadius.circular(22),
-        ),
-        child: EmptyState(
-          icon: Icons.local_parking_rounded,
-          title: '아직 주차 기록이 없어요',
-          description: '아래 버튼을 눌러 첫 위치를 남겨보세요.',
-        ),
+      return const EmptyState(
+        icon: Icons.local_parking_rounded,
+        title: '아직 주차 기록이 없어요',
+        description: '아래 버튼을 눌러 첫 위치를 남겨보세요.',
       );
     }
-    return Semantics(
-      label: '현재 주차 위치 ${r.position}',
-      excludeSemantics: true,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
           children: [
-            Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 10,
-              runSpacing: 4,
-              children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.check_circle_rounded,
-                      color: Palette.ink,
-                      size: 17,
-                    ),
-                    const SizedBox(width: 7),
-                    Flexible(
-                      child: Text(
-                        '마지막 주차 위치',
-                        style: TextStyle(
-                          color: Palette.ink.withValues(alpha: .8),
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: .2,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                if (c.loading)
-                  const SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator(strokeWidth: 1.5),
-                  )
-                else
-                  Text(
-                    c.vehicle!.name,
-                    style: TextStyle(
-                      color: Palette.ink.withValues(alpha: .78),
-                      fontSize: 12.5,
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 18),
-            Wrap(
-              crossAxisAlignment: WrapCrossAlignment.end,
-              spacing: 22,
-              runSpacing: 10,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 220),
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          r.floor,
-                          maxLines: 1,
-                          style: const TextStyle(
-                            color: Palette.ink,
-                            fontSize: 76,
-                            fontWeight: FontWeight.w700,
-                            height: 1,
-                            letterSpacing: -3.5,
-                          ),
-                        ),
-                      ),
-                    ),
-                    if (floorDescription(r.floor) case final label?) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        label,
-                        style: TextStyle(
-                          color: Palette.ink.withValues(alpha: .78),
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${r.zone} 구역',
-                        style: const TextStyle(
-                          color: Palette.ink,
-                          fontSize: 30,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -1,
-                          height: 1.2,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        r.spot.isEmpty ? '번호 미입력' : '${r.spot}번 자리',
-                        style: TextStyle(
-                          color: Palette.ink.withValues(alpha: .72),
-                          fontSize: 16,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 18),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: .62),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  CircleAvatar(
-                    radius: 13,
-                    backgroundColor: Palette.ink,
-                    child: Text(
-                      c.author(r.createdBy).characters.first,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${c.author(r.createdBy)} 기록 · ${formatDate(r.createdAt)}',
-                          style: const TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w700,
-                            color: Palette.ink,
-                          ),
-                        ),
-                        if (r.note.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 3),
-                            child: Text(
-                              r.note,
-                              style: const TextStyle(
-                                color: Palette.ink,
-                                fontSize: 13,
-                                height: 1.55,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
+            const Expanded(
+              child: Text(
+                '마지막 주차 위치',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
               ),
             ),
+            if (c.loading)
+              const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            else
+              const Icon(Icons.local_parking_rounded, size: 20),
           ],
         ),
-      ),
+        const SizedBox(height: 24),
+        Semantics(
+          label: '현재 주차 위치 ${r.position}',
+          excludeSemantics: true,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final floorLabel = Text(
+                r.floor,
+                maxLines: r.floor.length <= 4 ? 1 : null,
+                style: TextStyle(
+                  fontSize: r.floor.length > 4 ? 36 : 80,
+                  fontWeight: FontWeight.w700,
+                  height: 1.1,
+                  letterSpacing: r.floor.length > 4 ? -.7 : -3,
+                ),
+              );
+              final floor = Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (r.floor.length <= 4)
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: floorLabel,
+                    )
+                  else
+                    floorLabel,
+                  if (floorDescription(r.floor) case final label?) ...[
+                    const SizedBox(height: 10),
+                    Text(label, style: const TextStyle(fontSize: 13)),
+                  ],
+                ],
+              );
+              final zone = Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${r.zone} 구역',
+                    style: const TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -.7,
+                      height: 1.3,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    r.spot.isEmpty ? '번호 미입력' : '${r.spot}번 자리',
+                    style: const TextStyle(fontSize: 15),
+                  ),
+                ],
+              );
+              final stacked =
+                  MediaQuery.textScalerOf(context).scale(16) > 22 ||
+                  r.floor.length > 4 ||
+                  r.zone.length > 4;
+              if (stacked) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [floor, const SizedBox(height: 22), zone],
+                );
+              }
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(child: floor),
+                  const SizedBox(width: 20),
+                  Expanded(child: zone),
+                ],
+              );
+            },
+          ),
+        ),
+        if (r.note.isNotEmpty) ...[
+          const SizedBox(height: 22),
+          Text(r.note, style: const TextStyle(fontSize: 14, height: 1.6)),
+        ],
+        const SizedBox(height: 20),
+        Divider(color: Palette.ink.withValues(alpha: .12)),
+        const SizedBox(height: 14),
+        Text(
+          '${c.author(r.createdBy)} 기록 · ${formatDate(r.createdAt)}',
+          style: TextStyle(
+            fontSize: 12,
+            color: Palette.ink.withValues(alpha: .8),
+          ),
+        ),
+      ],
     );
   }
 
@@ -718,12 +715,8 @@ class _AppShellState extends State<AppShell> {
             runSpacing: 4,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              FilledButton(
+              TextButton(
                 onPressed: _widgetGuide,
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size(48, 44),
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                ),
                 child: const Text('추가 방법 보기'),
               ),
               TextButton(
