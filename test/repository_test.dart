@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:carcar/core/models.dart';
 import 'package:carcar/core/repository.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -25,6 +26,185 @@ void main() {
     preferences = await SharedPreferences.getInstance();
     repository = DemoParkingRepository(preferences);
     await repository.initialize();
+  });
+  test('upgrades only known demo defaults and preserves old history', () async {
+    for (final floors in [
+      ['F5', 'F4', 'F3', 'F2', 'F1', 'B1', 'B2', 'B3', 'B4', 'B5', 'B6'],
+      ['B1', 'B2', 'B3', 'B4'],
+      ['B6', 'F9'],
+    ]) {
+      final data =
+          jsonDecode(preferences.getString(DemoParkingRepository.storageKey)!)
+              as Map<String, dynamic>;
+      data.remove('parkingOptionsVersion');
+      final apartment =
+          data['vehicles'][0]['apartments'] as Map<String, dynamic>;
+      apartment['allowed_floors'] = floors;
+      apartment['allowed_zones'] = floors.last == 'F9'
+          ? ['Z', '바']
+          : ['A', 'B', 'C', 'D', 'E'];
+      data['records'][0]['floor'] = 'B6';
+      data['records'][0]['note'] = '기존 가족 메모';
+      await preferences.setString(
+        DemoParkingRepository.storageKey,
+        jsonEncode(data),
+      );
+      final reopened = DemoParkingRepository(preferences);
+      await reopened.initialize();
+      final vehicle = (await reopened.vehicles()).single;
+      expect(vehicle.floors, floors.last == 'F9' ? floors : defaultFloors);
+      expect(vehicle.zones, floors.last == 'F9' ? ['Z', '바'] : defaultZones);
+      final records = await reopened.records(vehicle.id);
+      expect(records, hasLength(5));
+      expect(records.first.floor, 'B6');
+      expect(records.first.note, '기존 가족 메모');
+      expect(vehicle.latestId, records.first.id);
+    }
+  });
+  test('demo upgrades floor and zone defaults independently', () async {
+    for (final customFloors in [true, false]) {
+      final data =
+          jsonDecode(preferences.getString(DemoParkingRepository.storageKey)!)
+              as Map<String, dynamic>;
+      data.remove('parkingOptionsVersion');
+      final apartment =
+          data['vehicles'][0]['apartments'] as Map<String, dynamic>;
+      apartment['allowed_floors'] = customFloors
+          ? ['B6']
+          : ['B1', 'B2', 'B3', 'B4'];
+      apartment['allowed_zones'] = customFloors
+          ? ['A', 'B', 'C', 'D', 'E']
+          : ['Z'];
+      await preferences.setString(
+        DemoParkingRepository.storageKey,
+        jsonEncode(data),
+      );
+      final reopened = DemoParkingRepository(preferences);
+      await reopened.initialize();
+      final vehicle = (await reopened.vehicles()).single;
+      expect(vehicle.floors, customFloors ? ['B6'] : defaultFloors);
+      expect(vehicle.zones, customFloors ? defaultZones : ['Z']);
+    }
+  });
+  test(
+    'custom legacy-shaped options survive reopening after initialization',
+    () async {
+      final vehicle = (await repository.vehicles()).single;
+      await repository.updateApartment(
+        vehicle.id,
+        '내 아파트',
+        ['B1', 'B2', 'B3', 'B4'],
+        ['A', 'B', 'C', 'D', 'E'],
+      );
+      final reopened = DemoParkingRepository(preferences);
+      await reopened.initialize();
+      final restored = (await reopened.vehicles()).single;
+      expect(restored.floors, ['B1', 'B2', 'B3', 'B4']);
+      expect(restored.zones, ['A', 'B', 'C', 'D', 'E']);
+    },
+  );
+  test(
+    'options migration persists once and later custom choices survive',
+    () async {
+      final data =
+          jsonDecode(preferences.getString(DemoParkingRepository.storageKey)!)
+              as Map<String, dynamic>;
+      data.remove('parkingOptionsVersion');
+      data['vehicles'][0]['apartments']['allowed_floors'] = [
+        'B1',
+        'B2',
+        'B3',
+        'B4',
+      ];
+      data['vehicles'][0]['apartments']['allowed_zones'] = [
+        'A',
+        'B',
+        'C',
+        'D',
+        'E',
+      ];
+      await preferences.setString(
+        DemoParkingRepository.storageKey,
+        jsonEncode(data),
+      );
+      final migrated = DemoParkingRepository(preferences);
+      await migrated.initialize();
+      final stored =
+          jsonDecode(preferences.getString(DemoParkingRepository.storageKey)!)
+              as Map<String, dynamic>;
+      expect(stored['parkingOptionsVersion'], 1);
+      expect(
+        stored['vehicles'][0]['apartments']['allowed_floors'],
+        defaultFloors,
+      );
+      final vehicle = (await migrated.vehicles()).single;
+      await migrated.updateApartment(
+        vehicle.id,
+        '내 아파트',
+        ['B1', 'B2', 'B3', 'B4'],
+        ['A', 'B', 'C', 'D', 'E'],
+      );
+      final reopened = DemoParkingRepository(preferences);
+      await reopened.initialize();
+      expect((await reopened.vehicles()).single.floors, [
+        'B1',
+        'B2',
+        'B3',
+        'B4',
+      ]);
+      expect((await reopened.vehicles()).single.zones, [
+        'A',
+        'B',
+        'C',
+        'D',
+        'E',
+      ]);
+    },
+  );
+  test('failed options migration never resets existing records', () async {
+    final data =
+        jsonDecode(preferences.getString(DemoParkingRepository.storageKey)!)
+            as Map<String, dynamic>;
+    data.remove('parkingOptionsVersion');
+    data['records'][0]['note'] = '보존할 메모';
+    final original = jsonEncode(data);
+    await preferences.setString(DemoParkingRepository.storageKey, original);
+    final failing = FailingPreferences(preferences)..failWrites = true;
+    await expectLater(
+      DemoParkingRepository(failing).initialize(),
+      throwsA(isA<AppException>()),
+    );
+    expect(preferences.getString(DemoParkingRepository.storageKey), original);
+    failing.failWrites = false;
+    final recovered = DemoParkingRepository(failing);
+    await recovered.initialize();
+    final vehicle = (await recovered.vehicles()).single;
+    expect((await recovered.records(vehicle.id)).first.note, '보존할 메모');
+  });
+  test('new zones save and persist while B6 is rejected', () async {
+    final vehicle = (await repository.vehicles()).single;
+    for (final zone in ['F', '가', '바']) {
+      await repository.save(
+        vehicle.id,
+        ParkingDraft(floor: 'F5', zone: zone),
+        'zone-$zone',
+      );
+    }
+    await expectLater(
+      repository.save(
+        vehicle.id,
+        const ParkingDraft(floor: 'B6', zone: 'A'),
+        'removed-floor',
+      ),
+      throwsA(isA<AppException>()),
+    );
+    final reopened = DemoParkingRepository(preferences);
+    await reopened.initialize();
+    expect((await reopened.records(vehicle.id)).take(3).map((r) => r.zone), [
+      '바',
+      '가',
+      'F',
+    ]);
   });
   test('demo is explicitly local and seeds a valid latest pointer', () async {
     expect(repository.isDemo, isTrue);

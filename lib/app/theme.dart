@@ -178,12 +178,14 @@ ThemeData buildTheme() {
       indicatorShape: _pill,
       height: 72,
       iconTheme: const WidgetStatePropertyAll(
-        IconThemeData(color: Palette.ink, size: 24),
+        IconThemeData(color: Palette.ink, size: 22),
       ),
       labelTextStyle: WidgetStateProperty.resolveWith(
         (states) => TextStyle(
           fontFamily: _font,
-          fontSize: 11.5,
+          fontSize: 11,
+          height: 1.2,
+          letterSpacing: -.1,
           color: Palette.ink,
           fontWeight: states.contains(WidgetState.selected)
               ? FontWeight.w700

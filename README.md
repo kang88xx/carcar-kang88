@@ -32,7 +32,7 @@ flutter run --dart-define-from-file=config/local.json
 - 소유자/구성원 권한·초대 링크 또는 코드로 가족 참여·24시간 일회용 초대·구성원 제거와 탈퇴
 - 서버 확인 후 주차 저장·중복 요청 방지·검색 가능한 이력·Realtime
 - Android ML Kit·iOS Vision 사진 인식과 편집 가능한 후보; 원본 사진은 서버에 업로드하지 않음
-- 네이티브 위젯의 위치 표시·층 버튼 직접 선택·구역 선택·서버 등록(앱 이름 없는 고대비 위젯)
+- 정사각형 네이티브 위젯의 기록 시각·위치 표시와 앱의 주차 입력 화면 바로 가기(앱 이름 없는 고대비 위젯)
 - 기기별 가족 알림·야간 시간대·독립적인 차량 찾기 표시
 - 얇은 iOS Live Activity와 표시 종료 버튼·Dynamic Island의 자동차/층수 묶음
 - 주차 층수만 표시하는 앱 아이콘 11종(F1–F5, B1–B6)·홈 화면 위젯 추가 안내
@@ -52,6 +52,12 @@ bash scripts/ios_qa.sh
 ```
 
 소스 저장소의 `Verify app` CI는 포맷·분석·테스트·웹 빌드를 실행합니다. TestFlight 배포와 실제 휴대폰 검증은 별도입니다. 개인 배포 정보가 있는 상세 로그는 로컬 및 비공개 빌드 저장소에서 보존합니다.
+
+2026-11-06 홈·주차 입력 수정은 iOS 화면을 우선 검증합니다. 다음 명령은 실제 Flutter 화면을 iOS 테마·안전 영역·그림자로 렌더링해 `docs/qa/ios-footer-review/`에 캡처합니다. 홈·이력·가족·설정과 입력창을 320/393px, 기본/1.3배 글자로 확인합니다. 이전 캡처는 `docs/qa/ios-ui-cleanup/`에 보존합니다. Xcode·iOS 실기기 검증을 대신하지 않으며, Android 검증은 별도입니다.
+
+```bash
+flutter test --no-pub test/ios_ui_capture_test.dart --dart-define=CAPTURE_IOS_UI=true
+```
 
 **실기기 검증:** TestFlight 설치와 기존 Live Activity 표시를 사용자 화면으로 확인했습니다. 최신 Google 로그인 왕복, 두 기기 가족 공유·푸시, 홈 위젯 배치·앱 종료 후 저장, 새 Live Activity 종료 버튼과 층수 아이콘은 각 빌드에서 검증해야 합니다. iOS 앱 아이콘 변경에는 시스템 안내가 표시될 수 있으며, 앱이 닫힌 동안 다른 가족이 변경한 층은 다음 실행에서 반영합니다. 홈 화면 위젯은 운영체제의 추가 화면에서 사용자가 직접 배치합니다. Live Activity의 최대 8시간은 활동 시작 기준이며 앱 중단 시 선택한 1/2/4시간의 정확한 종료를 보장하지 않습니다.
 
@@ -73,6 +79,8 @@ Android 개발용 APK는 `build/app/outputs/flutter-apk/app-debug.apk`에 생성
 [제품 요구사항](docs/PRD.md), [아키텍처](docs/ARCHITECTURE.md), [디자인 기준](DESIGN.md), [보안과 비용](docs/SECURITY_AND_COST.md), [결정 기록](docs/DECISIONS.md), [QA 수용 기준](docs/ROADMAP_AND_QA.md), [푸시 배포 계약](supabase/deployment/PUSH.md)을 참고하세요.
 
 Supabase migration은 `supabase/migrations/`에 순서대로 보존합니다. 새 개발 프로젝트에 적용하며 기존 운영 DB에는 검토 없이 재적용하지 않습니다. 월 서버비 $0을 목표로 Supabase Free와 기기 내 OCR을 사용합니다.
+
+새 주차 기본값(F1~F5/B1~B5, A~F/가~바)은 `20261106034310_parking_option_defaults.sql`에 포함합니다. 로컬 DB 검증만 완료했으며 실제 계정의 새 기본 구역에는 서버 migration 적용이 필요합니다. 기존 사용자 지정 설정과 주차 이력은 유지합니다.
 
 ## Google 로그인과 초대 링크
 

@@ -39,22 +39,24 @@ fs.mkdirSync(output, {recursive:true});
     check('Explicit local demo opens, no fabricated login');
     await capture('02-home.png');
     await page.getByRole('button',{name:'주차 위치 기록하기'}).click();
-    await page.getByRole('button',{name:'이 위치로 체험 기록 저장'}).click();
+    await page.getByRole('button',{name:'체험 기록 저장'}).click();
     await page.getByText('층수를 선택해 주세요.',{exact:true}).waitFor();
     check('Empty parking form rejects save');
     await page.getByRole('button',{name:'B3',exact:true}).click();
     await page.getByRole('button',{name:'D',exact:true}).click();
     await enter(page.getByRole('textbox',{name:'주차 번호 (선택)',exact:true}),'52');
-    await enter(page.getByRole('textbox',{name:'가족에게 남길 메모 (선택)',exact:true}),'엘리베이터 오른쪽 · QA');
-    await page.getByText('B3 · D구역 · 52번',{exact:true}).waitFor();
-    check('Live confirmation includes edited parking number');
+    check('Edited parking number stays in the simplified form',
+      await page.getByRole('textbox',{name:'주차 번호 (선택)',exact:true}).inputValue() === '52');
+    check('Removed memo and blue confirmation are absent',
+      await page.getByRole('textbox',{name:'가족에게 남길 메모 (선택)',exact:true}).count() === 0 &&
+      await page.getByText('층수와 구역을 선택해 주세요.',{exact:true}).count() === 0);
     await capture('03-parking-form.png');
     await page.getByRole('button',{name:'기록 창 닫기'}).click();
     await page.getByRole('button',{name:'취소',exact:true}).click();
     await page.getByRole('textbox',{name:'주차 번호 (선택)',exact:true}).waitFor();
     check('Unsaved draft close is confirmed and cancel keeps draft');
     await context.setOffline(true);
-    await page.getByRole('button',{name:'이 위치로 체험 기록 저장'}).click();
+    await page.getByRole('button',{name:'체험 기록 저장'}).click();
     await page.waitForFunction(() => document.body.innerText.includes('현재 주차 위치 B3 · D구역 · 52번'));
     check('Local demo saves while offline (not a server sync claim)');
     await context.setOffline(false);

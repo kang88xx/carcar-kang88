@@ -34,7 +34,7 @@ class ParkingForm extends StatefulWidget {
 
 class _ParkingFormState extends State<ParkingForm> {
   String? _floor, _zone, _error, _ocrNotice;
-  final _spot = TextEditingController(), _note = TextEditingController();
+  final _spot = TextEditingController();
   bool _busy = false, _scanning = false, _dirty = false;
   late final String _vehicleId;
   @override
@@ -49,7 +49,6 @@ class _ParkingFormState extends State<ParkingForm> {
   @override
   void dispose() {
     _spot.dispose();
-    _note.dispose();
     super.dispose();
   }
 
@@ -78,7 +77,9 @@ class _ParkingFormState extends State<ParkingForm> {
       if (!mounted) return;
       final suggestion = parseParkingText(
         text,
-        floors: widget.controller.vehicle!.floors,
+        floors: widget.controller.vehicle!.floors
+            .where((floor) => floor != 'B6')
+            .toList(),
         zones: widget.controller.vehicle!.zones,
       );
       setState(() {
@@ -129,7 +130,6 @@ class _ParkingFormState extends State<ParkingForm> {
       floor: _floor ?? '',
       zone: _zone ?? '',
       spot: _spot.text.trim(),
-      note: _note.text.trim(),
     );
     final validation = draft.validate(widget.controller.vehicle!);
     if (validation != null) {
@@ -172,13 +172,7 @@ class _ParkingFormState extends State<ParkingForm> {
         closeTooltip: '기록 창 닫기',
         onClose: locked ? null : _close,
         footer: _confirmation(),
-        // Custom floor/zone names and long parking numbers can make the
-        // confirmation taller than the input area on a narrow phone.
-        pinFooter:
-            (_floor?.runes.length ?? 0) +
-                (_zone?.runes.length ?? 0) +
-                _spot.text.trim().runes.length <=
-            24,
+        horizontalPadding: 16,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
@@ -212,30 +206,12 @@ class _ParkingFormState extends State<ParkingForm> {
                 ],
               ],
             ),
-            const SizedBox(height: 22),
+            const SizedBox(height: 16),
             if (_ocrNotice != null) StatusNotice(_ocrNotice!),
-            _choices(
-              '층수',
-              vehicle?.floors ?? [],
-              _floor,
-              (value) => setState(() {
-                _floor = value;
-                _error = null;
-                _dirty = true;
-              }),
-            ),
-            const SizedBox(height: 22),
-            _choices(
-              '구역',
-              vehicle?.zones ?? [],
-              _zone,
-              (value) => setState(() {
-                _zone = value;
-                _error = null;
-                _dirty = true;
-              }),
-            ),
-            const SizedBox(height: 22),
+            _floorChoices(vehicle?.floors ?? []),
+            const SizedBox(height: 16),
+            _zoneChoices(vehicle?.zones ?? []),
+            const SizedBox(height: 16),
             TextField(
               controller: _spot,
               maxLength: 20,
@@ -243,22 +219,6 @@ class _ParkingFormState extends State<ParkingForm> {
               decoration: const InputDecoration(
                 labelText: '주차 번호 (선택)',
                 hintText: '예: 24',
-              ),
-              onChanged: (_) => setState(() {
-                _dirty = true;
-                _error = null;
-              }),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _note,
-              maxLength: 500,
-              enabled: !locked,
-              minLines: 2,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                labelText: '가족에게 남길 메모 (선택)',
-                hintText: '예: 엘리베이터 입구 옆',
               ),
               onChanged: (_) => setState(() {
                 _dirty = true;
@@ -275,66 +235,174 @@ class _ParkingFormState extends State<ParkingForm> {
     crossAxisAlignment: CrossAxisAlignment.stretch,
     mainAxisSize: MainAxisSize.min,
     children: [
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-        decoration: BoxDecoration(
-          color: Palette.tint,
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: Text(
-          _floor != null && _zone != null
-              ? '$_floor · $_zone구역${_spot.text.trim().isEmpty ? '' : ' · ${_spot.text.trim()}번'}'
-              : '층수와 구역을 선택해 주세요.',
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            fontSize: 19,
-            fontWeight: FontWeight.w700,
-            letterSpacing: -.4,
-          ),
-        ),
-      ),
-      const SizedBox(height: 18),
       if (_error != null) StatusNotice(_error!, error: true),
       BusyButton(
-        label: widget.controller.isDemo ? '이 위치로 체험 기록 저장' : '이 위치로 주차 기록 저장',
+        label: widget.controller.isDemo ? '체험 기록 저장' : '주차 기록 저장',
         busy: _busy,
         onPressed: _scanning ? null : _save,
         icon: Icons.check_rounded,
       ),
-      const SizedBox(height: 12),
+      const SizedBox(height: 8),
       Text(
-        widget.controller.isDemo
-            ? '체험 데이터는 이 기기에만 저장돼요.'
-            : '저장이 완료되면 가족과 같은 위치를 확인할 수 있어요.',
+        widget.controller.isDemo ? '이 기기에만 저장돼요.' : '저장 후 가족과 위치를 공유해요.',
         textAlign: TextAlign.center,
         style: Theme.of(context).textTheme.bodySmall,
       ),
     ],
   );
 
-  Widget _choices(
-    String label,
+  void _selectFloor(String value) => setState(() {
+    _floor = value;
+    _error = null;
+    _dirty = true;
+  });
+
+  void _selectZone(String value) => setState(() {
+    _zone = value;
+    _error = null;
+    _dirty = true;
+  });
+
+  Widget _floorChoices(List<String> options) {
+    final ground = options
+        .where((value) => RegExp(r'^F[1-9]\d*$').hasMatch(value))
+        .toList();
+    final basement = options
+        .where(
+          (value) => value != 'B6' && RegExp(r'^B[1-9]\d*$').hasMatch(value),
+        )
+        .toList();
+    final other = options
+        .where(
+          (value) =>
+              value != 'B6' &&
+              !ground.contains(value) &&
+              !basement.contains(value),
+        )
+        .toList();
+    final groups = <(String, List<String>, int)>[
+      if (ground.isNotEmpty) ('지상', ground, 5),
+      if (basement.isNotEmpty) ('지하', basement, 5),
+      if (other.isNotEmpty) ('기타 층', other, 1),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var index = 0; index < groups.length; index++) ...[
+          if (index > 0) const SizedBox(height: 16),
+          Text(
+            groups[index].$1,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              height: 1.3,
+            ),
+          ),
+          const SizedBox(height: 6),
+          _choiceRows(groups[index].$2, groups[index].$3, _floor, _selectFloor),
+        ],
+      ],
+    );
+  }
+
+  Widget _zoneChoices(List<String> options) {
+    final latin = options
+        .where((value) => RegExp(r'^[A-Z]$').hasMatch(value))
+        .toList();
+    final korean = options
+        .where((value) => RegExp(r'^[가-힣]$').hasMatch(value))
+        .toList();
+    final other = options
+        .where((value) => !latin.contains(value) && !korean.contains(value))
+        .toList();
+    final groups = [
+      if (latin.isNotEmpty) (latin, 6),
+      if (korean.isNotEmpty) (korean, 6),
+      if (other.isNotEmpty) (other, 1),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text(
+          '구역',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            height: 1.3,
+          ),
+        ),
+        const SizedBox(height: 6),
+        for (var index = 0; index < groups.length; index++) ...[
+          if (index > 0) const SizedBox(height: 8),
+          _choiceRows(groups[index].$1, groups[index].$2, _zone, _selectZone),
+        ],
+      ],
+    );
+  }
+
+  Widget _choiceRows(
     List<String> options,
+    int columns,
     String? selected,
     ValueChanged<String> changed,
-  ) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(label, style: Theme.of(context).textTheme.titleMedium),
-      const SizedBox(height: 10),
-      Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: options
-            .map(
-              (value) => ChoiceChip(
-                label: Text(value, style: const TextStyle(fontSize: 17)),
-                selected: selected == value,
-                onSelected: _busy || _scanning ? null : (_) => changed(value),
+  ) {
+    // Default short labels use fixed rows. Preserve custom apartment labels
+    // with a full-width choice instead of wrapping their text across lines.
+    final count = options.any((value) => value.runes.length > 3) ? 1 : columns;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const gap = 4.0;
+        final width = (constraints.maxWidth - gap * (count - 1)) / count;
+        return Column(
+          children: [
+            for (var offset = 0; offset < options.length; offset += count) ...[
+              if (offset > 0) const SizedBox(height: 8),
+              Row(
+                children: [
+                  for (
+                    var index = offset;
+                    index < options.length && index < offset + count;
+                    index++
+                  ) ...[
+                    if (index > offset) const SizedBox(width: gap),
+                    SizedBox(
+                      width: width,
+                      height: 48,
+                      child: MediaQuery.withClampedTextScaling(
+                        maxScaleFactor: headlineMaxTextScale,
+                        child: ChoiceChip(
+                          label: SizedBox(
+                            width: double.infinity,
+                            child: Text(
+                              options[index],
+                              maxLines: 1,
+                              softWrap: false,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(fontSize: 15, height: 1.2),
+                            ),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 8,
+                          ),
+                          labelPadding: EdgeInsets.zero,
+                          materialTapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
+                          selected: selected == options[index],
+                          onSelected: _busy || _scanning
+                              ? null
+                              : (_) => changed(options[index]),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
               ),
-            )
-            .toList(),
-      ),
-    ],
-  );
+            ],
+          ],
+        );
+      },
+    );
+  }
 }

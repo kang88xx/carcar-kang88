@@ -1,4 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="widget_description">마지막 주차 위치를 보고 층을 눌러 바로 등록해요.</string>
+    <string name="widget_description">정사각형 위젯에서 마지막 주차 위치와 기록 시각을 보고, 앱에서 새 위치를 기록해요.</string>
 </resources>

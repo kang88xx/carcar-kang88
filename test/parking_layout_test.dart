@@ -28,12 +28,17 @@ void main() {
     Size size = const Size(390, 844),
     double textScale = 1,
     bool longValuesWithSaveFailure = false,
+    List<String>? customZones,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
+    tester.view.padding = const FakeViewPadding(top: 59, bottom: 34);
+    tester.view.viewPadding = const FakeViewPadding(top: 59, bottom: 34);
     tester.platformDispatcher.textScaleFactorTestValue = textScale;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPadding);
+    addTearDown(tester.view.resetViewPadding);
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
@@ -46,6 +51,15 @@ void main() {
         ? FailingParkingRepository(preferences)
         : DemoParkingRepository(preferences);
     await repository.initialize();
+    if (customZones != null) {
+      final vehicle = (await repository.vehicles()).single;
+      await repository.updateApartment(
+        vehicle.id,
+        vehicle.apartment,
+        vehicle.floors,
+        customZones,
+      );
+    }
     if (longValuesWithSaveFailure) {
       final vehicle = (await repository.vehicles()).single;
       await repository.updateApartment(
@@ -60,12 +74,14 @@ void main() {
     addTearDown(controller.dispose);
     await tester.pumpWidget(
       MaterialApp(
-        theme: buildTheme(),
+        theme: buildTheme().copyWith(platform: TargetPlatform.iOS),
         home: Scaffold(
-          body: Builder(
-            builder: (context) => TextButton(
-              onPressed: () => openParkingForm(context, controller),
-              child: const Text('기록 열기'),
+          body: SafeArea(
+            child: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => openParkingForm(context, controller),
+                child: const Text('기록 열기'),
+              ),
             ),
           ),
         ),
@@ -76,9 +92,90 @@ void main() {
     return controller;
   }
 
+  for (final width in [320.0, 393.0]) {
+    testWidgets('iOS ${width}px keeps floor and zone groups in single rows', (
+      tester,
+    ) async {
+      await openForm(tester, size: Size(width, 852), textScale: 1.3);
+      expect(find.text('지상'), findsOneWidget);
+      expect(find.text('지하'), findsOneWidget);
+      expect(find.widgetWithText(ChoiceChip, 'B6'), findsNothing);
+      for (final row in [
+        ['F1', 'F2', 'F3', 'F4', 'F5'],
+        ['B1', 'B2', 'B3', 'B4', 'B5'],
+        ['A', 'B', 'C', 'D', 'E', 'F'],
+        ['가', '나', '다', '라', '마', '바'],
+      ]) {
+        final chips = row.map(
+          (label) => find.widgetWithText(ChoiceChip, label),
+        );
+        await tester.ensureVisible(chips.first);
+        await tester.pumpAndSettle();
+        final bounds = chips.map(tester.getRect).toList();
+        expect(
+          bounds.every((rect) => (rect.top - bounds.first.top).abs() < 1),
+          isTrue,
+        );
+        expect(bounds.first.left, greaterThanOrEqualTo(16));
+        expect(bounds.last.right, lessThanOrEqualTo(width - 16));
+      }
+      expect(find.widgetWithText(TextField, '가족에게 남길 메모 (선택)'), findsNothing);
+      expect(find.text('층수와 구역을 선택해 주세요.'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  for (final zone in ['F', '바']) {
+    testWidgets('iOS form saves the $zone zone with no memo', (tester) async {
+      final controller = await openForm(tester, size: const Size(393, 852));
+      for (final label in ['F5', zone]) {
+        final choice = find.widgetWithText(ChoiceChip, label);
+        await tester.ensureVisible(choice);
+        await tester.tap(choice);
+        await tester.pumpAndSettle();
+      }
+      final save = find.text('체험 기록 저장');
+      await tester.ensureVisible(save);
+      await tester.tap(save);
+      await tester.pumpAndSettle();
+      expect(find.byType(ParkingForm), findsNothing);
+      expect(controller.latest!.floor, 'F5');
+      expect(controller.latest!.zone, zone);
+      expect(controller.latest!.note, isEmpty);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('short custom Korean zones remain distinguishable at 320px', (
+    tester,
+  ) async {
+    final controller = await openForm(
+      tester,
+      size: const Size(320, 740),
+      textScale: 1.3,
+      customZones: ['동문앞', '동문뒤'],
+    );
+    final floor = find.widgetWithText(ChoiceChip, 'F1');
+    await tester.tap(floor);
+    for (final label in ['동문앞', '동문뒤']) {
+      final choice = find.widgetWithText(ChoiceChip, label);
+      await tester.ensureVisible(choice);
+      await tester.pumpAndSettle();
+      expect(tester.getSize(find.text(label)).width, greaterThan(100));
+      await tester.tap(choice);
+      await tester.pumpAndSettle();
+    }
+    final save = find.text('체험 기록 저장');
+    await tester.ensureVisible(save);
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+    expect(controller.latest!.zone, '동문뒤');
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('save stays visible while parking fields scroll', (tester) async {
     await openForm(tester);
-    final save = find.text('이 위치로 체험 기록 저장');
+    final save = find.text('체험 기록 저장');
     expect(save.hitTestable(), findsOneWidget);
     final initialY = tester.getCenter(save).dy;
     await tester.drag(
@@ -115,12 +212,9 @@ void main() {
     await tester.ensureVisible(spot);
     await tester.enterText(spot, '52');
     await tester.pumpAndSettle();
-    expect(find.text('B3 · D구역 · 52번'), findsOneWidget);
-    final note = find.widgetWithText(TextField, '가족에게 남길 메모 (선택)');
-    await tester.ensureVisible(note);
-    await tester.enterText(note, '입구 옆');
-    await tester.pumpAndSettle();
-    final save = find.text('이 위치로 체험 기록 저장');
+    expect(find.text('B3 · D구역 · 52번'), findsNothing);
+    expect(find.widgetWithText(TextField, '가족에게 남길 메모 (선택)'), findsNothing);
+    final save = find.text('체험 기록 저장');
     await tester.ensureVisible(save);
     await tester.pumpAndSettle();
     expect(save.hitTestable(), findsOneWidget);
@@ -130,7 +224,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(ParkingForm), findsNothing);
     expect(controller.latest!.spot, '52');
-    expect(controller.latest!.note, '입구 옆');
+    expect(controller.latest!.note, isEmpty);
     expect(tester.takeException(), isNull);
   });
 
@@ -156,7 +250,7 @@ void main() {
       await tester.enterText(spot, longValue);
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
-      final save = find.text('이 위치로 체험 기록 저장');
+      final save = find.text('체험 기록 저장');
       await tester.ensureVisible(save);
       await tester.pumpAndSettle();
       expect(save.hitTestable(), findsOneWidget);

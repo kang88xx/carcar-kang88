@@ -9,7 +9,7 @@ platform :ios do
       skip_submission: true,
       skip_waiting_for_build_processing: false,
       wait_processing_timeout_duration: 1200,
-      changelog: '차자리의 앱 화면, 층수 아이콘과 위젯을 블루·슬레이트 색상으로 맞췄습니다. 주차 위치와 기록 버튼이 먼저 보이는 담백한 화면 구성을 유지하고, 작은 글자의 명암 대비를 높였습니다. 앱 이름과 TestFlight 표시 정보도 함께 점검했습니다.'
+      changelog: '정사각형 위젯에서 주차 위치와 기록 시각을 확인하고 앱의 입력 화면을 바로 열 수 있습니다. 홈의 중복 메뉴와 최근 기록 목록을 정리하고, 하단 메뉴의 글자 크기와 여백을 개선했습니다. 주차 입력은 지상 F1–F5와 지하 B1–B5를 구분하고 구역 A–F·가–바를 지원합니다. 메모 입력과 중복 요약 박스를 제거하고 저장 버튼을 간결하게 바꿨습니다.'
     )
   end
 end

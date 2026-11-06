@@ -7,26 +7,24 @@ private struct ParkingEntry: TimelineEntry {
     let snapshot: [String: String]
     let isDemo: Bool
     var draft: [String: Any] = [:]
-    var floors: [String] = []
 }
 
 private struct ParkingProvider: TimelineProvider {
     func placeholder(in context: Context) -> ParkingEntry {
-        ParkingEntry(date: Date(), snapshot: ["floor": "B2", "zone": "C", "spot": "24"], isDemo: true, draft: ["enabled": true, "floor": "B2", "zone": "C"], floors: ["F3", "F2", "F1", "B1", "B2", "B3"])
+        ParkingEntry(date: Date(), snapshot: ["floor": "B2", "zone": "C", "spot": "24", "updatedAt": ISO8601DateFormatter().string(from: Date())], isDemo: true)
     }
     func getSnapshot(in context: Context, completion: @escaping (ParkingEntry) -> Void) { completion(read()) }
     func getTimeline(in context: Context, completion: @escaping (Timeline<ParkingEntry>) -> Void) {
-        // No background polling. User-triggered intents perform authenticated writes.
         let entry = read()
         if let until = entry.draft["busyUntil"] as? Double, until > Date().timeIntervalSince1970 {
-            // Single local recovery after a killed intent; no periodic network work.
+            // Finish local recovery for an action started by the previous widget.
             completion(Timeline(entries: [entry], policy: .after(Date(timeIntervalSince1970: until + 1))))
         } else { completion(Timeline(entries: [entry], policy: .never)) }
     }
     private func read() -> ParkingEntry {
         let raw = UserDefaults(suiteName: "group.com.kang88.carcar")?.dictionary(forKey: "parkingSnapshot") ?? [:]
-        let (draft, floors): ([String: Any], [String]) = (try? WidgetSession.locked { (try WidgetSession.display(), WidgetSession.options("floor")) }) ?? ([:], [])
-        return ParkingEntry(date: Date(), snapshot: raw.compactMapValues { $0 as? String }, isDemo: raw["isDemo"] as? Bool ?? false, draft: draft, floors: floors)
+        let draft = (try? WidgetSession.locked { try WidgetSession.display() }) ?? [:]
+        return ParkingEntry(date: Date(), snapshot: raw.compactMapValues { $0 as? String }, isDemo: raw["isDemo"] as? Bool ?? false, draft: draft)
     }
 }
 
@@ -34,14 +32,24 @@ private enum WidgetPalette {
     static let ink = Color(red: 30 / 255, green: 41 / 255, blue: 59 / 255)
     static let highlight = Color(red: 219 / 255, green: 234 / 255, blue: 254 / 255)
     static let mist = Color(red: 203 / 255, green: 213 / 255, blue: 225 / 255)
-    static let chip = Color.white.opacity(0.14)
 }
 
 private struct ParkingWidgetView: View {
     let entry: ParkingEntry
-    @Environment(\.widgetFamily) private var family
+    private var floor: String { value("floor") }
+    private var zone: String { value("zone") }
+    private var spot: String { value("spot") }
+    private var zoneLabel: String { zone.hasSuffix("구역") ? zone : "\(zone)구역" }
+    private var spotLabel: String { spot.hasSuffix("번") ? spot : "\(spot)번" }
+
+    private func value(_ key: String) -> String {
+        (entry.snapshot[key] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     private var recordTime: String {
-        guard let raw = entry.snapshot["updatedAt"], !raw.isEmpty else { return "앱에서 확인" }
+        guard !floor.isEmpty else { return entry.isDemo ? "체험 · 기록 없음" : "주차 기록 없음" }
+        let prefix = entry.isDemo ? "체험 · " : ""
+        guard let raw = entry.snapshot["updatedAt"], !raw.isEmpty else { return prefix + "기록 시각 확인 필요" }
         let parser = ISO8601DateFormatter()
         parser.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         var date = parser.date(from: raw)
@@ -49,97 +57,86 @@ private struct ParkingWidgetView: View {
             parser.formatOptions = [.withInternetDateTime]
             date = parser.date(from: raw)
         }
-        guard let date = date else { return "앱에서 확인" }
-        let text = date.formatted(date: .numeric, time: .shortened)
-        return entry.isDemo ? "체험 · \(text)" : text
+        guard let date = date else { return prefix + "기록 시각 확인 필요" }
+        // updatedAt carries the saved record's created_at, never the render time.
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .autoupdatingCurrent
+        let display = DateFormatter()
+        display.locale = Locale(identifier: "ko_KR")
+        display.calendar = calendar
+        display.timeZone = .autoupdatingCurrent
+        display.dateFormat = calendar.component(.year, from: date) == calendar.component(.year, from: entry.date)
+            ? "M월 d일 HH:mm '기록'" : "yyyy년 M월 d일 HH:mm '기록'"
+        return prefix + display.string(from: date)
     }
-    private var location: String? {
-        guard let floor = entry.snapshot["floor"], !floor.isEmpty else { return nil }
-        return "\(floor) · \(entry.snapshot["zone"] ?? "") \(entry.snapshot["spot"] ?? "")".trimmingCharacters(in: .whitespaces)
+
+    private var locationLabel: String {
+        [floor, zone.isEmpty ? nil : zoneLabel, spot.isEmpty ? nil : spotLabel]
+            .compactMap { $0 }.joined(separator: ", ")
     }
-    private var enabled: Bool { entry.draft["enabled"] as? Bool == true }
-    private var interactive: Bool { enabled && entry.draft["busy"] as? Bool != true }
-    private var floors: [String] { enabled ? Array(entry.floors.prefix(12)) : [] }
-    private var large: Bool { family == .systemLarge }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: large ? 6 : 3) {
-            // No app name: the location is the headline.
-            HStack(alignment: .lastTextBaseline, spacing: 8) {
-                if let location = location {
-                    Text(location)
-                        .font(.system(size: large ? 34 : (family == .systemSmall ? 30 : 26), weight: .bold, design: .rounded))
-                        .lineLimit(1).minimumScaleFactor(0.5)
-                        .privacySensitive()
-                } else {
-                    Text("주차 위치 없음").font(.system(.title3, design: .rounded, weight: .bold))
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 5) {
+                Image(systemName: "clock").accessibilityHidden(true)
+                Text(recordTime).lineLimit(1).minimumScaleFactor(0.75)
+            }
+            .font(.system(size: 10.5))
+            .foregroundStyle(WidgetPalette.mist)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(recordTime)
+            .privacySensitive()
+
+            if floor.isEmpty {
+                Text("위치를 기록해 주세요")
+                    .font(.system(size: 19, weight: .bold))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                    .minimumScaleFactor(0.8)
+            } else {
+                HStack(alignment: .center, spacing: 10) {
+                    Text(floor)
+                        .font(.system(size: 60, weight: .bold, design: .rounded))
+                        .lineLimit(1).minimumScaleFactor(0.35)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    if !zone.isEmpty || !spot.isEmpty {
+                        VStack(alignment: .leading, spacing: 5) {
+                            if !zone.isEmpty {
+                                Text(zoneLabel)
+                                    .font(.system(size: 19, weight: .bold))
+                                    .lineLimit(1).minimumScaleFactor(0.55)
+                            }
+                            if !spot.isEmpty {
+                                Text(spotLabel)
+                                    .font(.system(size: 17))
+                                    .lineLimit(2).minimumScaleFactor(0.65)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                 }
-                if family != .systemSmall {
-                    Spacer(minLength: 0)
-                    Text(recordTime).font(.caption2).foregroundStyle(WidgetPalette.mist).lineLimit(1).minimumScaleFactor(0.8)
-                }
+                .frame(maxHeight: .infinity)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(locationLabel)
+                .privacySensitive()
             }
-            if family == .systemSmall {
-                Text(recordTime).font(.caption2).foregroundStyle(WidgetPalette.mist).lineLimit(1).minimumScaleFactor(0.8)
+
+            Link(destination: URL(string: "carcar://parking")!) {
+                Label("주차 기록", systemImage: "plus")
+                    .font(.system(size: 14, weight: .bold))
+                    .lineLimit(1).minimumScaleFactor(0.85)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .foregroundStyle(WidgetPalette.ink)
+                    .background(WidgetPalette.highlight, in: Capsule())
             }
-            Text(entry.draft["status"] as? String ?? "층을 누른 뒤 등록을 누르면 서버에 저장돼요")
-                .font(.caption2).foregroundStyle(WidgetPalette.mist).lineLimit(1).minimumScaleFactor(0.8)
-            if family != .systemSmall {
-                Spacer(minLength: 2)
-                controls
-            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("주차 기록")
+            .accessibilityHint("앱에서 주차 위치 입력 화면을 엽니다")
         }
         .foregroundStyle(.white)
-        .padding(.horizontal, large ? 16 : 12).padding(.vertical, large ? 16 : 8)
+        .padding(12)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .containerBackground(WidgetPalette.ink, for: .widget)
         .widgetURL(URL(string: "carcar://home"))
-    }
-
-    private var controls: some View {
-        let chipHeight: CGFloat = large ? 44 : 26
-        let actionHeight: CGFloat = large ? 48 : 30
-        let rows = stride(from: 0, to: floors.count, by: 6).map { Array(floors[$0..<min($0 + 6, floors.count)]) }
-        return VStack(spacing: large ? 6 : 3) {
-            ForEach(Array(rows.enumerated()), id: \.offset) { item in
-                HStack(spacing: large ? 6 : 3) {
-                    ForEach(item.element, id: \.self) { floor in
-                        let selected = floor == entry.draft["floor"] as? String
-                        Button(intent: ParkingActionIntent("floor", value: floor)) {
-                            Text(floor)
-                                .font(.system(size: 14, weight: .bold, design: .rounded))
-                                .lineLimit(1).minimumScaleFactor(0.6)
-                                .frame(maxWidth: .infinity, minHeight: chipHeight, maxHeight: chipHeight)
-                                .background(selected ? WidgetPalette.highlight : WidgetPalette.chip, in: RoundedRectangle(cornerRadius: 10))
-                                .foregroundStyle(selected ? WidgetPalette.ink : .white)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(selected ? "\(floor) 선택됨" : "\(floor) 선택")
-                    }
-                }
-            }
-            HStack(spacing: large ? 6 : 3) {
-                Button(intent: ParkingActionIntent("zone")) {
-                    Text(enabled ? "\(entry.draft["zone"] as? String ?? "") 구역" : "구역")
-                        .font(.system(size: 14, weight: .bold, design: .rounded))
-                        .frame(maxWidth: .infinity, minHeight: actionHeight, maxHeight: actionHeight)
-                        .background(WidgetPalette.chip, in: RoundedRectangle(cornerRadius: 10))
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("다음 구역 선택")
-                Button(intent: ParkingActionIntent("save")) {
-                    Text(entry.draft["busy"] as? Bool == true ? "저장 중…" : "등록")
-                        .font(.system(size: 15, weight: .bold, design: .rounded))
-                        .frame(maxWidth: .infinity, minHeight: actionHeight, maxHeight: actionHeight)
-                        .background(WidgetPalette.highlight, in: RoundedRectangle(cornerRadius: 12))
-                        .foregroundStyle(WidgetPalette.ink)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("선택한 층과 구역을 서버에 등록")
-            }
-        }
-        .disabled(!interactive)
-        .opacity(interactive ? 1 : 0.5)
     }
 }
 
@@ -148,8 +145,8 @@ struct ParkingHomeWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: ParkingProvider()) { ParkingWidgetView(entry: $0) }
             .configurationDisplayName("마지막 주차 위치")
-            .description("마지막 주차 위치를 보고 층을 눌러 바로 등록해요.")
-            .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
+            .description("정사각형 위젯에서 위치를 확인하고, 주차 기록을 눌러 앱에서 입력해요.")
+            .supportedFamilies([.systemSmall])
             .contentMarginsDisabled()
     }
 }

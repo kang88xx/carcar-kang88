@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>차자리 · 정사각형 위젯 시안 4개</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; color: #1e293b; background: #f5f7fa; font-family: "Noto Sans KR", "Malgun Gothic", sans-serif; }
+    main { max-width: 1520px; margin: 0 auto; padding: 48px 32px; }
+    h1 { margin: 0 0 12px; font-size: clamp(24px, 3vw, 36px); letter-spacing: -1px; }
+    header p { margin: 0; color: #526176; line-height: 1.7; }
+    .gallery { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; margin-top: 40px; }
+    figure { margin: 0; }
+    a { display: block; border-radius: 24px; overflow: hidden; }
+    a:focus-visible { outline: 3px solid #2563eb; outline-offset: 4px; }
+    img { display: block; width: 100%; height: auto; aspect-ratio: 1; }
+    figcaption { padding: 20px 10px; }
+    h2 { margin: 0 0 10px; font-size: 20px; }
+    figcaption p { margin: 0; color: #526176; font-size: 14px; line-height: 1.7; }
+    .number { display: inline-grid; place-items: center; width: 28px; height: 28px; margin-right: 8px; background: #dbeafe; border-radius: 50%; font-size: 15px; }
+    footer { margin-top: 40px; color: #526176; font-size: 13px; }
+    @media (max-width: 1000px) { .gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 520px) { main { padding: 32px 20px; } .gallery { grid-template-columns: 1fr; gap: 16px; margin-top: 24px; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>정사각형 위젯 시안</h1>
+      <p>같은 주차 위치를 네 가지 구성으로 비교해 보세요. 이미지를 누르면 원본을 크게 볼 수 있습니다.</p>
+    </header>
+    <section class="gallery" aria-label="위젯 디자인 시안 4개">
+      <figure>
+        <a href="01-large-type.png" target="_blank" rel="noopener" aria-label="1번 큰 글자형 원본 보기"><img src="01-large-type.png" alt="큰 B2 층수와 C구역 24번을 세로로 배치한 짙은 슬레이트 정사각형 위젯" width="1254" height="1254"></a>
+        <figcaption><h2><span class="number">1</span>큰 글자형</h2><p>층수를 가장 크게 표시해 한눈에 위치를 확인합니다.</p></figcaption>
+      </figure>
+      <figure>
+        <a href="02-parking-pass.png" target="_blank" rel="noopener" aria-label="2번 주차표형 원본 보기"><img src="02-parking-pass.png" alt="옅은 파란색 바탕에 B2와 C·24를 주차표처럼 정돈한 정사각형 위젯" width="1254" height="1254"></a>
+        <figcaption><h2><span class="number">2</span>주차표형</h2><p>밝은 배경에 층·구역·번호를 순서대로 정돈했습니다.</p></figcaption>
+      </figure>
+      <figure>
+        <a href="03-split-information.png" target="_blank" rel="noopener" aria-label="3번 정보 분리형 원본 보기"><img src="03-split-information.png" alt="왼쪽 B2 층수와 오른쪽 C구역 24번을 두 영역으로 나눈 정사각형 위젯" width="1254" height="1254"></a>
+        <figcaption><h2><span class="number">3</span>정보 분리형</h2><p>층은 왼쪽, 구역과 번호는 오른쪽으로 구분합니다.</p></figcaption>
+      </figure>
+      <figure>
+        <a href="04-record-shortcut.png" target="_blank" rel="noopener" aria-label="4번 빠른 기록형 원본 보기"><img src="04-record-shortcut.png" alt="B2 C구역 24번 아래에 주차 기록 버튼을 둔 정사각형 위젯" width="1254" height="1254"></a>
+        <figcaption><h2><span class="number">4</span>빠른 기록형</h2><p>위치 아래에 앱의 입력 화면으로 이어지는 기록 버튼을 둡니다.</p></figcaption>
+      </figure>
+    </section>
+    <footer>디자인 시안 · 위치와 시각은 예시 데이터입니다.</footer>
+  </main>
+</body>
+</html>

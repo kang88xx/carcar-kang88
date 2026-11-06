@@ -8,7 +8,8 @@
 - 화면은 `features/`의 파일 단위로 구성합니다. `device_notifications.dart`는 기기별 서버 설정·권한·토큰 등록을 관리합니다. `NativeBridge`가 OCR, 위젯, 차량 찾기, 알림, iOS·Android 층수 런처 아이콘을 연결합니다.
 - 인증·PostgreSQL·Realtime은 차자리 전용 Supabase Free 서울 프로젝트를 사용합니다. 차량·초대·주차 저장은 권한을 검사하는 SQL RPC이며 주차 이력과 최신 포인터를 같은 트랜잭션에서 확정합니다. 사진 Storage와 서버 OCR은 사용하지 않습니다.
 - 알림 설정과 토큰은 `private` 스키마에 보관합니다. 주차 트랜잭션은 발송 작업만 추가하고, Vault 인증을 사용하는 매분 예약 작업이 필요한 경우에만 `parking-push` Edge Function을 호출합니다. worker는 발송 직전 권한·기기 설정을 재검사하고 APNs HTTP/2 또는 FCM data-only로 전송합니다. 전송 실패는 이미 저장된 주차 기록을 취소하지 않습니다. [푸시 구조와 배포](../supabase/deployment/PUSH.md).
-- 위젯은 짧은 수명의 사용자 access token만 플랫폼 보안 저장소에 보관합니다. refresh token과 서버 비밀키를 전달하지 않습니다. 서버 확인 전 성공 표시를 하지 않으며 계정·차량 전환 뒤 늦은 응답을 폐기합니다.
+- 현재 정사각형 위젯은 서버 확정 기록 스냅샷을 표시하고 `carcar://parking`으로 Flutter의 기존 주차 입력 화면을 엽니다. 상단 시각은 화면 갱신 시간이 아니라 `created_at`입니다. 로그인·차량 준비 후 한 번만 입력을 열고 계정 전환 시 이전 요청을 폐기합니다.
+- 이전 위젯 직접 저장 기능의 호환용 보안 경로는 짧은 수명의 사용자 access token만 플랫폼 보안 저장소에 보관합니다. refresh token과 서버 비밀키를 전달하지 않습니다. 서버 확인 전 성공 표시를 하지 않으며 계정·차량 전환 뒤 늦은 응답을 폐기합니다.
 - 로그인 진입은 Supabase Google OAuth이며 네이티브 복귀 주소는 `com.kang88.carcar://login-callback`입니다. 기존 비밀번호 복구 링크 처리는 호환 경로로 남아 있지만 새 가입 화면은 이메일/비밀번호를 받지 않습니다. Google 클라이언트 비밀키는 Supabase에만 둡니다. 실제 인증 플랫폼 설정 및 로그인 왕복 검증 여부는 릴리스 기록을 따릅니다.
 - 정규화(NFKC·대문자·공백/하이픈 제거)한 차량번호의 고유 인덱스와 `vehicle_members(user_id)` 고유 제약으로 번호 중복·다중 차량 가입을 서버에서 막습니다. 번호 확인은 인증 사용자에게 boolean만 반환하며 요청 횟수를 제한합니다. 생성·참여·계정 삭제는 같은 사용자 잠금 순서를 사용합니다.
 - `core/invite_links.dart`가 48자리 hex 초대와 허용된 링크를 해석합니다. 공유 HTTPS 링크의 fragment에서 사용자가 앱 열기를 누르면 `com.kang88.carcar://invite?invite_code=...`로 전달합니다. OAuth의 `code`와 초대의 `invite_code`를 분리하며, 받은 초대는 로그인 뒤 명시적 참여 확인까지 보관합니다. 저장 실패는 성공으로 숨기지 않습니다.

@@ -6,6 +6,7 @@ import 'package:carcar/core/models.dart';
 import 'package:carcar/core/repository.dart';
 import 'package:carcar/features/shell.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -19,18 +20,28 @@ void main() {
   const note = '엘리베이터 연결 통로 옆에 주차했어요.';
   final recordedAt = DateTime(2026, 11, 4, 12, 30);
 
+  setUpAll(() async {
+    final font = FontLoader('NotoSansKR')
+      ..addFont(rootBundle.load('assets/fonts/NotoSansKR-Regular.ttf'))
+      ..addFont(rootBundle.load('assets/fonts/NotoSansKR-Bold.ttf'));
+    await font.load();
+  });
+
   Future<void> showHome(
     WidgetTester tester, {
     Size size = const Size(390, 844),
     double textScale = 1,
     bool longValues = false,
+    double bottomInset = 0,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     tester.platformDispatcher.textScaleFactorTestValue = textScale;
+    tester.view.padding = FakeViewPadding(bottom: bottomInset);
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    addTearDown(tester.view.resetPadding);
     const channel = MethodChannel('carcar/native');
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (_) async => null);
@@ -89,7 +100,7 @@ void main() {
     addTearDown(controller.dispose);
     await tester.pumpWidget(
       MaterialApp(
-        theme: buildTheme(),
+        theme: buildTheme().copyWith(platform: TargetPlatform.iOS),
         home: AppShell(
           controller: controller,
           preferences: preferences,
@@ -110,6 +121,112 @@ void main() {
     await tester.tap(record);
     await tester.pumpAndSettle();
     expect(find.text('어디에 주차했나요?'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final width in [320.0, 390.0]) {
+    for (final scale in [1.0, 2.0]) {
+      testWidgets(
+        'iOS navigation counts its 34px inset once at $width / ${scale}x',
+        (tester) async {
+          await showHome(
+            tester,
+            size: Size(width, 844),
+            textScale: scale,
+            bottomInset: 34,
+          );
+          final bar = find.byType(NavigationBar);
+          final rect = tester.getRect(bar);
+          expect(rect.height, 72);
+          expect(rect.bottom, 844 - 34 - 8);
+          final centers = [
+            for (final label in ['주차 위치', '주차 이력', '우리 가족', '설정'])
+              tester.getCenter(
+                find.descendant(of: bar, matching: find.text(label)),
+              ),
+          ];
+          for (var i = 1; i < centers.length; i++) {
+            expect(centers[i].dy, centers.first.dy);
+            expect(
+              centers[i].dx - centers[i - 1].dx,
+              closeTo((width - 24) / 4, 0.01),
+            );
+          }
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
+
+  for (final size in [const Size(320, 740), const Size(393, 852)]) {
+    testWidgets(
+      'iOS ${size.width}px navigation leaves readable gaps across all tabs at 1.3x',
+      (tester) async {
+        await showHome(tester, size: size, textScale: 1.3, bottomInset: 34);
+        const labels = ['주차 위치', '주차 이력', '우리 가족', '설정'];
+        final bar = find.byType(NavigationBar);
+        for (var selected = 0; selected < labels.length; selected++) {
+          await tester.tap(
+            find.descendant(of: bar, matching: find.text(labels[selected])),
+          );
+          await tester.pumpAndSettle();
+          expect(tester.widget<NavigationBar>(bar).selectedIndex, selected);
+          final bounds = tester.getRect(bar);
+          expect(bounds.bottom, size.height - 34 - 8);
+          final slotWidth = bounds.width / labels.length;
+          Rect? previous;
+          for (var index = 0; index < labels.length; index++) {
+            final label = labels[index];
+            final finder = find.descendant(of: bar, matching: find.text(label));
+            final paragraph = tester.renderObject<RenderParagraph>(finder);
+            final boxes = paragraph.getBoxesForSelection(
+              TextSelection(baseOffset: 0, extentOffset: label.length),
+            );
+            expect(boxes, hasLength(1), reason: '$label must stay on one line');
+            final painted = boxes.single.toRect().shift(
+              paragraph.localToGlobal(Offset.zero),
+            );
+            expect(
+              painted.left,
+              greaterThanOrEqualTo(bounds.left + slotWidth * index + 6),
+              reason: '$label needs space before its text',
+            );
+            expect(
+              painted.right,
+              lessThanOrEqualTo(bounds.left + slotWidth * (index + 1) - 6),
+              reason: '$label needs space after its text',
+            );
+            expect(painted.bottom, lessThanOrEqualTo(bounds.bottom - 7));
+            if (previous != null) {
+              expect(painted.left - previous.right, greaterThanOrEqualTo(12));
+            }
+            previous = painted;
+            expect(finder.hitTestable(), findsOneWidget);
+          }
+          expect(tester.takeException(), isNull);
+        }
+      },
+    );
+  }
+
+  testWidgets('home keeps widget guidance and history stays in its own tab', (
+    tester,
+  ) async {
+    await showHome(tester, bottomInset: 34);
+    for (final removed in ['사진 기록', '차량 찾기', '이력 보기', '위젯', '최근 주차 기록']) {
+      expect(find.text(removed), findsNothing);
+    }
+    expect(find.text('마지막 주차 위치'), findsOneWidget);
+    await tester.ensureVisible(find.text('추가 방법 보기'));
+    await tester.pumpAndSettle();
+    expect(find.text('추가 방법 보기').hitTestable(), findsOneWidget);
+    expect(find.text('위젯 설정'), findsOneWidget);
+    expect(find.text('가족과 함께 사용하는 모습을 둘러보세요'), findsOneWidget);
+    await tester.tap(find.text('주차 이력'));
+    await tester.pumpAndSettle();
+    expect(find.text('쌓여 가는 주차 기록'), findsOneWidget);
+    expect(find.byType(TextField), findsOneWidget);
+    expect(find.text('C구역 · 24번'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

@@ -14,7 +14,7 @@ select pg_temp.assert_true(public.check_vehicle_plate('１２３가-４５６７
 select public.create_vehicle_with_membership('가족','１２３가-４５６７','차') as first_vehicle \gset
 select set_config('test.first_vehicle',:'first_vehicle',false);
 select pg_temp.assert_true((select plate_number='123가4567' from public.vehicles),'Stored plate is canonical');
-select pg_temp.assert_true((select allowed_floors=array['F5','F4','F3','F2','F1','B1','B2','B3','B4','B5','B6'] from public.apartments),'New apartment floor defaults');
+select pg_temp.assert_true((select allowed_floors=array['F1','F2','F3','F4','F5','B1','B2','B3','B4','B5'] from public.apartments),'New apartment floor defaults');
 select public.create_invite_securely(:'first_vehicle')->>'code' as first_code \gset
 select set_config('test.first_code',:'first_code',false);
 select pg_temp.assert_true((public.redeem_invite_securely(:'first_code')->>'ok')::boolean,'Same vehicle valid invite no-op');

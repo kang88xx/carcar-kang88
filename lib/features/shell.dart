@@ -4,6 +4,7 @@ import '../app/theme.dart';
 import '../core/app_controller.dart';
 import '../core/models.dart';
 import '../core/device_notifications.dart';
+import '../core/widget_links.dart';
 import '../shared/components.dart';
 import 'parking_form.dart';
 import 'management.dart';
@@ -19,6 +20,9 @@ class AppShell extends StatefulWidget {
     this.pendingInvite,
     this.inviteNotice,
     this.onClearInvite,
+    this.widgetDestination,
+    this.widgetLinkId = 0,
+    this.onWidgetLinkHandled,
   });
   final AppController controller;
   final SharedPreferences preferences;
@@ -26,6 +30,9 @@ class AppShell extends StatefulWidget {
   final DeviceNotificationController? notifications;
   final String? pendingInvite, inviteNotice;
   final Future<void> Function()? onClearInvite;
+  final WidgetDestination? widgetDestination;
+  final int widgetLinkId;
+  final ValueChanged<int>? onWidgetLinkHandled;
   @override
   State<AppShell> createState() => _AppShellState();
 }
@@ -36,6 +43,8 @@ class _AppShellState extends State<AppShell> {
   String _search = '';
   final _scroll = ScrollController();
   final _widgetSettingsKey = GlobalKey();
+  bool _parkingFormOpen = false, _widgetLinkScheduled = false;
+  int? _handledWidgetLinkId;
   late bool _bannerHidden = widget.preferences.getBool(_bannerKey) ?? false;
   AppController get c => widget.controller;
   static const _labels = ['주차 위치', '주차 이력', '우리 가족', '설정'];
@@ -46,7 +55,59 @@ class _AppShellState extends State<AppShell> {
     Icons.tune_rounded,
   ];
   @override
+  void initState() {
+    super.initState();
+    c.addListener(_scheduleWidgetLink);
+    _scheduleWidgetLink();
+  }
+
+  @override
+  void didUpdateWidget(covariant AppShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != c) {
+      oldWidget.controller.removeListener(_scheduleWidgetLink);
+      c.addListener(_scheduleWidgetLink);
+    }
+    _scheduleWidgetLink();
+  }
+
+  void _scheduleWidgetLink() {
+    if (_widgetLinkScheduled ||
+        widget.widgetDestination == null ||
+        widget.widgetLinkId == _handledWidgetLinkId) {
+      return;
+    }
+    _widgetLinkScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _widgetLinkScheduled = false;
+      if (!mounted || widget.widgetDestination == null) return;
+      final destination = widget.widgetDestination!;
+      if (destination == WidgetDestination.parking &&
+          (c.loading || c.vehicle == null)) {
+        return;
+      }
+      final id = widget.widgetLinkId;
+      if (id == _handledWidgetLinkId) return;
+      _handledWidgetLinkId = id;
+      widget.onWidgetLinkHandled?.call(id);
+      _navigate(0);
+      if (destination == WidgetDestination.parking) _openParking();
+    });
+  }
+
+  Future<void> _openParking() async {
+    if (_parkingFormOpen || c.vehicle == null) return;
+    _parkingFormOpen = true;
+    try {
+      await openParkingForm(context, c);
+    } finally {
+      _parkingFormOpen = false;
+    }
+  }
+
+  @override
   void dispose() {
+    c.removeListener(_scheduleWidgetLink);
     _scroll.dispose();
     super.dispose();
   }
@@ -198,37 +259,37 @@ class _AppShellState extends State<AppShell> {
     ),
   );
 
-  Widget _floatingBar() => Padding(
-    padding: EdgeInsets.fromLTRB(
-      16,
-      8,
-      16,
-      12 + MediaQuery.paddingOf(context).bottom,
-    ),
-    child: Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(36),
-        boxShadow: [
-          BoxShadow(
-            color: Palette.ink.withValues(alpha: .12),
-            blurRadius: 28,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(36),
-        child: MediaQuery.withClampedTextScaling(
-          maxScaleFactor: headlineMaxTextScale,
-          child: NavigationBar(
-            selectedIndex: _tab,
-            onDestinationSelected: _navigate,
-            labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-            destinations: List.generate(
-              4,
-              (i) => NavigationDestination(
-                icon: Icon(_icons[i]),
-                label: _labels[i],
+  Widget _floatingBar() => SafeArea(
+    top: false,
+    // Consume the system inset outside the capsule. NavigationBar also uses
+    // SafeArea internally, so passing the original inset doubles its height.
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: [
+            BoxShadow(
+              color: Palette.ink.withValues(alpha: .07),
+              blurRadius: 18,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(28),
+          child: MediaQuery.withClampedTextScaling(
+            maxScaleFactor: headlineMaxTextScale,
+            child: NavigationBar(
+              selectedIndex: _tab,
+              onDestinationSelected: _navigate,
+              labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+              destinations: List.generate(
+                4,
+                (i) => NavigationDestination(
+                  icon: Icon(_icons[i]),
+                  label: _labels[i],
+                ),
               ),
             ),
           ),
@@ -417,29 +478,12 @@ class _AppShellState extends State<AppShell> {
     builder: (context, constraints) {
       final primary = Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _vehicleHeading(),
-          const SizedBox(height: 18),
-          _heroGroup(),
-          const SizedBox(height: 14),
-          _quickActions(),
-        ],
+        children: [_vehicleHeading(), const SizedBox(height: 18), _heroGroup()],
       );
       final secondary = Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (!_bannerHidden) ...[_widgetBanner(), const SizedBox(height: 24)],
-          if (c.records.isNotEmpty) ...[
-            SectionTitle(
-              '최근 주차 기록',
-              trailing: TextButton(
-                onPressed: () => _navigate(1),
-                child: const Text('전체 보기'),
-              ),
-            ),
-            _recordList(c.records.take(3).toList()),
-            const SizedBox(height: 18),
-          ],
           _familyRow(),
         ],
       );
@@ -503,51 +547,7 @@ class _AppShellState extends State<AppShell> {
         BusyButton(
           label: '주차 위치 기록하기',
           icon: Icons.add_rounded,
-          onPressed: () => openParkingForm(context, c),
-        ),
-      ],
-    ),
-  );
-
-  Widget _quickActions() => Surface(
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: QuickAction(
-            icon: Icons.photo_camera_outlined,
-            label: '사진 기록',
-            onTap: () => openParkingForm(context, c, camera: true),
-          ),
-        ),
-        Expanded(
-          child: QuickAction(
-            icon: Icons.near_me_outlined,
-            label: '차량 찾기',
-            onTap: c.latest == null
-                ? null
-                : () => openFinding(
-                    context,
-                    c,
-                    widget.preferences,
-                    notifications: widget.notifications,
-                  ),
-          ),
-        ),
-        Expanded(
-          child: QuickAction(
-            icon: Icons.history_rounded,
-            label: '이력 보기',
-            onTap: () => _navigate(1),
-          ),
-        ),
-        Expanded(
-          child: QuickAction(
-            icon: Icons.widgets_outlined,
-            label: '위젯',
-            onTap: _widgetGuide,
-          ),
+          onPressed: _openParking,
         ),
       ],
     ),
@@ -691,7 +691,7 @@ class _AppShellState extends State<AppShell> {
               child: Padding(
                 padding: EdgeInsets.only(top: 4),
                 child: Text(
-                  '홈 화면 위젯으로 주차 위치를 보고, 층을 눌러 바로 기록해요.',
+                  '정사각형 위젯에서 주차 위치를 보고, 주차 기록을 눌러 입력 화면을 열어요.',
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,

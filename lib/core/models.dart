@@ -1,19 +1,31 @@
 import 'package:flutter/material.dart';
 
 const defaultFloors = [
-  'F5',
-  'F4',
-  'F3',
-  'F2',
   'F1',
+  'F2',
+  'F3',
+  'F4',
+  'F5',
   'B1',
   'B2',
   'B3',
   'B4',
   'B5',
-  'B6',
 ];
-const defaultZones = ['A', 'B', 'C', 'D', 'E'];
+const defaultZones = [
+  'A',
+  'B',
+  'C',
+  'D',
+  'E',
+  'F',
+  '가',
+  '나',
+  '다',
+  '라',
+  '마',
+  '바',
+];
 const vehicleColors = <String, Color>{
   'car_blue': Color(0xFF577AA4),
   'car_black': Color(0xFF343B39),

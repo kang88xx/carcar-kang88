@@ -6,6 +6,10 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.util.TypedValue
+import android.view.View
 import android.widget.RemoteViews
 import org.json.JSONObject
 
@@ -37,55 +41,42 @@ class ParkingWidget : AppWidgetProvider() {
             val raw = context.getSharedPreferences("carcar_widget", Context.MODE_PRIVATE).getString("snapshot", null)
             val data = try { raw?.let { JSONObject(it) } } catch (_: Exception) { null }
             val view = RemoteViews(context.packageName, R.layout.parking_widget)
-            // No app name in the widget: the location itself is the headline.
-            view.setTextViewText(R.id.widget_location, if (data == null) "주차 위치 없음" else "${data.optString("floor")} · ${data.optString("zone")} ${data.optString("spot")}".trim())
-            view.setTextViewText(R.id.widget_updated, when {
-                data == null -> "앱에서 확인"
-                data.optBoolean("isDemo") -> "체험 · " + WidgetTimestamp.format(data.optString("updatedAt"))
-                else -> WidgetTimestamp.format(data.optString("updatedAt"))
-            })
-            val draft = WidgetActions.display(context)
-            view.setTextViewText(R.id.widget_hint, draft.optString("status", "층을 누른 뒤 등록을 누르면 서버에 저장돼요"))
-            val options = manager.getAppWidgetOptions(id)
-            val roomy = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH) >= 200 && options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT) >= 140
-            view.setViewVisibility(R.id.widget_controls, if (roomy) android.view.View.VISIBLE else android.view.View.GONE)
-            val enabled = draft.optBoolean("enabled") && !draft.optBoolean("busy")
-            val floors = if (draft.optBoolean("enabled")) WidgetActions.options(context, "floor") else emptyList()
-            view.setViewVisibility(R.id.widget_floor_row_2, if (floors.size > FLOOR_SLOTS / 2) android.view.View.VISIBLE else android.view.View.GONE)
-            floorIds.forEachIndexed { index, slotId ->
-                val floor = floors.getOrNull(index)
-                view.setViewVisibility(slotId, if (floor == null) android.view.View.GONE else android.view.View.VISIBLE)
-                if (floor == null) return@forEachIndexed
-                val selected = floor == draft.optString("floor")
-                view.setTextViewText(slotId, floor)
-                view.setInt(slotId, "setBackgroundResource", if (selected) R.drawable.widget_chip_selected else R.drawable.widget_chip)
-                view.setTextColor(slotId, if (selected) 0xFF1E293B.toInt() else 0xFFFFFFFF.toInt())
-                view.setContentDescription(slotId, if (selected) "$floor 선택됨" else "$floor 선택")
-                view.setBoolean(slotId, "setEnabled", enabled)
-                view.setFloat(slotId, "setAlpha", if (enabled) 1f else 0.45f)
-                val select = Intent(context, ParkingWidget::class.java).setAction("com.kang88.carcar.widget.select").putExtra("field", "floor").putExtra("value", floor)
-                view.setOnClickPendingIntent(slotId, PendingIntent.getBroadcast(context, "select:floor:$floor".hashCode(), select, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
+            val floor = data?.optString("floor").orEmpty().trim()
+            val zone = data?.optString("zone").orEmpty().trim()
+            val spot = data?.optString("spot").orEmpty().trim()
+            val hasRecord = floor.isNotEmpty()
+            val timestamp = if (hasRecord) WidgetTimestamp.format(data?.optString("updatedAt")) else "주차 기록 없음"
+            val caption = if (data?.optBoolean("isDemo") == true) "체험 · $timestamp" else timestamp
+            view.setTextViewText(R.id.widget_updated, caption)
+            view.setContentDescription(R.id.widget_updated, caption)
+            view.setViewVisibility(R.id.widget_location, if (hasRecord) View.VISIBLE else View.GONE)
+            view.setViewVisibility(R.id.widget_empty, if (hasRecord) View.GONE else View.VISIBLE)
+            view.setTextViewText(R.id.widget_floor, floor)
+            view.setTextViewText(R.id.widget_zone, if (zone.isEmpty() || zone.endsWith("구역")) zone else "${zone}구역")
+            view.setTextViewText(R.id.widget_spot, if (spot.isEmpty() || spot.endsWith("번")) spot else "${spot}번")
+            view.setViewVisibility(R.id.widget_zone, if (zone.isEmpty()) View.GONE else View.VISIBLE)
+            view.setViewVisibility(R.id.widget_spot, if (spot.isEmpty()) View.GONE else View.VISIBLE)
+            view.setContentDescription(R.id.widget_location, listOf(floor, zone, spot).filter { it.isNotEmpty() }.joinToString(" · "))
+            // Framework TextView autosizing starts at API 26. Older supported
+            // devices use smaller text; full values remain in the spoken label.
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+                view.setTextViewTextSize(R.id.widget_floor, TypedValue.COMPLEX_UNIT_SP, 20f)
+                view.setTextViewTextSize(R.id.widget_zone, TypedValue.COMPLEX_UNIT_SP, 11f)
+                view.setTextViewTextSize(R.id.widget_spot, TypedValue.COMPLEX_UNIT_SP, 11f)
             }
-            view.setTextViewText(R.id.widget_zone, draft.optString("zone", "구역").let { if (draft.optBoolean("enabled")) "$it 구역" else "구역" })
-            view.setTextViewText(R.id.widget_save, if (draft.optBoolean("busy")) "저장 중…" else "등록")
-            for ((name, buttonId) in listOf("zone" to R.id.widget_zone, "save" to R.id.widget_save)) {
-                view.setBoolean(buttonId, "setEnabled", enabled)
-                view.setFloat(buttonId, "setAlpha", if (enabled) 1f else 0.45f)
-                val action = Intent(context, ParkingWidget::class.java).setAction("com.kang88.carcar.widget.$name")
-                view.setOnClickPendingIntent(buttonId, PendingIntent.getBroadcast(context, name.hashCode(), action, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
-            }
-            val open = PendingIntent.getActivity(context, 0, Intent(context, MainActivity::class.java), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-            view.setOnClickPendingIntent(R.id.widget_root, open)
+            // The action opens the form, never saves a record by itself.
+            val intent = Intent(context, MainActivity::class.java)
+                .setAction(Intent.ACTION_VIEW)
+                .setData(Uri.parse("carcar://parking"))
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            val open = PendingIntent.getActivity(context, 2402, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            val home = PendingIntent.getActivity(context, 2403, Intent(intent).setData(Uri.parse("carcar://home")), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            view.setOnClickPendingIntent(R.id.widget_root, home)
+            view.setOnClickPendingIntent(R.id.widget_record, open)
             manager.updateAppWidget(id, view)
         }
     }
     companion object {
-        /** Fixed layout slots; owners with more floors keep the remaining floors in the app. */
-        const val FLOOR_SLOTS = 12
-        private val floorIds = listOf(
-            R.id.widget_floor_0, R.id.widget_floor_1, R.id.widget_floor_2, R.id.widget_floor_3, R.id.widget_floor_4, R.id.widget_floor_5,
-            R.id.widget_floor_6, R.id.widget_floor_7, R.id.widget_floor_8, R.id.widget_floor_9, R.id.widget_floor_10, R.id.widget_floor_11,
-        )
         private val executor = java.util.concurrent.Executors.newCachedThreadPool()
         fun scheduleRecovery(context: Context) {
             val intent = Intent(context, ParkingWidget::class.java).setAction("com.kang88.carcar.widget.recover")

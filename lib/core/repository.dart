@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
@@ -330,27 +331,63 @@ class DemoParkingRepository implements ParkingRepository {
   final Map<String, ParkingRecord> _saved = {};
   String _profileName = '나';
   Future<void> initialize() async {
+    var loaded = false;
+    var migrateOptions = false;
     try {
       final stored = preferences.getString(storageKey);
       if (stored != null) {
         final data = jsonDecode(stored) as Map<String, dynamic>;
+        migrateOptions = (data['parkingOptionsVersion'] as int? ?? 0) < 1;
         final savedName = data['profileName'];
         _profileName = savedName is String && savedName.trim().isNotEmpty
             ? validatedProfileName(savedName)
             : '나';
-        _vehicles = (data['vehicles'] as List)
-            .map((e) => Vehicle.fromJson(Map<String, dynamic>.from(e as Map)))
-            .toList();
+        _vehicles = (data['vehicles'] as List).map((e) {
+          final vehicle = Vehicle.fromJson(Map<String, dynamic>.from(e as Map));
+          if (!migrateOptions) return vehicle;
+          // Only migrate known demo defaults once; preserve later custom settings.
+          final legacyFloors =
+              listEquals(vehicle.floors, const [
+                'F5',
+                'F4',
+                'F3',
+                'F2',
+                'F1',
+                'B1',
+                'B2',
+                'B3',
+                'B4',
+                'B5',
+                'B6',
+              ]) ||
+              listEquals(vehicle.floors, const ['B1', 'B2', 'B3', 'B4']);
+          final legacyZones = listEquals(vehicle.zones, const [
+            'A',
+            'B',
+            'C',
+            'D',
+            'E',
+          ]);
+          return vehicle.copyWith(
+            floors: legacyFloors ? defaultFloors : vehicle.floors,
+            zones: legacyZones ? defaultZones : vehicle.zones,
+          );
+        }).toList();
         _records = (data['records'] as List)
             .map(
               (e) =>
                   ParkingRecord.fromJson(Map<String, dynamic>.from(e as Map)),
             )
             .toList();
-        return;
+        loaded = true;
       }
     } on Object {
       /* A corrupted demo must never prevent opening the real app. */
+    }
+    if (loaded) {
+      // A write failure must not be mistaken for corrupt data and reset history.
+      if (migrateOptions) await _persist();
+      return;
     }
     final now = DateTime.now();
     _profileName = '나';
@@ -384,6 +421,7 @@ class DemoParkingRepository implements ParkingRepository {
     final ok = await preferences.setString(
       storageKey,
       jsonEncode({
+        'parkingOptionsVersion': 1,
         'profileName': _profileName,
         'vehicles': _vehicles.map((v) => v.toJson()).toList(),
         'records': _records.map((r) => r.toJson()).toList(),

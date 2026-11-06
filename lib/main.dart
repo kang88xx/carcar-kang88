@@ -12,6 +12,7 @@ import 'core/device_notifications.dart';
 import 'core/repository.dart';
 import 'core/session_storage.dart';
 import 'core/invite_links.dart';
+import 'core/widget_links.dart';
 import 'features/auth_screen.dart';
 import 'features/shell.dart';
 
@@ -87,6 +88,9 @@ class _CarcarAppState extends State<CarcarApp> with WidgetsBindingObserver {
   bool _startingDemo = false;
   bool _passwordRecovery = false;
   int _authGeneration = 0;
+  int _widgetLinkId = 0, _linkSessionEpoch = 0;
+  WidgetDestination? _widgetDestination;
+  String? _widgetLinkUserId;
   String? _cleanupNotice;
   String? _authNotice;
   String? _inviteNotice;
@@ -95,12 +99,15 @@ class _CarcarAppState extends State<CarcarApp> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _pendingInvite = PendingInvite(widget.preferences);
-    if (widget.client != null || widget.incomingLinks != null) {
+    if (widget.client != null ||
+        widget.incomingLinks != null ||
+        widget.initialLink != null ||
+        NativeBridge.supportsOcr) {
       final links =
           widget.incomingLinks ??
           (kIsWeb ? const Stream<Uri>.empty() : AppLinks().uriLinkStream);
       _inviteSubscription = links.listen(
-        (uri) => unawaited(_receiveInvite(uri)),
+        (uri) => unawaited(_receiveLink(uri)),
         onError: (_) {
           if (mounted) {
             setState(() => _inviteNotice = '초대 링크를 읽지 못했어요. 초대 코드를 붙여 넣어 주세요.');
@@ -110,10 +117,20 @@ class _CarcarAppState extends State<CarcarApp> with WidgetsBindingObserver {
       final initial =
           widget.initialLink ??
           (kIsWeb ? () async => Uri.base : AppLinks().getInitialLink);
+      final linkEpoch = _linkSessionEpoch;
+      final initialUserId = widget.client?.auth.currentUser?.id;
       unawaited(
         initial()
             .then((uri) async {
-              if (uri != null) await _receiveInvite(uri);
+              if (uri == null || !mounted) return;
+              if (parseWidgetLink(uri) != null &&
+                  (linkEpoch != _linkSessionEpoch ||
+                      (initialUserId != null &&
+                          initialUserId !=
+                              widget.client?.auth.currentUser?.id))) {
+                return;
+              }
+              await _receiveLink(uri);
             })
             .catchError((Object _) {}),
       );
@@ -165,7 +182,20 @@ class _CarcarAppState extends State<CarcarApp> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _receiveInvite(Uri uri) async {
+  Future<void> _receiveLink(Uri uri) async {
+    if (!mounted) return;
+    final destination = parseWidgetLink(uri);
+    if (destination != null) {
+      if (_passwordRecovery) return;
+      setState(() {
+        _widgetDestination = destination;
+        _widgetLinkId++;
+        _widgetLinkUserId =
+            _controller?.repository.userId ??
+            widget.client?.auth.currentUser?.id;
+      });
+      return;
+    }
     try {
       if (await _pendingInvite.receive(uri) && mounted) {
         setState(() => _inviteNotice = null);
@@ -177,6 +207,20 @@ class _CarcarAppState extends State<CarcarApp> with WidgetsBindingObserver {
         );
       }
     }
+  }
+
+  void _consumeWidgetLink(int id) {
+    if (id != _widgetLinkId || !mounted) return;
+    setState(() {
+      _widgetDestination = null;
+      _widgetLinkUserId = null;
+    });
+  }
+
+  void _discardWidgetLink() {
+    _linkSessionEpoch++;
+    _widgetDestination = null;
+    _widgetLinkUserId = null;
   }
 
   Future<void> _clearInvite() async {
@@ -205,6 +249,7 @@ class _CarcarAppState extends State<CarcarApp> with WidgetsBindingObserver {
   }
 
   Future<void> _clearController() async {
+    _discardWidgetLink();
     _navigatorKey.currentState?.popUntil((route) => route.isFirst);
     _authGeneration++;
     _notifications?.dispose();
@@ -217,6 +262,10 @@ class _CarcarAppState extends State<CarcarApp> with WidgetsBindingObserver {
   }
 
   Future<void> _changeRealSession(String userId) async {
+    if (_controller != null ||
+        (_widgetLinkUserId != null && _widgetLinkUserId != userId)) {
+      _discardWidgetLink();
+    }
     _navigatorKey.currentState?.popUntil((route) => route.isFirst);
     final generation = ++_authGeneration;
     _notifications?.dispose();
@@ -337,5 +386,8 @@ class _CarcarAppState extends State<CarcarApp> with WidgetsBindingObserver {
           pendingInvite: _pendingInvite.code,
           inviteNotice: _inviteNotice,
           onClearInvite: _clearInvite,
+          widgetDestination: _widgetDestination,
+          widgetLinkId: _widgetLinkId,
+          onWidgetLinkHandled: _consumeWidgetLink,
         );
 }

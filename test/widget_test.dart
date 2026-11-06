@@ -50,7 +50,7 @@ void main() {
         find.widgetWithText(TextField, '주차 번호 (선택)'),
         '52',
       );
-      final save = find.text('이 위치로 체험 기록 저장');
+      final save = find.text('체험 기록 저장');
       await tester.ensureVisible(save);
       await tester.tap(save);
       await tester.pumpAndSettle();
@@ -64,7 +64,7 @@ void main() {
     await demo(tester);
     await tester.tap(find.text('주차 위치 기록하기'));
     await tester.pumpAndSettle();
-    final save = find.text('이 위치로 체험 기록 저장');
+    final save = find.text('체험 기록 저장');
     await tester.ensureVisible(save);
     await tester.tap(save);
     await tester.pumpAndSettle();
@@ -111,28 +111,30 @@ void main() {
     expect(find.text('체험 시작하기'), findsOneWidget);
     expect(find.text('마지막 주차 위치'), findsNothing);
   });
-  testWidgets('widget permission stays off in demo and fits large phone text', (
-    tester,
-  ) async {
-    tester.platformDispatcher.textScaleFactorTestValue = 2;
-    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-    await start(tester, size: const Size(320, 740));
-    await demo(tester);
-    await tester.tap(find.text('설정'));
-    await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
-      find.text('위젯에서 바로 기록'),
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.pumpAndSettle();
-    final toggle = tester.widget<SwitchListTile>(
-      find.widgetWithText(SwitchListTile, '위젯에서 바로 기록'),
-    );
-    expect(toggle.value, isFalse);
-    expect(toggle.onChanged, isNull);
-    expect(tester.takeException(), isNull);
-  });
+  testWidgets(
+    'square widget guide needs no save permission and fits large text',
+    (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await start(tester, size: const Size(320, 740));
+      await demo(tester);
+      await tester.tap(find.text('설정'));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('홈 화면 위젯'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('위젯에서 바로 기록'), findsNothing);
+      expect(find.text('이전 위젯의 저장 권한'), findsNothing);
+      await tester.tap(find.text('홈 화면 위젯'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('정사각형 위젯에서 마지막 주차 위치'), findsOneWidget);
+      expect(find.textContaining('별도의 위젯 저장 권한은 필요 없어요.'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
   testWidgets('large text remains usable on a narrow phone', (tester) async {
     tester.platformDispatcher.textScaleFactorTestValue = 2;
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
@@ -146,11 +148,11 @@ void main() {
     await tester.tap(recordButton);
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
-    await tester.ensureVisible(find.text('이 위치로 체험 기록 저장'));
+    await tester.ensureVisible(find.text('체험 기록 저장'));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
   });
-  testWidgets('text editing updates confirmation and protects unsaved draft', (
+  testWidgets('text editing preserves the draft without a confirmation panel', (
     tester,
   ) async {
     await start(tester);
@@ -161,7 +163,8 @@ void main() {
     await tester.tap(find.widgetWithText(ChoiceChip, 'A'));
     await tester.enterText(find.widgetWithText(TextField, '주차 번호 (선택)'), '73');
     await tester.pumpAndSettle();
-    expect(find.text('B1 · A구역 · 73번'), findsOneWidget);
+    expect(find.text('B1 · A구역 · 73번'), findsNothing);
+    expect(find.text('73'), findsOneWidget);
     final close = find.byTooltip('기록 창 닫기');
     await tester.ensureVisible(close);
     await tester.pumpAndSettle();

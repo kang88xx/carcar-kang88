@@ -64,6 +64,32 @@ void main() {
       await tester.ensureVisible(find.text('주차 위치 기록하기'));
       await tester.tap(find.text('주차 위치 기록하기'));
       await settle();
+      if (Platform.isIOS) {
+        expect(find.text('지상'), findsOneWidget);
+        expect(find.text('지하'), findsOneWidget);
+        expect(find.widgetWithText(ChoiceChip, 'B6'), findsNothing);
+        expect(find.widgetWithText(TextField, '가족에게 남길 메모 (선택)'), findsNothing);
+        expect(find.text('층수와 구역을 선택해 주세요.'), findsNothing);
+        for (final row in [
+          ['F1', 'F2', 'F3', 'F4', 'F5'],
+          ['B1', 'B2', 'B3', 'B4', 'B5'],
+          ['A', 'B', 'C', 'D', 'E', 'F'],
+          ['가', '나', '다', '라', '마', '바'],
+        ]) {
+          final bounds = row
+              .map(
+                (label) =>
+                    tester.getRect(find.widgetWithText(ChoiceChip, label)),
+              )
+              .toList();
+          expect(
+            bounds.every((rect) => (rect.top - bounds.first.top).abs() < 1),
+            isTrue,
+          );
+        }
+        binding.reportData!['iosParkingGroupsStayOnOneRow'] = true;
+        await binding.takeScreenshot('native-parking-groups');
+      }
       await tester.tap(find.widgetWithText(ChoiceChip, 'B3'));
       await tester.tap(find.widgetWithText(ChoiceChip, 'D'));
       await tester.pump();
@@ -73,7 +99,7 @@ void main() {
       );
       await SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
       await settle();
-      final save = find.text('이 위치로 체험 기록 저장');
+      final save = find.text('체험 기록 저장');
       await tester.ensureVisible(save);
       await step('parking-save-tap', () => tester.tap(save));
       await settle();

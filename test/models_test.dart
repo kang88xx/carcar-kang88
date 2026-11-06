@@ -9,6 +9,52 @@ void main() {
     plate: '12가 3456',
     apartment: '집',
   );
+  test('defaults expose five floors per level and both zone alphabets', () {
+    expect(vehicle.floors, [
+      'F1',
+      'F2',
+      'F3',
+      'F4',
+      'F5',
+      'B1',
+      'B2',
+      'B3',
+      'B4',
+      'B5',
+    ]);
+    expect(vehicle.zones, [
+      'A',
+      'B',
+      'C',
+      'D',
+      'E',
+      'F',
+      '가',
+      '나',
+      '다',
+      '라',
+      '마',
+      '바',
+    ]);
+    for (final zone in ['F', '가', '바']) {
+      expect(ParkingDraft(floor: 'F1', zone: zone).validate(vehicle), isNull);
+    }
+    expect(
+      const ParkingDraft(floor: 'B6', zone: 'A').validate(vehicle),
+      isNotNull,
+    );
+  });
+  test('server configuration is preserved even when matching old defaults', () {
+    final data = vehicle
+        .copyWith(
+          floors: ['B1', 'B2', 'B3', 'B4'],
+          zones: ['A', 'B', 'C', 'D', 'E'],
+        )
+        .toJson();
+    final restored = Vehicle.fromJson(data);
+    expect(restored.floors, ['B1', 'B2', 'B3', 'B4']);
+    expect(restored.zones, ['A', 'B', 'C', 'D', 'E']);
+  });
   group('Parking OCR suggestions', () {
     test('extracts floor, zone and spot from an English sign', () {
       final result = parseParkingText('B2\nC24');

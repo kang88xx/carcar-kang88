@@ -187,68 +187,6 @@ class SwitchRow extends StatelessWidget {
   );
 }
 
-/// Circular icon with a short label, used for secondary quick actions.
-class QuickAction extends StatelessWidget {
-  const QuickAction({
-    super.key,
-    required this.icon,
-    required this.label,
-    this.onTap,
-  });
-  final IconData icon;
-  final String label;
-  final VoidCallback? onTap;
-  @override
-  Widget build(BuildContext context) {
-    final enabled = onTap != null;
-    return Semantics(
-      button: true,
-      enabled: enabled,
-      label: label,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: enabled ? Colors.white : Colors.white54,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  icon,
-                  size: 25,
-                  color: enabled ? Palette.ink : Palette.muted,
-                ),
-              ),
-              const SizedBox(height: 7),
-              ExcludeSemantics(
-                child: Text(
-                  label,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: enabled ? Palette.ink : Palette.muted,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Round close control used in sheet headers.
 class RoundCloseButton extends StatelessWidget {
   const RoundCloseButton({super.key, required this.tooltip, this.onPressed});
   final String tooltip;
@@ -288,10 +226,10 @@ class SheetDialog extends StatelessWidget {
     required this.child,
     this.subtitle,
     this.footer,
-    this.pinFooter = true,
     this.closeTooltip = '닫기',
     this.onClose,
     this.maxWidth = 540,
+    this.horizontalPadding = 24,
   });
   final String title;
   final String? subtitle;
@@ -300,11 +238,10 @@ class SheetDialog extends StatelessWidget {
   /// Confirmation controls kept below the scrolling content when space allows.
   final Widget? footer;
 
-  /// Long confirmations can opt into the content's scroll area.
-  final bool pinFooter;
   final String closeTooltip;
   final VoidCallback? onClose;
   final double maxWidth;
+  final double horizontalPadding;
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
@@ -341,7 +278,6 @@ class SheetDialog extends StatelessWidget {
               // Large text or a short viewport needs one scrollable region.
               final pinnedFooter =
                   footer != null &&
-                  pinFooter &&
                   constraints.maxHeight >= 650 &&
                   MediaQuery.textScalerOf(context).scale(16) <= 20.8;
               return Column(
@@ -349,7 +285,12 @@ class SheetDialog extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Padding(
-                    padding: EdgeInsets.fromLTRB(24, sheet ? 18 : 24, 16, 0),
+                    padding: EdgeInsets.fromLTRB(
+                      horizontalPadding,
+                      sheet ? 16 : 24,
+                      horizontalPadding,
+                      0,
+                    ),
                     child: MediaQuery.withClampedTextScaling(
                       maxScaleFactor: headlineMaxTextScale,
                       child: Row(
@@ -376,10 +317,10 @@ class SheetDialog extends StatelessWidget {
                   Flexible(
                     child: SingleChildScrollView(
                       padding: EdgeInsets.fromLTRB(
-                        24 + (sheet ? padding.left : 0),
-                        subtitle == null ? 18 : 6,
-                        24 + (sheet ? padding.right : 0),
-                        pinnedFooter ? 18 : 24 + (sheet ? padding.bottom : 0),
+                        horizontalPadding + (sheet ? padding.left : 0),
+                        subtitle == null ? 16 : 6,
+                        horizontalPadding + (sheet ? padding.right : 0),
+                        pinnedFooter ? 16 : 16 + (sheet ? padding.bottom : 0),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -390,11 +331,11 @@ class SheetDialog extends StatelessWidget {
                               subtitle!,
                               style: const TextStyle(
                                 color: Palette.muted,
-                                fontSize: 13.5,
-                                height: 1.5,
+                                fontSize: 13,
+                                height: 1.4,
                               ),
                             ),
-                            const SizedBox(height: 18),
+                            const SizedBox(height: 12),
                           ],
                           child,
                           if (footer != null && !pinnedFooter) ...[
@@ -409,10 +350,10 @@ class SheetDialog extends StatelessWidget {
                     const Divider(),
                     Padding(
                       padding: EdgeInsets.fromLTRB(
-                        24 + (sheet ? padding.left : 0),
-                        16,
-                        24 + (sheet ? padding.right : 0),
-                        20 + (sheet ? padding.bottom : 0),
+                        horizontalPadding + (sheet ? padding.left : 0),
+                        12,
+                        horizontalPadding + (sheet ? padding.right : 0),
+                        12 + (sheet ? padding.bottom : 0),
                       ),
                       child: footer,
                     ),

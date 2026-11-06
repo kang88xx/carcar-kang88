@@ -24,6 +24,7 @@ for migration in "$repo_dir"/supabase/migrations/*.sql; do
 done
 "$pg_bin/psql" -X -v ON_ERROR_STOP=1 -q -f "$repo_dir/supabase/tests/security.sql"
 "$pg_bin/psql" -X -v ON_ERROR_STOP=1 -q -f "$repo_dir/supabase/tests/single_vehicle.sql"
+"$pg_bin/psql" -X -v ON_ERROR_STOP=1 -q -f "$repo_dir/supabase/tests/parking_options.sql"
 "$repo_dir/scripts/db_concurrency.sh"
 # Prove the new migration refuses legacy conflicts atomically, without deleting data.
 for conflict in duplicate_plates multiple_memberships; do

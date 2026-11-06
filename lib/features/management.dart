@@ -575,7 +575,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
         title: '우리 주차장 설정',
         description: '층수와 구역은 쉼표로 구분해 주세요. 예: B1, B2, B3',
         fields: const ['아파트 이름', '사용하는 층수', '사용하는 구역'],
-        hints: const ['우리집 아파트', 'B1, B2, B3, B4', 'A, B, C, D, E'],
+        hints: const [
+          '우리집 아파트',
+          'F1, F2, B1, B2',
+          'A, B, C, D, E, F, 가, 나, 다, 라, 마, 바',
+        ],
         maxLengths: const [60, 200, 200],
         initial: [v.apartment, v.floors.join(', '), v.zones.join(', ')],
         button: '설정 저장',
@@ -688,46 +692,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: ActionRow(
                 icon: Icons.widgets_outlined,
                 title: '홈 화면 위젯',
-                subtitle: '마지막으로 확인한 주차 위치를 보여줘요.',
+                subtitle: '정사각형 위젯에서 위치를 보고 앱의 기록 화면을 열어요.',
                 onTap: () =>
                     showWidgetGuide(context, showSettingsAction: false),
               ),
             ),
-            const RowDivider(),
-            SwitchRow(
-              icon: Icons.touch_app_outlined,
-              title: '위젯에서 바로 기록',
-              subtitle: c.isDemo
-                  ? '실제 계정에서 사용할 수 있어요.'
-                  : '이 기기에서 허용해요. 로그인 만료 시 앱을 다시 열어 주세요.',
-              value: c.widgetQuickSaveEnabled,
-              onChanged:
-                  _busy ||
-                      c.isDemo ||
-                      c.vehicle == null ||
-                      !NativeBridge.supportsOcr
-                  ? null
-                  : (enabled) async {
-                      setState(() => _busy = true);
-                      try {
-                        await c.setWidgetQuickSaveEnabled(enabled);
-                        if (context.mounted) {
-                          showMessage(
-                            context,
-                            enabled
-                                ? '이 기기의 위젯에서 기록할 수 있어요.'
-                                : '위젯 바로 기록을 해제했어요.',
-                          );
+            if (c.widgetQuickSaveEnabled) ...[
+              const RowDivider(),
+              SwitchRow(
+                icon: Icons.touch_app_outlined,
+                title: '이전 위젯의 저장 권한',
+                subtitle: '정사각형 위젯에는 필요 없어요. 해제하면 이전 위젯의 인증 정보를 지워요.',
+                value: c.widgetQuickSaveEnabled,
+                onChanged: _busy || !NativeBridge.supportsOcr
+                    ? null
+                    : (enabled) async {
+                        setState(() => _busy = true);
+                        try {
+                          await c.setWidgetQuickSaveEnabled(false);
+                          if (context.mounted) {
+                            showMessage(context, '이전 위젯의 저장 권한을 해제했어요.');
+                          }
+                        } on Object catch (e) {
+                          if (context.mounted) {
+                            showMessage(context, friendlyError(e));
+                          }
+                        } finally {
+                          if (mounted) setState(() => _busy = false);
                         }
-                      } on Object catch (e) {
-                        if (context.mounted) {
-                          showMessage(context, friendlyError(e));
-                        }
-                      } finally {
-                        if (mounted) setState(() => _busy = false);
-                      }
-                    },
-            ),
+                      },
+              ),
+            ],
           ],
         ),
       ),
@@ -818,4 +813,4 @@ class _SettingsScreenState extends State<SettingsScreen> {
 }
 
 const _privacy =
-    '차자리는 가족이 함께 쓰는 차량의 마지막 주차 위치를 공유합니다.\n\n수집 항목: 로그인 이메일, 표시 이름, 차량 별명과 번호, 아파트 별명, 주차 층·구역·번호·메모, 기록 시각과 작성자. 가족 알림을 켜면 기기 알림 토큰, 기기별 알림 설정과 시간대를 추가로 저장합니다.\n\n이용 목적: 본인 인증, 초대한 가족 사이의 주차 위치 공유, 이력 표시. 차량번호만으로 다른 가족의 정보에 접근할 수 없습니다.\n\n사진: 글자 인식은 기기에서만 진행하며 원본 사진을 서버로 업로드하지 않습니다. 촬영 임시 파일은 앱/OS의 캐시 정리 정책을 따릅니다.\n\n보관: 주차 이력은 소유자가 계정을 삭제할 때까지 보관됩니다. 가족 탈퇴·제거 시 해당 차량에 대한 접근이 철회됩니다. 소유자 계정 삭제 시 소유 차량과 공유 이력이 삭제됩니다. 다른 차량에 남긴 기록은 작성자 식별을 제거해 보존합니다.\n\n체험 모드: 실제 서버와 분리되어 이 기기에만 저장됩니다. 설정에서 초기화할 수 있습니다.\n\n위젯 바로 기록: 허용한 기기에 한해 짧은 수명의 인증 정보를 기기 보안 저장소에 보관합니다. 로그인 갱신용 정보는 위젯과 공유하지 않습니다. 설정을 해제하면 위젯의 인증 정보를 삭제합니다.\n\n로그아웃 시 이 기기의 위젯 스냅샷·인증 정보와 찾기 표시를 지웁니다. 스크린샷이나 다른 기기에 이미 표시된 정보까지 원격으로 삭제할 수는 없습니다.\n\n가족 알림: 허용한 기기에만 발송합니다. 알림에는 상세 위치·차량번호·이름을 넣지 않습니다. 알림을 끄거나 온라인에서 로그아웃하면 서버의 기기 토큰을 삭제합니다. 오프라인에서는 서버 등록 해제가 완료되지 않을 수 있어 안내를 표시합니다. 이미 발송된 알림은 회수를 보장하지 않습니다. 발송 작업은 다음 처리 시 7일 이전 항목을 정리합니다.\n\n처리 서비스: Supabase가 인증과 데이터 저장을 처리하며 차자리 데이터베이스는 서울 리전을 사용합니다. 알림 전송에는 Apple APNs와 Google Firebase Cloud Messaging을 사용합니다.\n\n문의: TestFlight의 베타 피드백 보내기로 차자리 개발팀에 문의할 수 있습니다. 계정 삭제는 이 화면에서 직접 요청할 수 있습니다.';
+    '차자리는 가족이 함께 쓰는 차량의 마지막 주차 위치를 공유합니다.\n\n수집 항목: 로그인 이메일, 표시 이름, 차량 별명과 번호, 아파트 별명, 주차 층·구역·번호·메모, 기록 시각과 작성자. 가족 알림을 켜면 기기 알림 토큰, 기기별 알림 설정과 시간대를 추가로 저장합니다.\n\n이용 목적: 본인 인증, 초대한 가족 사이의 주차 위치 공유, 이력 표시. 차량번호만으로 다른 가족의 정보에 접근할 수 없습니다.\n\n사진: 글자 인식은 기기에서만 진행하며 원본 사진을 서버로 업로드하지 않습니다. 촬영 임시 파일은 앱/OS의 캐시 정리 정책을 따릅니다.\n\n보관: 주차 이력은 소유자가 계정을 삭제할 때까지 보관됩니다. 가족 탈퇴·제거 시 해당 차량에 대한 접근이 철회됩니다. 소유자 계정 삭제 시 소유 차량과 공유 이력이 삭제됩니다. 다른 차량에 남긴 기록은 작성자 식별을 제거해 보존합니다.\n\n체험 모드: 실제 서버와 분리되어 이 기기에만 저장됩니다. 설정에서 초기화할 수 있습니다.\n\n홈 화면 위젯: 정사각형 위젯의 주차 기록 버튼은 앱의 입력 화면을 엽니다. 저장은 앱에서 확인합니다. 이전 버전의 위젯 바로 기록을 허용한 기기에는 짧은 수명의 인증 정보가 남아 있을 수 있습니다. 로그인 갱신용 정보는 위젯과 공유하지 않으며, 이전 위젯의 저장 권한을 해제하면 해당 인증 정보를 삭제합니다.\n\n로그아웃 시 이 기기의 위젯 스냅샷·인증 정보와 찾기 표시를 지웁니다. 스크린샷이나 다른 기기에 이미 표시된 정보까지 원격으로 삭제할 수는 없습니다.\n\n가족 알림: 허용한 기기에만 발송합니다. 알림에는 상세 위치·차량번호·이름을 넣지 않습니다. 알림을 끄거나 온라인에서 로그아웃하면 서버의 기기 토큰을 삭제합니다. 오프라인에서는 서버 등록 해제가 완료되지 않을 수 있어 안내를 표시합니다. 이미 발송된 알림은 회수를 보장하지 않습니다. 발송 작업은 다음 처리 시 7일 이전 항목을 정리합니다.\n\n처리 서비스: Supabase가 인증과 데이터 저장을 처리하며 차자리 데이터베이스는 서울 리전을 사용합니다. 알림 전송에는 Apple APNs와 Google Firebase Cloud Messaging을 사용합니다.\n\n문의: TestFlight의 베타 피드백 보내기로 차자리 개발팀에 문의할 수 있습니다. 계정 삭제는 이 화면에서 직접 요청할 수 있습니다.';
