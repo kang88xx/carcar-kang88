@@ -49,13 +49,10 @@ class Surface extends StatelessWidget {
   final Color color;
   final double radius;
   @override
-  Widget build(BuildContext context) => Container(
-    padding: padding,
-    decoration: BoxDecoration(
-      color: color,
-      borderRadius: BorderRadius.circular(radius),
-    ),
-    child: child,
+  Widget build(BuildContext context) => Material(
+    color: color,
+    borderRadius: BorderRadius.circular(radius),
+    child: Padding(padding: padding, child: child),
   );
 }
 

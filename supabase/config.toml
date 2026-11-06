@@ -420,3 +420,10 @@ enabled = true
 # Dedicated strong worker-secret header is checked before every DB operation.
 verify_jwt = false
 entrypoint = "./functions/parking-push/index.ts"
+
+[functions.apple-disconnect]
+enabled = true
+# The function validates each bearer with Auth before accessing Apple.
+# This also supports projects using asymmetric JWT signing keys.
+verify_jwt = false
+entrypoint = "./functions/apple-disconnect/index.ts"

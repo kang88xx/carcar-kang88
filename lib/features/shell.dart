@@ -16,6 +16,7 @@ class AppShell extends StatefulWidget {
     required this.controller,
     required this.preferences,
     required this.onLogout,
+    this.onAccountDeleted,
     this.notifications,
     this.pendingInvite,
     this.inviteNotice,
@@ -27,6 +28,7 @@ class AppShell extends StatefulWidget {
   final AppController controller;
   final SharedPreferences preferences;
   final Future<void> Function() onLogout;
+  final Future<void> Function(AppController controller)? onAccountDeleted;
   final DeviceNotificationController? notifications;
   final String? pendingInvite, inviteNotice;
   final Future<void> Function()? onClearInvite;
@@ -261,6 +263,8 @@ class _AppShellState extends State<AppShell> {
                                                 controller: c,
                                                 preferences: widget.preferences,
                                                 onLogout: widget.onLogout,
+                                                onAccountDeleted:
+                                                    widget.onAccountDeleted,
                                                 notifications:
                                                     widget.notifications,
                                               ),
@@ -328,46 +332,45 @@ class _AppShellState extends State<AppShell> {
   Widget _sidebar() => Container(
     width: 224,
     margin: const EdgeInsets.fromLTRB(16, 16, 0, 16),
-    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 28),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(28),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Padding(padding: EdgeInsets.only(left: 12), child: Brand()),
-        const SizedBox(height: 40),
-        ...List.generate(
-          4,
-          (i) => Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-            child: ListTile(
-              shape: const StadiumBorder(),
-              selected: _tab == i,
-              selectedTileColor: Palette.highlight,
-              selectedColor: Palette.ink,
-              leading: Icon(_icons[i]),
-              title: Text(
-                _labels[i],
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14,
+    child: Surface(
+      radius: 28,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(padding: EdgeInsets.only(left: 12), child: Brand()),
+          const SizedBox(height: 40),
+          ...List.generate(
+            4,
+            (i) => Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: ListTile(
+                shape: const StadiumBorder(),
+                selected: _tab == i,
+                selectedTileColor: Palette.highlight,
+                selectedColor: Palette.ink,
+                leading: Icon(_icons[i]),
+                title: Text(
+                  _labels[i],
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                  ),
                 ),
+                onTap: () => _navigate(i),
               ),
-              onTap: () => _navigate(i),
             ),
           ),
-        ),
-        const Spacer(),
-        const Padding(
-          padding: EdgeInsets.all(12),
-          child: Text(
-            '가족과 함께 기억하는\n우리 차의 자리',
-            style: TextStyle(color: Palette.muted, fontSize: 12, height: 1.8),
+          const Spacer(),
+          const Padding(
+            padding: EdgeInsets.all(12),
+            child: Text(
+              '가족과 함께 기억하는\n우리 차의 자리',
+              style: TextStyle(color: Palette.muted, fontSize: 12, height: 1.8),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     ),
   );
 

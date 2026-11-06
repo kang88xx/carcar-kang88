@@ -25,6 +25,7 @@ class AppController extends ChangeNotifier {
   bool loading = true, saving = false;
   DateTime? lastSynced;
   bool _disposed = false;
+  bool get isDisposed => _disposed;
   int _generation = 0;
   int _nativeGeneration = 0;
   Timer? _refreshTimer;

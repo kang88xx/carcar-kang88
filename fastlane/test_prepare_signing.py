@@ -39,6 +39,7 @@ class ProfileEntitlementTest(unittest.TestCase):
                 'com.apple.security.application-groups': ['group.com.kang88.carcar'],
                 'keychain-access-groups': ['PREFIX.*'],
                 'aps-environment': 'production',
+                'com.apple.developer.applesignin': ['Default'],
             },
         }
 
@@ -110,10 +111,18 @@ class ProfileEntitlementTest(unittest.TestCase):
         with self.assertRaisesRegex(SystemExit, 'APP: profile must authorize production APNs'):
             self.check_profile()
 
+    def test_app_requires_apple_sign_in_array(self):
+        for value in [None, [], ['Other'], 'Default']:
+            with self.subTest(value=value):
+                self.profile['Entitlements']['com.apple.developer.applesignin'] = value
+                with self.assertRaisesRegex(SystemExit, 'Sign in with Apple'):
+                    self.check_profile()
+
     def test_widget_profile_does_not_require_push_capability(self):
         bundle = self.bundle + '.ParkingWidget'
         self.profile['Entitlements']['application-identifier'] = 'PREFIX.' + bundle
         del self.profile['Entitlements']['aps-environment']
+        del self.profile['Entitlements']['com.apple.developer.applesignin']
         self.assertEqual(
             validate_profile(self.profile, 'WIDGET', bundle, 'TEAM'),
             self.profile['UUID'],

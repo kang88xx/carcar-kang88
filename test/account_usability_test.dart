@@ -1,9 +1,12 @@
 import 'dart:async';
 import 'package:carcar/app/theme.dart';
+import 'package:carcar/core/app_controller.dart';
 import 'package:carcar/core/repository.dart';
 import 'package:carcar/features/auth_screen.dart';
+import 'package:carcar/features/management.dart';
 import 'package:carcar/features/profile_editor.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -463,6 +466,75 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       expect(find.text('이름 저장').hitTestable(), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'customer support shows selectable contacts and copies exact values',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final preferences = await SharedPreferences.getInstance();
+      final repository = DemoParkingRepository(preferences);
+      await repository.initialize();
+      final controller = AppController(repository);
+      addTearDown(controller.dispose);
+      String? clipboard;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+            if (call.method == 'Clipboard.setData') {
+              clipboard = (call.arguments as Map)['text'] as String;
+            }
+            if (call.method == 'Clipboard.getData') return {'text': clipboard};
+            return null;
+          });
+      addTearDown(
+        () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(SystemChannels.platform, null),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: SettingsScreen(
+                controller: controller,
+                preferences: preferences,
+                onLogout: () async {},
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.ensureVisible(find.text('고객지원'));
+      await tester.tap(find.text('고객지원'));
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(
+        find.widgetWithText(SelectableText, 'kang88xx@gmail.com'),
+        findsOneWidget,
+      );
+      expect(
+        find.widgetWithText(
+          SelectableText,
+          'https://kang88xx.github.io/carcar-kang88/support/',
+        ),
+        findsOneWidget,
+      );
+      expect(clipboard, isNull);
+      await tester.tap(find.text('이메일 복사'));
+      await tester.pumpAndSettle();
+      expect(
+        (await Clipboard.getData(Clipboard.kTextPlain))?.text,
+        'kang88xx@gmail.com',
+      );
+      await tester.tap(find.text('고객지원 링크 복사'));
+      await tester.pumpAndSettle();
+      expect(
+        (await Clipboard.getData(Clipboard.kTextPlain))?.text,
+        'https://kang88xx.github.io/carcar-kang88/support/',
+      );
+      await tester.tap(find.text('닫기'));
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsNothing);
     },
   );
 

@@ -13,6 +13,14 @@
 10. Google Web OAuth 비밀키는 Supabase 설정에만 보관. 네이티브 OAuth 콜백과 초대 딥링크를 구분하며, 계정 전환 후 이전 등록·참여 요청을 차단한다.
 11. 층수 앱 아이콘은 기기 표시이며 권한 근거가 아니다. 로그아웃 시 기본 아이콘으로 복원하고, 이전 계정의 늦은 아이콘 작업이 새 상태를 덮지 않게 처리한다.
 
+## Apple 로그인과 계정 삭제
+
+- 삭제 시작 시 사용자와 access token을 확보하고 같은 bearer로 최신 서버 identity·Apple 연결 해제·삭제 RPC를 요청한다. 네이티브 재인증은 Supabase 세션을 교체하지 않는다. 계정 전환, 취소, identity/서명 검증 실패는 삭제를 중단한다.
+- Apple 연결 해제 함수는 Supabase Auth가 검증한 identity를 사용한다. Apple token endpoint에서 받은 ID token의 RS256/JWKS 서명·issuer·audience·시간·subject·nonce를 검증한 뒤에만 토큰을 철회한다. 이메일·사용자 메타데이터는 권한 근거가 아니다.
+- Apple 개인 키는 서버 secret에만 등록하며 앱·위젯·Git·로그에 넣지 않는다. Apple 코드·access/refresh token은 요청 처리 중에만 사용하고 저장하지 않는다. 이 함수에는 DB 삭제 권한·service role 키가 없다.
+- 자동 연결 해제 불가·서버 미설정·재인증 필요 오류에서만 별도 사용자 확인 후 계정 삭제와 수동 Apple 연결 해제 안내를 제공한다. 보안 검증 실패를 이 경로로 우회하지 않는다.
+- 계정 삭제 완료는 `delete_my_account` 서버 성공을 기준으로 한다. 후속 로컬 정리와 늦은 auth 이벤트는 다른 계정에 영향을 주면 안 된다. 상세 오류·배포 계약은 [Apple 연결 해제 서버 함수](../supabase/deployment/APPLE_SIGN_IN.md), 실제 배포·검증 여부는 [인계 문서](APP_STORE_HANDOFF.md)를 따른다.
+
 ## 예상 비용 (2026-11-02 기준, 변동 가능)
 | 구분 | 초기 비용 |
 | --- | --- |

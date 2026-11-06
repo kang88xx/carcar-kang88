@@ -7,9 +7,10 @@ import UserNotifications
 import AuthenticationServices
 import CryptoKit
 import Security
+import app_links
 
 @main
-@objc class AppDelegate: FlutterAppDelegate {
+@objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   private let groupID = "group.com.kang88.carcar"
   private var findingTask: Task<Void, Never>?
   private let familyPush = PushNotifications()
@@ -33,52 +34,61 @@ import Security
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    GeneratedPluginRegistrant.register(with: self)
     UNUserNotificationCenter.current().delegate = self
-    if let controller = window?.rootViewController as? FlutterViewController {
-      let channel = FlutterMethodChannel(name: "carcar/native", binaryMessenger: controller.binaryMessenger)
-      channel.setMethodCallHandler { [weak self] call, result in
-        guard let self = self else { return }
-        let args = call.arguments as? [String: Any] ?? [:]
-        switch call.method {
-        case "signInWithApple": self.signInWithApple(result: result)
-        case "pushStatus": self.familyPush.status(result: result)
-        case "registerPush": self.familyPush.register(requestPermission: args["requestPermission"] as? Bool ?? true, result: result)
-        case "disablePush": self.familyPush.disable(result: result)
-        case "shareText": self.shareText(args, result: result)
-        case "launcherIconState": result(self.launcherIconState())
-        case "setLauncherIcon": self.setLauncherIcon(args, result: result)
-        case "recognizeText": self.recognizeText(args, result: result)
-        case "updateWidgetSession", "clearWidgetSession":
-          do {
-            if call.method == "updateWidgetSession" { try WidgetSession.update(args) }
-            else { try WidgetSession.clear() }
-            if #available(iOS 14.0, *) { WidgetCenter.shared.reloadAllTimelines() }
-            result(nil)
-          } catch { result(FlutterError(code: "widget_session_failed", message: "위젯 보안 설정을 갱신하지 못했어요.", details: nil)) }
-        case "updateSnapshot":
-          var snapshot: [String: Any] = [:]
-          for key in ["vehicleName", "floor", "zone", "spot", "updatedAt", "userId", "vehicleId"] {
-            snapshot[key] = String((args[key] as? String ?? "").prefix(100))
-          }
-          snapshot["isDemo"] = args["isDemo"] as? Bool ?? false
-          do { try WidgetSession.locked { try WidgetSnapshots.merge(snapshot) } }
-          catch { result(FlutterError(code: "app_group_unavailable", message: "위젯 공유 설정을 확인해 주세요.", details: nil)); return }
+    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
+    GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    let channel = FlutterMethodChannel(name: "carcar/native", binaryMessenger: engineBridge.applicationRegistrar.messenger())
+    channel.setMethodCallHandler { [weak self] call, result in
+      guard let self = self else { return }
+      let args = call.arguments as? [String: Any] ?? [:]
+      switch call.method {
+      case "signInWithApple": self.signInWithApple(result: result)
+      case "pushStatus": self.familyPush.status(result: result)
+      case "registerPush": self.familyPush.register(requestPermission: args["requestPermission"] as? Bool ?? true, result: result)
+      case "disablePush": self.familyPush.disable(result: result)
+      case "shareText": self.shareText(args, result: result)
+      case "launcherIconState": result(self.launcherIconState())
+      case "setLauncherIcon": self.setLauncherIcon(args, result: result)
+      case "recognizeText": self.recognizeText(args, result: result)
+      case "updateWidgetSession", "clearWidgetSession":
+        do {
+          if call.method == "updateWidgetSession" { try WidgetSession.update(args) }
+          else { try WidgetSession.clear() }
           if #available(iOS 14.0, *) { WidgetCenter.shared.reloadAllTimelines() }
           result(nil)
-        case "clearSnapshot":
-          do { try WidgetSession.clear() }
-          catch { result(FlutterError(code: "widget_clear_failed", message: "위젯 로그인을 지우지 못했어요. 다시 시도해 주세요.", details: nil)); return }
-          UserDefaults(suiteName: self.groupID)?.removeObject(forKey: "parkingSnapshot")
-          if #available(iOS 14.0, *) { WidgetCenter.shared.reloadAllTimelines() }
-          self.stopFinding(result: result)
-        case "startFinding": self.startFinding(args, result: result)
-        case "stopFinding": self.stopFinding(result: result)
-        default: result(FlutterMethodNotImplemented)
+        } catch { result(FlutterError(code: "widget_session_failed", message: "위젯 보안 설정을 갱신하지 못했어요.", details: nil)) }
+      case "updateSnapshot":
+        var snapshot: [String: Any] = [:]
+        for key in ["vehicleName", "floor", "zone", "spot", "updatedAt", "userId", "vehicleId"] {
+          snapshot[key] = String((args[key] as? String ?? "").prefix(100))
         }
+        snapshot["isDemo"] = args["isDemo"] as? Bool ?? false
+        do { try WidgetSession.locked { try WidgetSnapshots.merge(snapshot) } }
+        catch { result(FlutterError(code: "app_group_unavailable", message: "위젯 공유 설정을 확인해 주세요.", details: nil)); return }
+        if #available(iOS 14.0, *) { WidgetCenter.shared.reloadAllTimelines() }
+        result(nil)
+      case "clearSnapshot":
+        do { try WidgetSession.clear() }
+        catch { result(FlutterError(code: "widget_clear_failed", message: "위젯 로그인을 지우지 못했어요. 다시 시도해 주세요.", details: nil)); return }
+        UserDefaults(suiteName: self.groupID)?.removeObject(forKey: "parkingSnapshot")
+        if #available(iOS 14.0, *) { WidgetCenter.shared.reloadAllTimelines() }
+        self.stopFinding(result: result)
+      case "startFinding": self.startFinding(args, result: result)
+      case "stopFinding": self.stopFinding(result: result)
+      default: result(FlutterMethodNotImplemented)
       }
     }
-    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  private var activeWindow: UIWindow? {
+    UIApplication.shared.connectedScenes
+      .compactMap { $0 as? UIWindowScene }
+      .filter { $0.activationState == .foregroundActive }
+      .flatMap { $0.windows }
+      .first { $0.isKeyWindow && !$0.isHidden }
   }
 
   override func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
@@ -108,7 +118,7 @@ import Security
       result(FlutterError(code: "invalid_share_text", message: "공유할 내용을 확인해 주세요.", details: nil)); return
     }
     guard UIApplication.shared.applicationState == .active,
-          let presenter = window?.rootViewController,
+          let presenter = activeWindow?.rootViewController,
           presenter.presentedViewController == nil,
           presenter.viewIfLoaded?.window != nil else { result(false); return }
     let sheet = UIActivityViewController(activityItems: [text], applicationActivities: nil)
@@ -126,7 +136,7 @@ import Security
       result(FlutterError(code: "apple_sign_in_busy", message: "진행 중인 Apple 로그인을 먼저 완료해 주세요.", details: nil)); return
     }
     guard UIApplication.shared.applicationState == .active,
-          let anchor = window, !anchor.isHidden,
+          let anchor = activeWindow, !anchor.isHidden,
           anchor.rootViewController?.viewIfLoaded?.window != nil else {
       result(FlutterError(code: "apple_sign_in_unavailable", message: "앱으로 돌아온 뒤 Apple 로그인을 다시 시도해 주세요.", details: nil)); return
     }
@@ -325,5 +335,23 @@ private final class AppleSignInRequest: NSObject, ASAuthorizationControllerDeleg
     rawNonce = nil
     state = nil
     callback?(value)
+  }
+}
+
+// app_links 6.4.1 receives warm URLs through Flutter's legacy plugin fallback,
+// but does not implement didFinishLaunchingWithOptions for cold scene links.
+// Forward only those initial links here; super handles all warm scene events.
+class SceneDelegate: FlutterSceneDelegate {
+  override func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
+    super.scene(scene, willConnectTo: session, options: connectionOptions)
+    var delivered = Set<URL>()
+    for context in connectionOptions.urlContexts {
+      if delivered.insert(context.url).inserted { AppLinks.shared.handleLink(url: context.url) }
+    }
+    for activity in connectionOptions.userActivities {
+      if let url = activity.webpageURL, delivered.insert(url).inserted {
+        AppLinks.shared.handleLink(url: url)
+      }
+    }
   }
 }

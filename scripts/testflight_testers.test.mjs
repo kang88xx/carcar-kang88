@@ -63,6 +63,25 @@ test('ensure mode enables distribution, adds build and tester, resends invitatio
   assert.deepEqual(summary.writes, ['PATCH /v1/betaGroups/g1', 'POST /v1/betaGroups/g1/relationships/builds', 'POST /v1/betaGroups/g1/relationships/betaTesters', 'POST /v1/betaTesterInvitations']);
 });
 
+for (const testerState of ['NOT_INVITED', 'INVITED']) {
+  test(`invitation opt-out preserves group and build association for ${testerState}`, async () => {
+    const state = freshState();
+    state.tester.attributes.state = testerState;
+    const {fetchImpl, calls} = fakeApple(state);
+    const summary = await ensureTesters({...baseEnv, ENSURE: 'true', SEND_INVITATIONS: 'false'}, fetchImpl);
+    assert.equal(summary.ready, true);
+    assert.equal(summary.group.distributionEnabledNow, true);
+    assert.equal(summary.build.groupContainsBuild, true);
+    assert.equal(summary.build.addedNow, true);
+    assert.equal(summary.testers[0].inGroup, true);
+    assert.equal(summary.testers[0].addedToGroup, true);
+    assert.equal(summary.testers[0].invitationResent, false);
+    assert.equal(state.invites, 0);
+    assert.ok(!calls.includes('POST /v1/betaTesterInvitations'));
+    assert.deepEqual(summary.writes, ['PATCH /v1/betaGroups/g1', 'POST /v1/betaGroups/g1/relationships/builds', 'POST /v1/betaGroups/g1/relationships/betaTesters']);
+  });
+}
+
 test('a refused distribution flag is reported and the build is still added', async () => {
   const state = freshState();
   state.members.push({type: 'betaTesters', id: 't1'});

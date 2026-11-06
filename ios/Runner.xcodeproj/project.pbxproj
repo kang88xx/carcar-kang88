@@ -8,22 +8,25 @@
 
 /* Begin PBXBuildFile section */
 		1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */ = {isa = PBXBuildFile; fileRef = 1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */; };
+		1C92EFAFE993FA5DA07835E7 /* Pods_RunnerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 550D15ED16F7551F18768BE6 /* Pods_RunnerTests.framework */; };
+		3153A4E5547B3DB4E83DA7E8 /* Pods_Runner.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5B4E45C258961B66DA7FDAF0 /* Pods_Runner.framework */; };
 		331C808B294A63AB00263BE5 /* RunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 331C807B294A618700263BE5 /* RunnerTests.swift */; };
+		368F6C4754C14B289BCBE0BD /* ParkingIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = E00DE60507CF42AD9AA0A5FC /* ParkingIntent.swift */; };
 		3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */ = {isa = PBXBuildFile; fileRef = 3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */; };
 		74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74858FAE1ED2DC5600515810 /* AppDelegate.swift */; };
+		968774690B54353D98F24CF5 /* PushNotifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDE2971C325C0B9F6945071A /* PushNotifications.swift */; };
 		97C146FC1CF9000F007C117D /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FA1CF9000F007C117D /* Main.storyboard */; };
 		97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FD1CF9000F007C117D /* Assets.xcassets */; };
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
-		AA1000000000000000000001 /* ParkingAttributes.swift in Runner Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000001; };
-		AA1000000000000000000002 /* ParkingAttributes.swift in Widget Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000001; };
-		AA1000000000000000000003 /* ParkingWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000002; };
-		AA1000000000000000000004 /* ParkingWidget.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000003; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		AA1000000000000000000005 = {isa = PBXBuildFile; fileRef = AA2000000000000000000004; };
-		AA1000000000000000000006 = {isa = PBXBuildFile; fileRef = AA2000000000000000000004; };
-		DBB41E85A959473F8A7320F4 /* WidgetSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4130F721DB5F489B98838C0B /* WidgetSession.swift */; };
-		368F6C4754C14B289BCBE0BD /* ParkingIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = E00DE60507CF42AD9AA0A5FC /* ParkingIntent.swift */; };
+		AA1000000000000000000001 /* ParkingAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000001 /* ParkingAttributes.swift */; };
+		AA1000000000000000000002 /* ParkingAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000001 /* ParkingAttributes.swift */; };
+		AA1000000000000000000003 /* ParkingWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000002 /* ParkingWidget.swift */; };
+		AA1000000000000000000004 /* ParkingWidget.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000003 /* ParkingWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		AA1000000000000000000005 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000004 /* PrivacyInfo.xcprivacy */; };
+		AA1000000000000000000006 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000004 /* PrivacyInfo.xcprivacy */; };
 		AB1234567890123456789001 /* WidgetSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4130F721DB5F489B98838C0B /* WidgetSession.swift */; };
-		968774690B54353D98F24CF5 /* PushNotifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDE2971C325C0B9F6945071A /* PushNotifications.swift */; };
+		DBB41E85A959473F8A7320F4 /* WidgetSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4130F721DB5F489B98838C0B /* WidgetSession.swift */; };
+		78A318202AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage in Frameworks */ = {isa = PBXBuildFile; productRef = 78A3181F2AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -34,9 +37,9 @@
 			remoteGlobalIDString = 97C146ED1CF9000F007C117D;
 			remoteInfo = Runner;
 		};
-		AA3000000000000000000001 = {
+		AA3000000000000000000001 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
-			containerPortal = 97C146E61CF9000F007C117D;
+			containerPortal = 97C146E61CF9000F007C117D /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = AA5000000000000000000001;
 			remoteInfo = ParkingWidget;
@@ -54,13 +57,13 @@
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		AA4000000000000000000001 = {
+		AA4000000000000000000001 /* Embed App Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				AA1000000000000000000004,
+				AA1000000000000000000004 /* ParkingWidget.appex in Embed App Extensions */,
 			);
 			name = "Embed App Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -70,11 +73,17 @@
 /* Begin PBXFileReference section */
 		1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GeneratedPluginRegistrant.h; sourceTree = "<group>"; };
 		1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GeneratedPluginRegistrant.m; sourceTree = "<group>"; };
+		316175809E261250B385169D /* Pods-RunnerTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.debug.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.debug.xcconfig"; sourceTree = "<group>"; };
 		331C807B294A618700263BE5 /* RunnerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerTests.swift; sourceTree = "<group>"; };
 		331C8081294A63A400263BE5 /* RunnerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RunnerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		39CD7B5333BD7A72C6C62A66 /* Pods-Runner.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.debug.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.debug.xcconfig"; sourceTree = "<group>"; };
 		3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = AppFrameworkInfo.plist; path = Flutter/AppFrameworkInfo.plist; sourceTree = "<group>"; };
+		4130F721DB5F489B98838C0B /* WidgetSession.swift */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = WidgetSession.swift; path = Shared/WidgetSession.swift; sourceTree = "<group>"; };
+		550D15ED16F7551F18768BE6 /* Pods_RunnerTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_RunnerTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		5B4E45C258961B66DA7FDAF0 /* Pods_Runner.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_Runner.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Runner-Bridging-Header.h"; sourceTree = "<group>"; };
 		74858FAE1ED2DC5600515810 /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		7632B67D10821193CEDF2D8F /* Pods-Runner.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.profile.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.profile.xcconfig"; sourceTree = "<group>"; };
 		7AFA3C8E1D35360C0083082E /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Release.xcconfig; path = Flutter/Release.xcconfig; sourceTree = "<group>"; };
 		9740EEB21CF90195004384FC /* Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Debug.xcconfig; path = Flutter/Debug.xcconfig; sourceTree = "<group>"; };
 		9740EEB31CF90195004384FC /* Generated.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Generated.xcconfig; path = Flutter/Generated.xcconfig; sourceTree = "<group>"; };
@@ -83,13 +92,16 @@
 		97C146FD1CF9000F007C117D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		97C147001CF9000F007C117D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		97C147021CF9000F007C117D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		AA2000000000000000000001 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Shared/ParkingAttributes.swift; sourceTree = "<group>"; };
-		AA2000000000000000000002 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParkingWidget/ParkingWidget.swift; sourceTree = "<group>"; };
-		AA2000000000000000000003 = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ParkingWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
-		AA2000000000000000000004 = {isa = PBXFileReference; lastKnownFileType = text.xml; path = Shared/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
-		4130F721DB5F489B98838C0B /* WidgetSession.swift */ = {isa = PBXFileReference; name = "WidgetSession.swift"; path = "Shared/WidgetSession.swift"; sourceTree = "<group>"; fileEncoding = 4; lastKnownFileType = sourcecode.swift; includeInIndex = 0; };
-		E00DE60507CF42AD9AA0A5FC /* ParkingIntent.swift */ = {isa = PBXFileReference; name = "ParkingIntent.swift"; path = "ParkingWidget/ParkingIntent.swift"; sourceTree = "<group>"; fileEncoding = 4; lastKnownFileType = sourcecode.swift; includeInIndex = 0; };
+		AA2000000000000000000001 /* ParkingAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Shared/ParkingAttributes.swift; sourceTree = "<group>"; };
+		AA2000000000000000000002 /* ParkingWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParkingWidget/ParkingWidget.swift; sourceTree = "<group>"; };
+		AA2000000000000000000003 /* ParkingWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ParkingWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA2000000000000000000004 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = Shared/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		BDE2971C325C0B9F6945071A /* PushNotifications.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushNotifications.swift; sourceTree = "<group>"; };
+		C9CA4F19BA1F248BE3F0549B /* Pods-Runner.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.release.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"; sourceTree = "<group>"; };
+		D0CCDC9CE125D5FA5675B7DD /* Pods-RunnerTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.release.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.release.xcconfig"; sourceTree = "<group>"; };
+		E00DE60507CF42AD9AA0A5FC /* ParkingIntent.swift */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = ParkingIntent.swift; path = ParkingWidget/ParkingIntent.swift; sourceTree = "<group>"; };
+		F716998E22F2EF9EC5A944E9 /* Pods-RunnerTests.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.profile.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.profile.xcconfig"; sourceTree = "<group>"; };
+		78E0A7A72DC9AD7400C4905E /* FlutterGeneratedPluginSwiftPackage */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = FlutterGeneratedPluginSwiftPackage; path = Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -97,13 +109,23 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				78A318202AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage in Frameworks */,
+				3153A4E5547B3DB4E83DA7E8 /* Pods_Runner.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		AA6000000000000000000002 = {
+		AA6000000000000000000002 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E5B21A1720D8BCD95391C84E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1C92EFAFE993FA5DA07835E7 /* Pods_RunnerTests.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -118,9 +140,19 @@
 			path = RunnerTests;
 			sourceTree = "<group>";
 		};
+		6C534FF14DED4E476803C84F /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				5B4E45C258961B66DA7FDAF0 /* Pods_Runner.framework */,
+				550D15ED16F7551F18768BE6 /* Pods_RunnerTests.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		9740EEB11CF90186004384FC /* Flutter */ = {
 			isa = PBXGroup;
 			children = (
+				78E0A7A72DC9AD7400C4905E /* FlutterGeneratedPluginSwiftPackage */,
 				3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */,
 				9740EEB21CF90195004384FC /* Debug.xcconfig */,
 				7AFA3C8E1D35360C0083082E /* Release.xcconfig */,
@@ -132,15 +164,17 @@
 		97C146E51CF9000F007C117D = {
 			isa = PBXGroup;
 			children = (
-				AA2000000000000000000001,
-				AA2000000000000000000002,
-				AA2000000000000000000004,
+				AA2000000000000000000001 /* ParkingAttributes.swift */,
+				AA2000000000000000000002 /* ParkingWidget.swift */,
+				AA2000000000000000000004 /* PrivacyInfo.xcprivacy */,
 				9740EEB11CF90186004384FC /* Flutter */,
 				97C146F01CF9000F007C117D /* Runner */,
 				97C146EF1CF9000F007C117D /* Products */,
 				331C8082294A63A400263BE5 /* RunnerTests */,
 				4130F721DB5F489B98838C0B /* WidgetSession.swift */,
 				E00DE60507CF42AD9AA0A5FC /* ParkingIntent.swift */,
+				C14BE87297323D2D575C4269 /* Pods */,
+				6C534FF14DED4E476803C84F /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -148,7 +182,7 @@
 			isa = PBXGroup;
 			children = (
 				97C146EE1CF9000F007C117D /* Runner.app */,
-				AA2000000000000000000003,
+				AA2000000000000000000003 /* ParkingWidget.appex */,
 				331C8081294A63A400263BE5 /* RunnerTests.xctest */,
 			);
 			name = Products;
@@ -170,6 +204,20 @@
 			path = Runner;
 			sourceTree = "<group>";
 		};
+		C14BE87297323D2D575C4269 /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				39CD7B5333BD7A72C6C62A66 /* Pods-Runner.debug.xcconfig */,
+				C9CA4F19BA1F248BE3F0549B /* Pods-Runner.release.xcconfig */,
+				7632B67D10821193CEDF2D8F /* Pods-Runner.profile.xcconfig */,
+				316175809E261250B385169D /* Pods-RunnerTests.debug.xcconfig */,
+				D0CCDC9CE125D5FA5675B7DD /* Pods-RunnerTests.release.xcconfig */,
+				F716998E22F2EF9EC5A944E9 /* Pods-RunnerTests.profile.xcconfig */,
+			);
+			name = Pods;
+			path = Pods;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -177,8 +225,10 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 331C8087294A63A400263BE5 /* Build configuration list for PBXNativeTarget "RunnerTests" */;
 			buildPhases = (
+				AEEE1AF84E8B113368D612B8 /* [CP] Check Pods Manifest.lock */,
 				331C807D294A63A400263BE5 /* Sources */,
 				331C807F294A63A400263BE5 /* Resources */,
+				E5B21A1720D8BCD95391C84E /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -191,21 +241,26 @@
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
 		97C146ED1CF9000F007C117D /* Runner */ = {
+			packageProductDependencies = (
+				78A3181F2AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage */,
+			);
 			isa = PBXNativeTarget;
 			buildConfigurationList = 97C147051CF9000F007C117D /* Build configuration list for PBXNativeTarget "Runner" */;
 			buildPhases = (
+				DC1EAF60B1A68C87C710CCC3 /* [CP] Check Pods Manifest.lock */,
 				9740EEB61CF901F6004384FC /* Run Script */,
 				97C146EA1CF9000F007C117D /* Sources */,
 				97C146EB1CF9000F007C117D /* Frameworks */,
 				97C146EC1CF9000F007C117D /* Resources */,
 				9705A1C41CF9048500538489 /* Embed Frameworks */,
-				AA4000000000000000000001,
+				AA4000000000000000000001 /* Embed App Extensions */,
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
+				9DDD599ED1370023C2777418 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				AA7000000000000000000001,
+				AA7000000000000000000001 /* PBXTargetDependency */,
 			);
 			name = Runner;
 			productName = Runner;
@@ -214,11 +269,11 @@
 		};
 		AA5000000000000000000001 /* ParkingWidget */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = AA8000000000000000000001;
+			buildConfigurationList = AA8000000000000000000001 /* Build configuration list for PBXNativeTarget "ParkingWidget" */;
 			buildPhases = (
-				AA6000000000000000000001,
-				AA6000000000000000000002,
-				AA6000000000000000000003,
+				AA6000000000000000000001 /* Sources */,
+				AA6000000000000000000002 /* Frameworks */,
+				AA6000000000000000000003 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -226,13 +281,16 @@
 			);
 			name = ParkingWidget;
 			productName = ParkingWidget;
-			productReference = AA2000000000000000000003;
+			productReference = AA2000000000000000000003 /* ParkingWidget.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
 		97C146E61CF9000F007C117D /* Project object */ = {
+			packageReferences = (
+				781AD8BC2B33823900A9FFBB /* XCLocalSwiftPackageReference "Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage" */,
+			);
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
@@ -262,7 +320,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				AA5000000000000000000001,
+				AA5000000000000000000001 /* ParkingWidget */,
 				97C146ED1CF9000F007C117D /* Runner */,
 				331C8080294A63A400263BE5 /* RunnerTests */,
 			);
@@ -281,7 +339,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				AA1000000000000000000005,
+				AA1000000000000000000005 /* PrivacyInfo.xcprivacy in Resources */,
 				97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */,
 				3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */,
 				97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */,
@@ -289,11 +347,11 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		AA6000000000000000000003 = {
+		AA6000000000000000000003 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				AA1000000000000000000006,
+				AA1000000000000000000006 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -331,6 +389,67 @@
 			shellPath = /bin/sh;
 			shellScript = "/bin/sh \"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\" build";
 		};
+		9DDD599ED1370023C2777418 /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks-${CONFIGURATION}-input-files.xcfilelist",
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		AEEE1AF84E8B113368D612B8 /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-RunnerTests-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+		DC1EAF60B1A68C87C710CCC3 /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-Runner-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -348,18 +467,18 @@
 			files = (
 				74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */,
 				968774690B54353D98F24CF5 /* PushNotifications.swift in Sources */,
-				AA1000000000000000000001,
+				AA1000000000000000000001 /* ParkingAttributes.swift in Sources */,
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
 				DBB41E85A959473F8A7320F4 /* WidgetSession.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		AA6000000000000000000001 = {
+		AA6000000000000000000001 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				AA1000000000000000000002,
-				AA1000000000000000000003,
+				AA1000000000000000000002 /* ParkingAttributes.swift in Sources */,
+				AA1000000000000000000003 /* ParkingWidget.swift in Sources */,
 				368F6C4754C14B289BCBE0BD /* ParkingIntent.swift in Sources */,
 				AB1234567890123456789001 /* WidgetSession.swift in Sources */,
 			);
@@ -373,10 +492,10 @@
 			target = 97C146ED1CF9000F007C117D /* Runner */;
 			targetProxy = 331C8085294A63A400263BE5 /* PBXContainerItemProxy */;
 		};
-		AA7000000000000000000001 = {
+		AA7000000000000000000001 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = AA5000000000000000000001;
-			targetProxy = AA3000000000000000000001;
+			target = AA5000000000000000000001 /* ParkingWidget */;
+			targetProxy = AA3000000000000000000001 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -457,14 +576,14 @@
 			baseConfigurationReference = 7AFA3C8E1D35360C0083082E /* Release.xcconfig */;
 			buildSettings = {
 				APS_ENVIRONMENT = production;
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "AppIconBlue AppIconBlack AppIconWhite AppIconGold AppIconMint AppIconPurple AppIconRed AppIconGray AppIconFloorF1 AppIconFloorF2 AppIconFloorF3 AppIconFloorF4 AppIconFloorF5 AppIconFloorB1 AppIconFloorB2 AppIconFloorB3 AppIconFloorB4 AppIconFloorB5 AppIconFloorB6";
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
+				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
-				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
-				CODE_SIGN_STYLE = Automatic;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -479,6 +598,7 @@
 		};
 		331C8088294A63A400263BE5 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 316175809E261250B385169D /* Pods-RunnerTests.debug.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
@@ -496,6 +616,7 @@
 		};
 		331C8089294A63A400263BE5 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = D0CCDC9CE125D5FA5675B7DD /* Pods-RunnerTests.release.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
@@ -511,6 +632,7 @@
 		};
 		331C808A294A63A400263BE5 /* Profile */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = F716998E22F2EF9EC5A944E9 /* Pods-RunnerTests.profile.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
@@ -640,14 +762,14 @@
 			baseConfigurationReference = 9740EEB21CF90195004384FC /* Debug.xcconfig */;
 			buildSettings = {
 				APS_ENVIRONMENT = development;
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "AppIconBlue AppIconBlack AppIconWhite AppIconGold AppIconMint AppIconPurple AppIconRed AppIconGray AppIconFloorF1 AppIconFloorF2 AppIconFloorF3 AppIconFloorF4 AppIconFloorF5 AppIconFloorB1 AppIconFloorB2 AppIconFloorB3 AppIconFloorB4 AppIconFloorB5 AppIconFloorB6";
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
+				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
-				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
-				CODE_SIGN_STYLE = Automatic;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -666,14 +788,14 @@
 			baseConfigurationReference = 7AFA3C8E1D35360C0083082E /* Release.xcconfig */;
 			buildSettings = {
 				APS_ENVIRONMENT = production;
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "AppIconBlue AppIconBlack AppIconWhite AppIconGold AppIconMint AppIconPurple AppIconRed AppIconGray AppIconFloorF1 AppIconFloorF2 AppIconFloorF3 AppIconFloorF4 AppIconFloorF5 AppIconFloorB1 AppIconFloorB2 AppIconFloorB3 AppIconFloorB4 AppIconFloorB5 AppIconFloorB6";
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
+				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
-				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
-				CODE_SIGN_STYLE = Automatic;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -686,9 +808,9 @@
 			};
 			name = Release;
 		};
-		AA9000000000000000000001 = {
+		AA9000000000000000000001 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 9740EEB31CF90195004384FC;
+			baseConfigurationReference = 9740EEB31CF90195004384FC /* Generated.xcconfig */;
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CLANG_ENABLE_MODULES = YES;
@@ -711,9 +833,9 @@
 			};
 			name = Debug;
 		};
-		AA9000000000000000000002 = {
+		AA9000000000000000000002 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 9740EEB31CF90195004384FC;
+			baseConfigurationReference = 9740EEB31CF90195004384FC /* Generated.xcconfig */;
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CLANG_ENABLE_MODULES = YES;
@@ -736,9 +858,9 @@
 			};
 			name = Release;
 		};
-		AA9000000000000000000003 = {
+		AA9000000000000000000003 /* Profile */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 9740EEB31CF90195004384FC;
+			baseConfigurationReference = 9740EEB31CF90195004384FC /* Generated.xcconfig */;
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CLANG_ENABLE_MODULES = YES;
@@ -794,17 +916,29 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		AA8000000000000000000001 = {
+		AA8000000000000000000001 /* Build configuration list for PBXNativeTarget "ParkingWidget" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				AA9000000000000000000001,
-				AA9000000000000000000002,
-				AA9000000000000000000003,
+				AA9000000000000000000001 /* Debug */,
+				AA9000000000000000000002 /* Release */,
+				AA9000000000000000000003 /* Profile */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+/* Begin XCLocalSwiftPackageReference section */
+		781AD8BC2B33823900A9FFBB /* XCLocalSwiftPackageReference "Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage;
+		};
+/* End XCLocalSwiftPackageReference section */
+/* Begin XCSwiftPackageProductDependency section */
+		78A3181F2AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = FlutterGeneratedPluginSwiftPackage;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 97C146E61CF9000F007C117D /* Project object */;
 }

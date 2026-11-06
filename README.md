@@ -10,7 +10,16 @@
 
 ## 실행
 
-Flutter 3.35.4 / Dart 3.9.2 기준입니다. iOS 앱은 15.0 이상, 위젯·차량 찾기는 iOS 17 이상을 지원합니다. Android 최소 버전은 API 24입니다. iOS 빌드와 Simulator 실행에는 Mac/Xcode가 필요합니다.
+Flutter 3.47.9 / Dart 3.13.7 기준이며 공개 저장소의 세 CI workflow도 Flutter 3.47.9를 사용합니다. iOS 앱은 15.0 이상, 위젯·차량 찾기는 iOS 17 이상을 지원합니다. Android 최소 버전은 API 24입니다. iOS 빌드와 Simulator 실행에는 Mac/Xcode가 필요합니다.
+
+현재 맥북에는 새 SDK를 `~/development/flutter-3.47.9`에 설치했고 이전 `~/development/flutter`의 3.35.4는 보존했습니다. 이 맥북에서 작업할 때는 다음 환경을 사용합니다.
+
+```bash
+export PATH="$HOME/development/flutter-3.47.9/bin:$PATH"
+export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+```
+
+Xcode 27.2의 iOS 27 실행 요구에 맞춰 UIScene 생명주기로 전환했습니다. Swift Package Manager 통합을 사용하며, 아직 이를 지원하지 않는 `flutter_secure_storage` 9.2.4는 CocoaPods로 연결하므로 CocoaPods도 필요합니다. 로컬 Simulator 빌드는 성공했고, 실행·인증·배포 검증 결과는 [인계 문서](docs/APP_STORE_HANDOFF.md)를 따릅니다.
 
 ```bash
 flutter pub get

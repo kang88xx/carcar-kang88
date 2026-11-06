@@ -1,5 +1,21 @@
 # 결정 로그
 
+## 계정 삭제의 세션 고정과 Apple 연결 해제 · 2026-11-06
+
+- 삭제 작업은 처음 확보한 Supabase 사용자·bearer에 고정한다. 서버에서 최신 연결 identity를 조회하고 Apple 계정이면 네이티브 자격만 재요청한다. 재인증으로 Supabase 세션을 교체하지 않으며, 계정 전환 뒤 이전 삭제 작업을 재개하지 않는다.
+- `apple-disconnect` Edge Function은 Supabase Auth 사용자 검증 후 Apple 코드를 교환한다. 고정 JWKS의 RS256 서명·issuer·audience·시간·subject·nonce를 확인한 뒤 반환 토큰을 철회한다. DB 삭제와 service role 권한을 함수에 부여하지 않고 Apple 토큰도 보관하지 않는다.
+- 자동 연결 해제 불가·서버 미설정·재인증 필요 오류에서만 사용자가 별도로 선택한 계정 삭제와 수동 연결 해제 안내를 허용한다. 사용자 취소·세션 변경·identity 불일치·서명 검증 실패는 삭제를 중단한다.
+- 앱은 최초 bearer로 `delete_my_account`를 호출하고 서버 성공 뒤 같은 세션만 정리한다. 삭제 완료에 일반 로그아웃 콜백을 재사용하지 않으며 오래된 auth 이벤트가 새 계정을 지우지 않게 한다. 서버 삭제 성공 뒤의 로컬 로그아웃 네트워크 오류는 삭제 실패로 보고하지 않는다.
+- 앱·Edge 로컬 검증은 완료했으나 키 등록·서버 배포·실제 Apple 인증/철회·실제 계정 삭제는 별도다. 최신 진행 상태는 [인계 문서](APP_STORE_HANDOFF.md), 운영 계약은 [서버 함수 배포 문서](../supabase/deployment/APPLE_SIGN_IN.md)를 따른다.
+
+## Flutter 업그레이드와 iOS scene 전환 · 2026-11-06
+
+- Xcode 27.2로 빌드한 앱이 iOS 27.2에서 UIScene 생명주기 누락으로 Dart 실행 전에 종료됐다. 사용자가 Flutter 업그레이드를 승인해 개발 기준과 공개 저장소의 세 CI workflow를 Flutter 3.47.9 / Dart 3.13.7로 맞췄다. 새 로컬 SDK는 `~/development/flutter-3.47.9`이며 이전 3.35.4 SDK는 보존한다.
+- `Info.plist`에 단일 scene을 선언하고 `FlutterSceneDelegate`를 사용한다. 플러그인·네이티브 채널 등록은 implicit engine 초기화 시점으로 옮겼으며, 공유 화면·Apple 인증은 활성 scene의 key window를 사용한다.
+- 고정된 `app_links` 6.4.1은 cold scene 링크를 직접 처리하지 않아 초기 URL·웹 활동만 별도로 전달한다. warm 링크는 Flutter의 기존 AppDelegate 플러그인 전달 경로를 사용한다. 추후 플러그인 갱신 시 별도 전달의 필요성과 중복 여부를 다시 확인한다.
+- SDK가 생성한 Swift Package Manager 연결을 유지하고 `flutter_secure_storage` 9.2.4에는 CocoaPods fallback을 사용한다. 이 플러그인의 SwiftPM 미지원 경고는 남아 있으며, 이번 작업에서 플러그인 버전은 올리지 않았다.
+- 로컬 Simulator 빌드가 성공했고 컴파일 결과의 앱 iOS 15.0·위젯 17.0을 확인했다. 네이티브 실행·링크·실제 인증 검증 결과는 [인계 문서](APP_STORE_HANDOFF.md)를 따른다. 이번 업그레이드는 새 TestFlight 배포나 App Store 제출 완료를 뜻하지 않는다.
+
 ## TestFlight 12 배포 · 2026-11-06
 
 - **1.0.0 (12)** 업로드, Apple 처리 `VALID`, 기존 내부 테스트 그룹 연결을 확인했다. 앱 소스 `f3373a6`, 비공개 빌드 소스 `cdace91`이며 [iOS 배포 CI](https://github.com/kang88xx/60base-mobile-build/actions/runs/42171293207)와 [공개 소스 검증](https://github.com/kang88xx/carcar-kang88/actions/runs/42171242680)이 성공했다.

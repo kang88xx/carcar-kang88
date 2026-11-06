@@ -1,11 +1,13 @@
 # 기술 설계
 
-## 현재 구현 · 2026-11-02
+## 현재 구현 · 2026-11-06
 
 아래 권장안은 제공받은 초기 설계입니다. 실제 배포 구조는 다음과 같으며, 공개 검증 범위는 [README](../README.md#검증)에 정리합니다. 계정별 배포 기록은 비공개로 관리합니다.
 
 - `lib/main.dart`가 인증·복구 세션을 분기하고 계정 변경 시 컨트롤러와 네이티브 상태를 정리합니다. `core/repository.dart`는 실제 Supabase와 별도 로컬 체험 저장소의 공통 경계입니다. `core/app_controller.dart`가 연결된 차량 한 대·최신 기록·Realtime을 관리합니다. 계정 전환 시 이전 등록·참여 창을 닫고, 오래된 컨트롤러의 변경 요청을 차단합니다.
 - 화면은 `features/`의 파일 단위로 구성합니다. `device_notifications.dart`는 기기별 서버 설정·권한·토큰 등록을 관리합니다. `NativeBridge`가 OCR, 위젯, 차량 찾기, 알림, iOS·Android 층수 런처 아이콘을 연결합니다.
+- Flutter 3.47.9 / Dart 3.13.7을 사용합니다. iOS는 `Info.plist`의 단일 scene 설정과 `AppDelegate.swift`의 `SceneDelegate: FlutterSceneDelegate`를 사용합니다. 플러그인과 `carcar/native` 채널은 `didInitializeImplicitFlutterEngine`에서 등록하고, 공유 화면·Apple 인증의 표시 창은 활성 scene의 보이는 key window에서 찾습니다. 앱 최소 iOS 15.0과 위젯 17.0은 유지합니다.
+- `app_links` 6.4.1 호환을 위해 종료 상태에서 링크로 시작할 때 `SceneDelegate`가 초기 URL과 `NSUserActivity.webpageURL`을 중복 제거해 전달합니다. 실행 중 링크는 Flutter의 기존 AppDelegate 플러그인 전달 경로에 맡깁니다. `FlutterDeepLinkingEnabled`는 false로 유지하며 플러그인을 갱신할 때 초기 링크 누락·중복 전달을 다시 검증합니다. iOS 의존성은 Swift Package Manager와 `flutter_secure_storage` 9.2.4용 CocoaPods를 함께 사용합니다.
 - 인증·PostgreSQL·Realtime은 차자리 전용 Supabase Free 서울 프로젝트를 사용합니다. 차량·초대·주차 저장은 권한을 검사하는 SQL RPC이며 주차 이력과 최신 포인터를 같은 트랜잭션에서 확정합니다. 사진 Storage와 서버 OCR은 사용하지 않습니다.
 - 알림 설정과 토큰은 `private` 스키마에 보관합니다. 주차 트랜잭션은 발송 작업만 추가하고, Vault 인증을 사용하는 매분 예약 작업이 필요한 경우에만 `parking-push` Edge Function을 호출합니다. worker는 발송 직전 권한·기기 설정을 재검사하고 APNs HTTP/2 또는 FCM data-only로 전송합니다. 전송 실패는 이미 저장된 주차 기록을 취소하지 않습니다. [푸시 구조와 배포](../supabase/deployment/PUSH.md).
 - 현재 정사각형 위젯은 서버 확정 기록 스냅샷을 표시하고 `carcar://parking`으로 Flutter의 기존 주차 입력 화면을 엽니다. 상단 시각은 화면 갱신 시간이 아니라 `created_at`입니다. 로그인·차량 준비 후 한 번만 입력을 열고 계정 전환 시 이전 요청을 폐기합니다.

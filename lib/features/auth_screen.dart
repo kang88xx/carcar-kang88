@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -20,11 +22,13 @@ class AuthScreen extends StatefulWidget {
     this.startupNotice,
     this.onGoogleSignIn,
     this.onAppleSignIn,
+    this.createAppleAuth,
   });
   final SupabaseClient? client;
   final Future<void> Function() onDemo;
   final Future<bool> Function()? onGoogleSignIn;
   final Future<AppleCredential?> Function()? onAppleSignIn;
+  final GoTrueClient Function()? createAppleAuth;
   final String? startupError, startupNotice;
   @override
   State<AuthScreen> createState() => _AuthScreenState();
@@ -33,6 +37,39 @@ class AuthScreen extends StatefulWidget {
 class _AuthScreenState extends State<AuthScreen> {
   bool _busy = false;
   String? _error, _notice;
+  int _authVersion = 0;
+  StreamSubscription<AuthState>? _authSubscription;
+
+  void _watchAuth() {
+    if (widget.createAppleAuth == null) return;
+    _authSubscription = widget.client?.auth.onAuthStateChange.listen(
+      (_) => _authVersion++,
+      onError: (Object _) => _authVersion++,
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _watchAuth();
+  }
+
+  @override
+  void didUpdateWidget(covariant AuthScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.client, widget.client)) {
+      _authVersion++;
+      _busy = false;
+      unawaited(_authSubscription?.cancel());
+      _watchAuth();
+    }
+  }
+
+  @override
+  void dispose() {
+    unawaited(_authSubscription?.cancel());
+    super.dispose();
+  }
 
   Future<void> _apple() async {
     final client = widget.client;
@@ -42,6 +79,8 @@ class _AuthScreenState extends State<AuthScreen> {
       _error = null;
       _notice = null;
     });
+    final authVersion = _authVersion;
+    GoTrueClient? exchange;
     try {
       final credential =
           await (widget.onAppleSignIn?.call() ??
@@ -49,21 +88,37 @@ class _AuthScreenState extends State<AuthScreen> {
       if (credential == null ||
           !mounted ||
           !identical(client, widget.client) ||
+          authVersion != _authVersion ||
           client.auth.currentUser != null) {
         return;
       }
-      final response = await client.auth.signInWithIdToken(
+      final factory = widget.createAppleAuth;
+      if (factory == null) throw const AppException('Apple 로그인 설정을 확인해 주세요.');
+      exchange = factory();
+      final response = await exchange.signInWithIdToken(
         provider: OAuthProvider.apple,
         idToken: credential.identityToken,
         nonce: credential.rawNonce,
       );
+      if (!mounted ||
+          !identical(client, widget.client) ||
+          authVersion != _authVersion ||
+          client.auth.currentUser != null) {
+        return;
+      }
       final session = response.session;
       if (session == null ||
           response.user?.id != session.user.id ||
-          client.auth.currentUser?.id != session.user.id ||
-          client.auth.currentSession?.accessToken != session.accessToken) {
+          session.refreshToken == null ||
+          session.refreshToken!.isEmpty ||
+          session.expiresAt == null ||
+          session.expiresAt! <=
+              DateTime.now().millisecondsSinceEpoch ~/ 1000 + 60) {
         throw const AppException('Apple 로그인을 확인하지 못했어요. 다시 시도해 주세요.');
       }
+      // For a fresh session recoverSession applies synchronously before its
+      // first await. Never feed it an expired token that could trigger refresh.
+      await client.auth.recoverSession(jsonEncode(session.toJson()));
       // The shared auth listener opens the signed-in app. Existing profile names
       // stay user-controlled; a missing Apple name never overwrites them.
     } on Object catch (error) {
@@ -71,6 +126,7 @@ class _AuthScreenState extends State<AuthScreen> {
         setState(() => _error = friendlyError(error));
       }
     } finally {
+      exchange?.dispose();
       if (mounted && identical(client, widget.client)) {
         setState(() => _busy = false);
       }

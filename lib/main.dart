@@ -54,6 +54,13 @@ Future<void> main() async {
       preferences: await SharedPreferences.getInstance(),
       client: client,
       startupError: startupError,
+      createAppleAuth: client == null
+          ? null
+          : () => GoTrueClient(
+              url: '$url/auth/v1',
+              headers: {'apikey': key},
+              autoRefreshToken: false,
+            ),
     ),
   );
 }
@@ -64,12 +71,14 @@ class CarcarApp extends StatefulWidget {
     required this.preferences,
     this.client,
     this.startupError,
+    this.createAppleAuth,
     this.repositoryFactory = SupabaseParkingRepository.new,
     this.incomingLinks,
     this.initialLink,
   });
   final SharedPreferences preferences;
   final SupabaseClient? client;
+  final GoTrueClient Function()? createAppleAuth;
   final String? startupError;
   final ParkingRepository Function(SupabaseClient) repositoryFactory;
   final Stream<Uri>? incomingLinks;
@@ -139,6 +148,12 @@ class _CarcarAppState extends State<CarcarApp> with WidgetsBindingObserver {
     // start link. Handle those before opening a signed-in controller.
     _authSubscription = widget.client?.auth.onAuthStateChange.listen(
       (state) {
+        // Local sign-out emits after storage cleanup. A newer login may have
+        // completed while that cleanup was pending, so ignore obsolete events.
+        if (!mounted ||
+            state.session?.user.id != widget.client?.auth.currentUser?.id) {
+          return;
+        }
         if (state.event == AuthChangeEvent.passwordRecovery &&
             state.session != null) {
           _passwordRecovery = true;
@@ -300,13 +315,30 @@ class _CarcarAppState extends State<CarcarApp> with WidgetsBindingObserver {
   }
 
   Future<void> _logout() async {
+    final controller = _controller;
+    final notifications = _notifications;
+    final generation = _authGeneration;
+    if (controller == null) return;
     String? notificationWarning;
     try {
-      await _notifications?.unregisterForLogout();
+      await notifications?.unregisterForLogout();
     } on Object catch (error) {
       notificationWarning = friendlyError(error);
     }
-    await _controller?.repository.signOut();
+    if (!mounted ||
+        !identical(controller, _controller) ||
+        generation != _authGeneration ||
+        widget.client?.auth.currentUser?.id !=
+            (controller.isDemo ? null : controller.repository.userId)) {
+      return;
+    }
+    await controller.repository.signOut();
+    if (!mounted ||
+        !identical(controller, _controller) ||
+        generation != _authGeneration ||
+        widget.client?.auth.currentUser != null) {
+      return;
+    }
     await _clearController();
     if (notificationWarning != null && mounted) {
       setState(() {
@@ -316,6 +348,15 @@ class _CarcarAppState extends State<CarcarApp> with WidgetsBindingObserver {
         }.join('\n');
       });
     }
+  }
+
+  Future<void> _accountDeleted(AppController controller) async {
+    if (!mounted ||
+        !identical(controller, _controller) ||
+        widget.client?.auth.currentUser != null) {
+      return;
+    }
+    await _clearController();
   }
 
   Future<void> _finishPasswordRecovery({required bool completed}) async {
@@ -371,6 +412,7 @@ class _CarcarAppState extends State<CarcarApp> with WidgetsBindingObserver {
       : _controller == null
       ? AuthScreen(
           client: widget.client,
+          createAppleAuth: widget.createAppleAuth,
           onDemo: _demo,
           startupError: _inviteNotice ?? _cleanupNotice ?? widget.startupError,
           startupNotice: _pendingInvite.code != null
@@ -382,6 +424,7 @@ class _CarcarAppState extends State<CarcarApp> with WidgetsBindingObserver {
           controller: _controller!,
           preferences: widget.preferences,
           onLogout: _logout,
+          onAccountDeleted: _accountDeleted,
           notifications: _notifications,
           pendingInvite: _pendingInvite.code,
           inviteNotice: _inviteNotice,

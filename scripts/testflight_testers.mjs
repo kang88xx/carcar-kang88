@@ -1,7 +1,8 @@
 // Keep the 차자리 internal TestFlight group ready for every upload.
 // Read-only by default; ENSURE=true adds the build to the internal group,
 // turns on automatic distribution for future builds and resends pending
-// invitations for the required testers. Secrets never reach the output.
+// invitations for the required testers unless SEND_INVITATIONS=false.
+// Secrets never reach the output.
 import {createPrivateKey, sign} from 'node:crypto';
 import {writeFile} from 'node:fs/promises';
 import {pathToFileURL} from 'node:url';
@@ -45,6 +46,7 @@ export async function ensureTesters(env, fetchImpl = fetch) {
   const buildNumber = env.BUILD_NUMBER ? String(env.BUILD_NUMBER).trim() : '';
   requireValue(!buildNumber || /^[1-9][0-9]*$/.test(buildNumber), 'Invalid build number.');
   const ensure = env.ENSURE === 'true';
+  const sendInvitations = env.SEND_INVITATIONS !== 'false';
   const testers = parseTesters(env.TESTER_EMAILS);
   const apiKey = createPrivateKey(Buffer.from(env.APP_STORE_CONNECT_API_KEY_P8_BASE64, 'base64'));
   requireValue(apiKey.asymmetricKeyType === 'ec' && apiKey.asymmetricKeyDetails?.namedCurve === 'prime256v1', 'App Store Connect requires an ES256 API key.');
@@ -61,7 +63,7 @@ export async function ensureTesters(env, fetchImpl = fetch) {
       requireValue(ensure, 'Write requested in read-only mode.');
       const allowed = (method === 'PATCH' && /^\/v1\/betaGroups\/[A-Za-z0-9-]+$/.test(url.pathname))
         || (method === 'POST' && /^\/v1\/betaGroups\/[A-Za-z0-9-]+\/relationships\/(builds|betaTesters)$/.test(url.pathname))
-        || (method === 'POST' && url.pathname === '/v1/betaTesterInvitations');
+        || (sendInvitations && method === 'POST' && url.pathname === '/v1/betaTesterInvitations');
       requireValue(allowed, 'Only group distribution and invitation writes are permitted.');
       writes.push(method + ' ' + url.pathname);
     }
@@ -134,7 +136,7 @@ export async function ensureTesters(env, fetchImpl = fetch) {
         report.inGroup = true;
         report.addedToGroup = true;
       }
-      if (ensure && ['NOT_INVITED', 'INVITED'].includes(report.state ?? '')) {
+      if (ensure && sendInvitations && ['NOT_INVITED', 'INVITED'].includes(report.state ?? '')) {
         await request('/v1/betaTesterInvitations', 'POST', {data: {type: 'betaTesterInvitations', relationships: {app: {data: {type: 'apps', id: appId}}, betaTester: {data: {type: 'betaTesters', id: tester.id}}}}});
         report.invitationResent = true;
       }

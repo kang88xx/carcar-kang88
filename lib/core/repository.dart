@@ -1,10 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart' show listEquals;
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import 'models.dart';
+import 'native_bridge.dart' show AppleCredential;
+import 'account_deletion.dart';
+export 'account_deletion.dart';
 
 abstract class ParkingRepository {
   bool get isDemo;
@@ -34,7 +38,11 @@ abstract class ParkingRepository {
     List<String> floors,
     List<String> zones,
   );
-  Future<void> deleteAccount();
+  Future<void> deleteAccount({
+    Future<AppleCredential?> Function()? reauthenticateApple,
+    Future<bool> Function(AppleDisconnectFailure failure)?
+    confirmManualAppleDisconnect,
+  });
   Future<void> signOut();
   void watch(void Function() onChange);
   Future<void> dispose();
@@ -278,13 +286,134 @@ class SupabaseParkingRepository implements ParkingRepository {
   }
 
   @override
-  Future<void> deleteAccount() async {
-    await client.rpc('delete_my_account');
-    await client.auth.signOut(scope: SignOutScope.local);
+  Future<void> deleteAccount({
+    Future<AppleCredential?> Function()? reauthenticateApple,
+    Future<bool> Function(AppleDisconnectFailure failure)?
+    confirmManualAppleDisconnect,
+  }) async {
+    _requireSameUser();
+    final session = client.auth.currentSession;
+    if (session == null || session.accessToken.isEmpty || session.isExpired) {
+      throw const AppleDisconnectFailure('session_invalid');
+    }
+    final bearer = 'Bearer ${session.accessToken}';
+    var invalidated = false;
+    final subscription = client.auth.onAuthStateChange.listen(
+      (state) {
+        if (state.session?.user.id != _userId ||
+            state.event == AuthChangeEvent.signedOut ||
+            (state.event == AuthChangeEvent.signedIn &&
+                !identical(state.session, session))) {
+          invalidated = true;
+        }
+      },
+      onError: (Object _) {
+        invalidated = true;
+      },
+    );
+    void requireCurrent() {
+      if (invalidated || client.auth.currentUser?.id != _userId) {
+        throw const AppleDisconnectFailure('session_invalid');
+      }
+    }
+
+    try {
+      final user = (await client.auth.getUser(session.accessToken)).user;
+      requireCurrent();
+      if (user == null || user.id != _userId) {
+        throw const AppleDisconnectFailure('session_invalid');
+      }
+      final identities = user.identities;
+      if (identities == null) {
+        throw const AppleDisconnectFailure('apple_verification_failed');
+      }
+      final usesApple = identities.any((i) => i.provider == 'apple');
+      if (usesApple) {
+        AppleDisconnectFailure? failure;
+        if (reauthenticateApple == null) {
+          failure = const AppleDisconnectFailure('apple_unavailable');
+        } else {
+          AppleCredential? credential;
+          try {
+            credential = await reauthenticateApple();
+          } on PlatformException catch (error) {
+            requireCurrent();
+            if (!const {
+              'apple_sign_in_unavailable',
+              'apple_sign_in_failed',
+              'unsupported',
+            }.contains(error.code)) {
+              rethrow;
+            }
+            failure = const AppleDisconnectFailure('apple_unavailable');
+          }
+          requireCurrent();
+          if (failure == null && credential == null) {
+            throw const AccountDeletionCancelled();
+          }
+          if (credential != null) {
+            try {
+              final response = await client.functions.invoke(
+                'apple-disconnect',
+                headers: {'Authorization': bearer},
+                body: {
+                  'authorizationCode': credential.authorizationCode,
+                  'rawNonce': credential.rawNonce,
+                },
+              );
+              if (response.data is! Map || response.data['ok'] != true) {
+                failure = const AppleDisconnectFailure(
+                  'apple_verification_failed',
+                );
+              }
+            } on FunctionException catch (error) {
+              final details = error.details;
+              failure = AppleDisconnectFailure(
+                error.status == 401
+                    ? 'session_invalid'
+                    : details is Map && details['error'] is String
+                    ? details['error'] as String
+                    : 'apple_unavailable',
+              );
+            } on Object {
+              failure = const AppleDisconnectFailure('apple_unavailable');
+            }
+            requireCurrent();
+          }
+        }
+        if (failure != null) {
+          if (!failure.allowsManualDisconnect ||
+              confirmManualAppleDisconnect == null) {
+            throw failure;
+          }
+          final confirmed = await confirmManualAppleDisconnect(failure);
+          requireCurrent();
+          if (!confirmed) throw const AccountDeletionCancelled();
+        }
+      }
+      requireCurrent();
+      // A request already in flight may finish after switching accounts, but its
+      // bearer must always belong to the account that requested deletion.
+      await client.rpc('delete_my_account').setHeader('Authorization', bearer);
+      if (!invalidated && client.auth.currentUser?.id == _userId) {
+        try {
+          // GoTrue removes this session synchronously before its first await.
+          await client.auth.signOut(scope: SignOutScope.local);
+        } on Object {
+          // The server confirmed deletion. Network cleanup cannot undo it.
+        }
+      }
+    } finally {
+      await subscription.cancel();
+    }
   }
 
   @override
-  Future<void> signOut() => client.auth.signOut();
+  Future<void> signOut() {
+    _requireSameUser();
+    return client.auth.signOut();
+  }
+
   @override
   void watch(void Function() onChange) {
     _channel = client
@@ -563,7 +692,11 @@ class DemoParkingRepository implements ParkingRepository {
   }
 
   @override
-  Future<void> deleteAccount() async {
+  Future<void> deleteAccount({
+    Future<AppleCredential?> Function()? reauthenticateApple,
+    Future<bool> Function(AppleDisconnectFailure failure)?
+    confirmManualAppleDisconnect,
+  }) async {
     final removed = await preferences.remove(storageKey);
     if (!removed) {
       throw const AppException('체험 데이터를 지우지 못했어요. 다시 시도해 주세요.');
@@ -599,6 +732,7 @@ String validatedProfileName(String name) {
 
 String friendlyError(Object error) {
   if (error is AppException) return error.message;
+  if (error is AppleDisconnectFailure) return error.message;
   if (error is AuthException) {
     if (error.code == 'invalid_credentials') return '이메일 또는 비밀번호를 확인해 주세요.';
     if (error.code == 'email_not_confirmed') return '이메일의 가입 확인 링크를 먼저 눌러 주세요.';

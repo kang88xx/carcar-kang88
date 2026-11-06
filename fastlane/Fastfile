@@ -9,7 +9,7 @@ platform :ios do
       skip_submission: true,
       skip_waiting_for_build_processing: false,
       wait_processing_timeout_duration: 1200,
-      changelog: '홈·주차 이력·우리 가족·설정 화면의 헤더를 고정했습니다. 화면을 내려도 제목과 새로고침·설정 버튼을 계속 사용할 수 있습니다. 작은 화면에서 큰 글자를 사용할 때 주차 기록 버튼의 문구가 줄바꿈되지 않도록 정리했습니다.'
+      changelog: 'Apple로 로그인을 추가하고 계정 삭제 시 Apple 연결 해제와 계정 전환 처리를 보완했습니다. 설정에서 고객지원 이메일과 도움말 주소를 확인하고 복사할 수 있습니다. 최신 iOS 실행 환경에 맞춰 앱 시작과 초대 링크 처리를 개선했습니다.'
     )
   end
 end

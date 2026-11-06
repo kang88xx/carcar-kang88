@@ -7,9 +7,10 @@ final class IconAlertWatcherTests: XCTestCase {
         continueAfterFailure = false
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
         let carcar = XCUIApplication(bundleIdentifier: "com.kang88.carcar")
-        let messages = [
-            "You have changed the icon for “차자리”.",
-            "You have changed the icon for \"차자리\"."
+        let notices: [(message: String, button: String)] = [
+            ("You have changed the icon for “차자리”.", "OK"),
+            ("You have changed the icon for \"차자리\".", "OK"),
+            ("‘차자리’ 아이콘을 변경했습니다.", "확인")
         ]
         var dismissed = 0
         let deadline = Date().addingTimeInterval(600)
@@ -23,8 +24,8 @@ final class IconAlertWatcherTests: XCTestCase {
                     let labels = alert.staticTexts.allElementsBoundByIndex.map {
                         $0.label.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
                     }
-                    guard labels.contains(where: { messages.contains($0) }) else { continue }
-                    let ok = alert.buttons["OK"]
+                    guard let notice = notices.first(where: { labels.contains($0.message) }) else { continue }
+                    let ok = alert.buttons[notice.button]
                     guard ok.exists && ok.isHittable else { continue }
                     let before = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
                     before.name = "chagok-icon-alert-\(dismissed + 1)-before-OK"

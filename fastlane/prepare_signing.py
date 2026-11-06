@@ -39,6 +39,9 @@ def validate_profile(profile, target, bundle, team):
         raise SystemExit(f'{target}: App Store distribution profile required')
     if target == 'APP' and entitlements.get('aps-environment') != 'production':
         raise SystemExit(f'{target}: profile must authorize production APNs')
+    apple_sign_in = entitlements.get('com.apple.developer.applesignin')
+    if target == 'APP' and (not isinstance(apple_sign_in, list) or 'Default' not in apple_sign_in):
+        raise SystemExit(f'{target}: profile must authorize Sign in with Apple')
     canonical = str(UUID(profile['UUID']))
     if profile['UUID'] not in (canonical, canonical.upper()):
         raise SystemExit(f'{target}: invalid profile UUID format')
