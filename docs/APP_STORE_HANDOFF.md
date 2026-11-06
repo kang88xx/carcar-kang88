@@ -1,6 +1,18 @@
 # App Store 등록 작업 인계 · 2026-11-06
 
-맥북에서 이어가는 App Store 준비 작업 기록이다. 현재 브랜치에는 Flutter·iOS 실행 환경 복구와 Apple 로그인 보완이 포함된다. **Apple 로그인 provider·앱 프로파일 설정, 계정 삭제 보호 코드의 로컬 검증, 철회 키·서버 secret 등록과 Edge 배포를 완료했다. 서명된 실제 iPhone의 인증·철회·삭제 검증과 새 앱 배포는 미완료**다. 현재 검증 결과는 아래 최신 상태를 우선한다.
+맥북에서 이어가는 App Store 준비 작업 기록이다. 현재 브랜치에는 Flutter·iOS 실행 환경 복구와 Apple 로그인 보완이 포함된다. **Apple 로그인 provider·앱 프로파일 설정, 계정 삭제 보호 코드의 로컬 검증, 철회 키·서버 secret 등록과 Edge 배포를 완료했다. TestFlight 1.0.0 (13) 배포·Apple 처리·내부 그룹 연결을 완료했다. 서명된 실제 iPhone의 인증·철회·삭제 검증은 미완료**다. 현재 검증 결과는 아래 최신 상태를 우선한다.
+
+## 현재 배포 상태 · TestFlight 13 완료
+
+- **설치 가능한 최신 빌드는 1.0.0 (13)**이다. [빌드 13 비공개 CI](https://github.com/kang88xx/60base-mobile-build/actions/runs/42215777783)가 성공했고 Apple 처리 `VALID`, 만료 아님, 기존 내부 테스트 그룹에 빌드 연결을 확인했다. 기존 테스터의 그룹 소속도 확인했으며 초대 재전송이나 멤버 추가는 하지 않았다.
+- 공개 WIP 브랜치 `wip/app-store-prep-2026-11-06`의 앱 소스 `069dd4c`를 push하고, 비공개 `release/carcar-apple-login-20261106` 브랜치의 `6b2ea85`로 동기화했다. 복사한 소스의 해시 일치를 검사했고 두 저장소의 main은 변경하지 않았다.
+- CI는 Xcode 26.6에서 기존 배포 인증서·프로파일을 재사용해 실행했다. 인증서 생성·폐기는 없었다. 작업 시간은 2026-11-06 12:11:38–12:23:00 UTC, **11분 22초**다. 12:22:28 UTC의 배포 증거에서 build `13`, `processingState=VALID`, `ready=true`, `groupContainsBuild=true`를 확인했다.
+- 그룹의 모든 미래 빌드 자동 접근 설정 변경은 변경 불가 409로 거절됐지만, 이번 빌드의 명시적 그룹 연결은 성공했다. 미래 빌드 자동 배포가 활성화됐다고 간주하지 않는다.
+- Apple 로그인·계정 삭제·UIScene 전환과 함께 설정의 문의 UI를 공개 고객지원으로 변경하고 Apple 계정 삭제 안내를 개인정보 문구에 반영했다. 최종 로컬 검사: **Flutter 268개 통과 / 4개 선택 검사 건너뜀, Python 19개·Node 70개 통과**, 분석·포맷 성공.
+- CI 실행 후 GitHub Billing 화면을 다시 확인했다. 포함 compute는 **$11.54 / $12**, 잔여액은 **$0.46**, 저장소는 **0.3 / 0.5 GB**, Actions 유료 청구는 **$0**이다. 추가 유료 예산은 **$0 / Usage blocked**를 유지한다. 이번 실행은 18분 timeout으로 제한했으며, 추가 비공개 macOS CI 실행 전 잔액·예산을 다시 확인하고 로컬 검증을 우선한다.
+- 배포 로그·증거는 비공개 `~/.local/share/carcar-release/testflight-13/`, 로컬 출시 검사는 `build/release-prep/`에 보관한다. 다음 단계는 실제 iPhone에 빌드 13을 설치해 Apple/Google 로그인·취소·재시도 및 통제된 계정 삭제를 검증하는 것이다. App Store 등록 자료 완성과 심사 제출은 그 이후다.
+
+아래는 단계별 작업 기록이다. 과거 단계의 검사 수·실패·미완료 표현은 당시 상태이며 현재 배포·검증 상태는 이 절을 우선한다.
 
 ## 맥북 재개 결과 · 2026-11-06
 
@@ -11,7 +23,7 @@
 - `APPLE_SIGN_IN_*` 서버 secret 4개를 등록하고 새로고침 후 각 SHA-256이 로컬 값과 일치함을 확인했다. 기존 secret의 digest는 그대로다. `apple-disconnect`는 **ACTIVE / v1**이며 원격에서 다시 받은 3개 소스 파일이 로컬 배포 파일과 정확히 일치한다.
 - 운영 endpoint에서 Authorization 누락·가짜 bearer는 **401 `session_invalid`**, 잘못된 JSON은 **400 `invalid_request`**를 반환했고 모두 `Cache-Control: no-store`였다. 실제 Apple 자격·토큰 교환·철회나 계정 삭제는 실행하지 않았다.
 - 기존 `parking-push`의 소스 checksum은 그대로다. 프로젝트 공통 secret 갱신에 따라 버전만 **v1→v2**로 자동 변경됐다.
-- 공개 가능한 검증 기록은 로컬 `build/account-deletion-qa/production-smoke.json`과 `verification.json`, 키·서버 설정 영수증은 비공개 `~/.local/share/carcar-release/apple-sign-in/setup-receipt.json`에 보관한다. 다음은 서명된 실제 iPhone의 Apple/Google 로그인과 통제된 삭제 검증이며, 새 TestFlight 빌드는 아직 배포하지 않았다.
+- 공개 가능한 검증 기록은 로컬 `build/account-deletion-qa/production-smoke.json`과 `verification.json`, 키·서버 설정 영수증은 비공개 `~/.local/share/carcar-release/apple-sign-in/setup-receipt.json`에 보관한다. 다음은 서명된 실제 iPhone의 Apple/Google 로그인과 통제된 삭제 검증이며, 빌드 13 배포 완료 증거는 맨 위 기록을 따른다.
 
 ### 계정 삭제 보호·Apple 연결 해제 구현 및 로컬 검증
 
@@ -22,7 +34,7 @@
 - 로컬 검증: `flutter test --no-pub` **267개 통과 / 4개 선택 검사 건너뜀**, `flutter analyze --no-pub` **No issues found**, Dart 포맷 **45개 / 변경 0**. 추가 56개는 저장소 37개·삭제 UI 12개·루트 세션 7개이며 실제 Supabase SDK와 로컬 HTTP를 사용한 경합 검사를 포함한다. Node 선택 검사 **52개 통과**(Apple 함수 14개 포함), Deno `check`도 종료 0이다.
 - 검증 로그와 코드 해시는 로컬 `build/account-deletion-qa/verification.json` 및 같은 폴더에 보관했다. 웹 release 빌드도 종료 0이다.
 - 변경 후 iOS Simulator debug 빌드와 패키징 검사를 다시 통과해 **앱 iOS 15.0 / 위젯 iOS 17.0**을 확인했다. 앱 삭제 흐름·Edge 보안 코드의 독립 검토에서도 차단 결함은 발견하지 못했다. 이 빌드 성공은 실제 Apple 인증·철회를 대신하지 않는다.
-- 위 로컬 검증 후 키·서버 설정 및 Edge 배포를 완료했다. 운영 endpoint의 입력·인증 거절 검사는 위 배포 기록을 따른다. 실제 Apple 인증·철회·계정 삭제와 새 TestFlight 배포는 아직 검증하지 않았다.
+- 위 로컬 검증 후 키·서버 설정 및 Edge 배포를 완료했다. 운영 endpoint의 입력·인증 거절 검사는 위 배포 기록을 따른다. 실제 Apple 인증·철회·계정 삭제는 아직 검증하지 않았다. 빌드 13 배포 완료 증거는 맨 위 기록을 따른다.
 
 ### Apple 로그인 설정 1단계 완료
 
@@ -30,7 +42,7 @@
 - 기존 `Chagok App Store Push 20261102` 프로파일을 같은 Distribution 인증서 선택으로 재생성했다. 새 인증서를 발급·폐기하지 않았다. 내려받은 프로파일을 기존 `validate_profile`로 검사해 앱 Bundle ID·Team·App Group·공유 Keychain·App Store 유형·production APNs·`com.apple.developer.applesignin = [Default]`를 확인했다. Xcode 프로파일 저장소에도 설치했다. 위젯 프로파일은 변경하지 않았다.
 - 차자리 Supabase 프로젝트의 Apple provider를 활성화하고 Client IDs를 `com.kang88.carcar`로 설정했다. 페이지 새로고침 후 enabled와 Client ID를 재확인했다. 기존 Google provider는 enabled를 유지한다. 네이티브 ID-token 로그인 범위이므로 웹 OAuth Secret Key와 Services ID는 추가하지 않았다. 이는 추후 Apple 토큰 철회용 개인 키가 불필요하다는 뜻이 아니다.
 - 원격 설정 증거는 비공개 `~/.local/share/carcar-release/apple-login-setup-receipt.json`, 프로파일 검증은 같은 경로의 `profiles/apple-sign-in-app-receipt.json`에 저장했다. 프로파일 파일은 Git에 넣지 않았다.
-- 현재 Mac Keychain에는 해당 배포 인증서와 일치하는 서명 identity가 **0개**다. 새 기기용 서명 빌드에는 기존 비공개 CI의 개인 키를 안전하게 이전하거나 기존 CI를 사용해야 한다. 유료 CI를 실행하지 않았으며 실제 Apple 로그인·새 TestFlight 배포는 아직 검증하지 않았다.
+- 현재 Mac Keychain에는 해당 배포 인증서와 일치하는 서명 identity가 **0개**다. 새 기기용 서명 빌드에는 기존 비공개 CI의 개인 키를 안전하게 이전하거나 기존 CI를 사용해야 한다. 이후 기존 비공개 CI 자격으로 빌드 13 배포를 완료했다. Mac 개인 키 이전과 실제 Apple 로그인 검증은 여전히 별도다.
 
 ### 최신 상태: Flutter 업그레이드와 UIScene 전환
 
@@ -56,7 +68,7 @@
 - 현재 로컬 Ruby 도구 실행에는 `PATH=/opt/homebrew/opt/ruby/bin:$PATH`, `GEM_PATH=$PWD/build/fastlane-local/vendor/bundle/ruby/4.0.0`, `BUNDLE_PATH=$PWD/build/fastlane-local/vendor/bundle`, `BUNDLE_GEMFILE=fastlane/Gemfile`을 사용했다. 생성물은 ignored `build/` 아래에 보관한다.
 - 초기 설정 완료 후 iOS SDK·Simulator 설치를 시작했다. Xcode의 별도 외부 에이전트 도구 연결은 `Never`로 선택했다. 명령에는 `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer`를 지정하므로 시스템 전역 `xcode-select`를 변경할 필요가 없다.
 - `fastlane/prepare_signing.py`는 APP 프로파일에 `com.apple.developer.applesignin = [Default]`를 요구한다. Widget 프로파일에는 이 권한을 요구하지 않는다.
-- 비공개/ignored `fastlane/prepare_existing_signing.mjs`도 앱 프로파일 재사용 및 신규 발급 결과에서 Apple entitlement를 검사한다. 전체 plist는 날짜·바이너리가 있어 JSON 변환할 수 없으므로 `Entitlements`만 추출한다. 비공개 배포 저장소에는 아직 동기화하지 않았다.
+- 비공개/ignored `fastlane/prepare_existing_signing.mjs`도 앱 프로파일 재사용 및 신규 발급 결과에서 Apple entitlement를 검사한다. 전체 plist는 날짜·바이너리가 있어 JSON 변환할 수 없으므로 `Entitlements`만 추출한다. 당시에는 비공개 배포 저장소에 동기화하지 않았으며, 이후 빌드 13 브랜치에 반영했다.
 - 서명 회귀: Python **19개**, Node **9개** 통과. Node 검사는 실제 `plutil`로 날짜·인증서 data가 포함된 plist를 읽는 경우도 포함한다. 원격 Apple capability나 프로파일을 변경한 것은 아니다.
 
 ### Apple 로그인 세션 경합 수정
@@ -77,7 +89,7 @@
 
 - iOS 27.2 Simulator 설치 완료 후 iPhone 18 Pro에서 `bash scripts/ios_qa.sh` 실행. 도우미 XCTest와 앱 컴파일은 성공했으나 Runner가 Dart `test-start` 이전에 종료돼 **네이티브 QA는 미통과**다. 정체된 driver를 종료하고 스크립트가 이 실행에서 부팅한 Simulator를 정리했다.
 - Runner 크래시의 첫 프레임은 `___UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption_block_invoke`이며, 시스템 로그는 `UIScene life cycle is required for apps built with this SDK`라고 명시한다. 아이콘 도우미의 Lost connection은 앱 종료 뒤의 2차 오류다.
-- 현재 `Info.plist`에는 Scene Manifest가 없고 `AppDelegate.swift`의 채널 등록은 이전 `window.rootViewController` 시점에 의존한다. [Apple 공식 전환 안내](https://developer.apple.com/documentation/uikit/transitioning-to-the-uikit-scene-based-life-cycle)와 일치하는 실행 차단이다.
+- 이 실패 당시 `Info.plist`에는 Scene Manifest가 없었고 `AppDelegate.swift`의 채널 등록은 이전 `window.rootViewController` 시점에 의존한다. [Apple 공식 전환 안내](https://developer.apple.com/documentation/uikit/transitioning-to-the-uikit-scene-based-life-cycle)와 일치하는 실행 차단이다.
 - [Flutter 공식 UIScene 지원](https://docs.flutter.dev/release/breaking-changes/uiscenedelegate)은 3.38부터이고 기본 전환은 3.41부터다. 3.35에는 초기 SceneDelegate/옛 pluginRegistrant API만 있어 수동 호환 구현은 가능성을 검증해야 하며, 최신 implicit-engine 예제를 그대로 적용할 수 없다.
 - 사용자에게 두 방식의 방향을 확인한 뒤 **지원 Flutter로 업그레이드하는 안을 승인받았다**. 이후 구현·검증은 맨 위 최신 상태에 기록한다.
 - 근거: `build/ios-runtime-qa/`의 integration·icon-watcher 로그 및 `stalled-startup.png`, `build/macos-continuation/`의 빌드·회귀 로그. 이번 작업에서 새 TestFlight 배포·App Store 제출은 하지 않았다.
@@ -125,7 +137,8 @@ git switch --track origin/wip/app-store-prep-2026-11-06
 
 ## 완료·게시된 결과
 
-- 최신 TestFlight: **1.0.0 (12)**. Apple 처리 `VALID`, 기존 내부 테스트 그룹 연결 완료.
+- 최신 TestFlight: **1.0.0 (13)**. Apple 처리 `VALID`, 기존 내부 테스트 그룹 연결 완료. 소스·CI·검증 증거는 맨 위 현재 배포 상태를 따른다.
+- 아래 빌드 12 항목은 이전 배포 이력이다.
 - 빌드 12의 앱 소스는 `f3373a6`, 비공개 빌드 소스는 `cdace91`. 이후 문서 커밋은 바이너리 변경이 아니다.
 - [빌드 12 배포 CI](https://github.com/kang88xx/60base-mobile-build/actions/runs/42171293207), [공개 앱 검증](https://github.com/kang88xx/carcar-kang88/actions/runs/42171242680) 성공.
 - 네 탭 헤더 고정과 작은 화면 기록 버튼 문구 수정: Flutter 188개, 별도 화면 검사 4개/44장 통과. 최신 실제 iPhone 동작 확인은 별도다.
@@ -146,9 +159,9 @@ git switch --track origin/wip/app-store-prep-2026-11-06
 - App Store Connect 메타데이터 수정, 심사 제출, 공개 출시는 아직 실행하지 않았다.
 - 바이너리는 iPhone과 iPad(`TARGETED_DEVICE_FAMILY = 1,2`)를 지원한다. 두 기기군의 스토어 스크린샷이 필요하다. 기존 작은 QA PNG를 실제 기기 캡처로 가장하지 않는다.
 
-## 이 브랜치에만 있는 미완성 코드
+## 맥북 재개 전 미완성 코드 기록
 
-다음 다섯 파일은 Apple 로그인 작업 중 사용자의 저장 요청으로 중단했다.
+이 절은 이전 인계 시점의 기록이다. 아래 중단·검사 실패는 이후 구현과 검증으로 해결했으며 최신 결과는 맨 위를 따른다. 당시 다음 다섯 파일을 Apple 로그인 작업 중 사용자의 저장 요청으로 중단했다.
 
 - `ios/Runner/AppDelegate.swift`: AuthenticationServices/CryptoKit 기반 Apple 인증 요청, nonce/state, delegate와 presentation anchor.
 - `ios/Runner/Runner.entitlements`: `com.apple.developer.applesignin = [Default]` 추가.
@@ -156,7 +169,7 @@ git switch --track origin/wip/app-store-prep-2026-11-06
 - `lib/features/auth_screen.dart`: 기존 Google 로그인을 유지하며 iOS Apple 버튼과 Supabase ID token 로그인 추가.
 - `test/apple_auth_test.dart`: 신규 테스트 초안.
 
-현재 NativeBridge 계약:
+당시 정한 NativeBridge 계약:
 
 ```text
 signInWithApple() -> Future<AppleCredential?>
@@ -167,7 +180,7 @@ MethodChannel: carcar/native / signInWithApple
 
 최초 이름은 반환하지만 기존 프로필 nickname/metadata를 자동 덮어쓰지 않는다. 실제 계정의 표시 이름 처리는 후속 검토 대상이다.
 
-### 마지막 검사 결과
+### 맥북 재개 전 검사 결과
 
 - 수정 Dart 파일 포맷 완료, `git diff --check` 통과.
 - `flutter test --no-pub test/apple_auth_test.dart test/account_usability_test.dart`: **17 통과 / 10 실패**, 종료 코드 1.
@@ -183,17 +196,17 @@ MethodChannel: carcar/native / signInWithApple
 - 이전 API 요청은 HTTP 409로 실패했으나 이번에는 Developer 사이트의 해당 App ID에서 저장·재조회했다. 과거 409의 정확한 원인을 확정하지 않는다. 공식 API의 capability는 `APPLE_ID_AUTH`, primary 설정 key는 `APPLE_ID_AUTH_APP_CONSENT` / option `PRIMARY_APP_CONSENT`다.
 - 차자리용 `Chagok Apple Login` 키를 생성·다운로드·검증해 보호 저장했다. 다른 앱 `60BASE`의 기존 Apple 로그인 키와 APNs 키는 변경하지 않았다.
 - Supabase Apple provider 활성화와 Client IDs의 `com.kang88.carcar` 등록은 **완료 및 새로고침 후 확인**했다. 철회용 secret 4개 등록과 `apple-disconnect` 배포·원격 소스 일치 검사도 완료했다.
-- 앱 배포 프로파일은 기존 배포 인증서를 유지해 갱신했으며 Apple 로그인 entitlement와 기존 권한 검사를 통과했다. CI 재사용/검증 로직은 로컬 보완 완료, 비공개 저장소 동기화는 남아 있다.
+- 앱 배포 프로파일은 기존 배포 인증서를 유지해 갱신했으며 Apple 로그인 entitlement와 기존 권한 검사를 통과했다. CI 재사용/검증 로직도 비공개 빌드 13 브랜치에 동기화했다. Mac의 배포 개인 키는 여전히 별도 준비가 필요하며 현재 배포는 기존 CI 자격을 사용한다.
 - 계정 삭제 보호·Apple 연결 해제 앱/서버 코드의 로컬 회귀, 원격 함수 배포와 입력·인증 거절 검사를 완료했다. 실제 Apple 인증·철회·계정 삭제 검증은 남았다.
 
 ## 다음 작업 순서
 
 1. **로컬 완료:** Apple 테스트·세션 경합 보완, 코드 검토·분석·전체 회귀, Flutter 3.47.9 전환과 iOS Simulator 네이티브 QA·링크 확인. 실제 기기 인증은 7번에서 검증한다.
-2. **설정 완료:** App ID Apple 로그인 활성화 및 기존 배포 인증서로 앱 프로파일 갱신·권한 검사. 비공개 빌드 저장소 동기화와 Mac의 배포 개인 키 준비는 남았다.
+2. **설정 완료:** App ID Apple 로그인 활성화 및 기존 배포 인증서로 앱 프로파일 갱신·권한 검사. 비공개 빌드 13 브랜치 동기화도 완료했다. Mac의 배포 개인 키는 없으므로 현재는 기존 CI 자격으로 서명한다.
 3. **설정 완료:** Supabase Apple provider 활성화, Client IDs의 `com.kang88.carcar` 등록. 네이티브 전용 범위로 기존 nonce 검증과 Google 설정을 유지했다. 실제 서명 앱에서 로그인 왕복 검증은 7번에 남아 있다.
 4. **서버 배포 완료:** 차자리 전용 Apple 로그인 키·서버 secret 등록과 `apple-disconnect` 배포, 원격 소스 일치 및 입력·인증 거절 검사를 완료했다. 실제 Apple 왕복은 7번에서 검증한다.
-5. **앱 코드 로컬 완료:** 계정 전환 방어와 Apple 연결 해제/수동 fallback을 구현했다. 기존 서명 자격을 안전하게 준비한 뒤 실제 기기에서 7번의 인증·삭제 검증을 수행한다.
-6. 공개 앱의 문의 UI를 TestFlight 전용 안내에서 지원 페이지로 바꾼다. 개인정보 문구와 실제 인증·삭제 동작을 맞춘다.
+5. **앱 배포 완료:** 계정 전환 방어와 Apple 연결 해제/수동 fallback을 TestFlight 빌드 13에 포함했다. 실제 기기에 설치한 뒤 7번의 인증·삭제 검증을 수행한다.
+6. **앱 코드 완료:** 문의 UI를 공개 고객지원으로 바꾸고 개인정보 문구에 Apple 재인증·삭제·수동 연결 해제 안내를 반영했다. TestFlight 빌드 13에 포함했다.
 7. 실제 iPhone에서 Apple/Google 로그인·취소·재시도·가족 공유·삭제를 검증한다. Apple 비공개 이메일은 기존 Google 계정과 별도 계정일 수 있으므로 이메일 추측으로 합치지 않는다.
 8. 최종 iPhone/iPad 스크린샷, 개인정보 수집 신고, 연령 등급, 저작권, 심사용 전 기능 접근 방법을 준비한다. 로컬 체험은 실제 가족 공유를 제공하지 않으므로 심사용 접근을 대체한다고 단정하지 않는다.
 9. 무료/KOR·등록 자료·심사 연락처·최종 빌드를 App Store Connect에 반영·재조회한 뒤 심사 제출한다. Apple 심사 통과를 미리 보장하지 않는다.
@@ -217,9 +230,9 @@ Windows/WSL 작업 환경에만 있는 다음 자료는 공개 Git에 포함하�
 - `/home/kang/.local/share/carcar-release/app-store-review-contact.json`: 사용자 제공 심사 연락처, 권한 0600.
 - `/home/kang/.local/share/carcar-release/backend-qa.json`: 서버 테스트 자격. 앱에 포함 금지.
 - `docs/qa/appstore-readiness-2026-11-06/`: App Store 조회 결과, 사이트 검증·캡처.
-- 비공개 빌드 저장소는 `kang88xx/60base-mobile-build`, 앱 경로는 `apps/carcar`. 현재 private main `f5571a3`은 TestFlight 12 기록까지이며 이 WIP를 동기화하지 않았다.
+- 비공개 빌드 저장소는 `kang88xx/60base-mobile-build`, 앱 경로는 `apps/carcar`다. 공개 앱 소스 `069dd4c`를 비공개 `release/carcar-apple-login-20261106`의 `6b2ea85`로 동기화했다. main은 변경하지 않았다.
 
-GitHub Actions 추가 유료 예산은 $0/Usage blocked를 유지한다. 마지막 실행 전 확인한 포함 compute 사용액은 $10.36/$12였고 그 뒤 빌드 12가 6분 44초 실행됐다. 잔액을 다시 확인하기 전 새 private macOS CI를 실행하지 않는다. 맥북 로컬 Xcode 검증을 우선 사용할 수 있다. Supabase Free와 기기 내 OCR을 유지한다.
+GitHub Actions 추가 유료 예산은 $0/Usage blocked를 유지한다. 빌드 13은 18분 timeout 안에 11분 22초로 성공했다. 실행 후 Billing 화면에서 포함 compute $11.54/$12(잔여 $0.46), 저장소 0.3/0.5 GB, Actions 유료 청구 $0을 재확인했다. 추가 비공개 macOS CI 실행 전 잔액·예산을 다시 확인하고 로컬 검증을 우선한다. Supabase Free와 기기 내 OCR을 유지한다.
 
 ## 공식 근거
 

@@ -6,7 +6,7 @@
 
 소스 기준 저장소는 [kang88xx/carcar-kang88](https://github.com/kang88xx/carcar-kang88)입니다. TestFlight 서명과 배포는 기존 비공개 CI에서 실행하며 인증서·서버 비밀키·계정별 QA 기록은 공개 저장소에 포함하지 않습니다.
 
-최신 TestFlight는 **1.0.0 (12)**입니다. 2026-11-06 네 탭의 헤더 고정과 작은 화면의 기록 버튼 문구 개선을 배포했고 Apple 처리 및 내부 테스트 그룹 연결을 확인했습니다. 이전 정사각형 위젯·홈·주차 입력·하단 메뉴 개선도 포함합니다. 실제 기기 동작 확인은 별도로 진행합니다.
+현재 설치 가능한 최신 TestFlight는 **1.0.0 (13)**입니다. Apple 로그인·안전한 계정 삭제·UIScene 전환·공개 고객지원 UI를 포함하며, [비공개 배포 CI](https://github.com/kang88xx/60base-mobile-build/actions/runs/42215777783) 성공과 Apple 처리 `VALID`, 기존 내부 테스트 그룹 연결을 확인했습니다. 앱 소스는 `069dd4c`, 비공개 빌드 소스는 `6b2ea85`(`release/carcar-apple-login-20261106`)입니다. 실제 iPhone의 Apple 인증·계정 삭제는 아직 검증하지 않았습니다.
 
 ## 실행
 
@@ -38,7 +38,8 @@ flutter run --dart-define-from-file=config/local.json
 
 ## 구현한 기능
 
-- Google 로그인·표시 이름 편집·계정 삭제
+- Google·iOS Apple 로그인, 표시 이름 편집, 계정 전환을 방어하는 삭제와 Apple 연결 해제
+- 설정의 공개 고객지원·개인정보 안내
 - 계정당 차량 한 대·차량 번호 중복 확인·아파트 층과 구역 설정
 - 소유자/구성원 권한·초대 링크 또는 코드로 가족 참여·24시간 일회용 초대·구성원 제거와 탈퇴
 - 서버 확인 후 주차 저장·중복 요청 방지·검색 가능한 이력·Realtime
@@ -50,7 +51,7 @@ flutter run --dart-define-from-file=config/local.json
 
 ## 검증
 
-Flutter 자동 검사와 분석, 브라우저 조작, DB 보안·동시성 검사를 수행합니다. iOS 최소 버전은 실제 컴파일된 앱과 위젯에서도 각각 15.0과 17.0으로 검사합니다. 최신 변경의 iOS 배포와 실기기 결과는 별도 확인이 필요합니다.
+현재 배포 대상 소스는 Flutter **268개 통과 / 4개 선택 검사 건너뜀**, Python **19개**, Node **70개** 검사를 통과했고 분석·포맷 검사도 성공했습니다. Flutter 자동 검사와 분석, 브라우저 조작, DB 보안·동시성 검사를 수행합니다. iOS 최소 버전은 실제 컴파일된 앱과 위젯에서도 각각 15.0과 17.0으로 검사합니다. 최신 변경의 iOS 배포와 실기기 결과는 별도 확인이 필요합니다.
 
 ```bash
 flutter pub get
