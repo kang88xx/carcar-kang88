@@ -6,6 +6,8 @@
 
 소스 기준 저장소는 [kang88xx/carcar-kang88](https://github.com/kang88xx/carcar-kang88)입니다. TestFlight 서명과 배포는 기존 비공개 CI에서 실행하며 인증서·서버 비밀키·계정별 QA 기록은 공개 저장소에 포함하지 않습니다.
 
+최신 TestFlight는 **1.0.0 (11)**입니다. 2026-11-06 정사각형 위젯과 홈·주차 입력·하단 메뉴 개선을 배포했고 Apple 처리 및 내부 테스트 그룹 연결을 확인했습니다. 실제 기기 동작 확인은 별도로 진행합니다.
+
 ## 실행
 
 Flutter 3.35.4 / Dart 3.9.2 기준입니다. iOS 앱은 15.0 이상, 위젯·차량 찾기는 iOS 17 이상을 지원합니다. Android 최소 버전은 API 24입니다. iOS 빌드와 Simulator 실행에는 Mac/Xcode가 필요합니다.
@@ -80,7 +82,7 @@ Android 개발용 APK는 `build/app/outputs/flutter-apk/app-debug.apk`에 생성
 
 Supabase migration은 `supabase/migrations/`에 순서대로 보존합니다. 새 개발 프로젝트에 적용하며 기존 운영 DB에는 검토 없이 재적용하지 않습니다. 월 서버비 $0을 목표로 Supabase Free와 기기 내 OCR을 사용합니다.
 
-새 주차 기본값(F1~F5/B1~B5, A~F/가~바)은 `20261106034310_parking_option_defaults.sql`에 포함합니다. 로컬 DB 검증만 완료했으며 실제 계정의 새 기본 구역에는 서버 migration 적용이 필요합니다. 기존 사용자 지정 설정과 주차 이력은 유지합니다.
+새 주차 기본값(F1~F5/B1~B5, A~F/가~바)은 `20261106034310_parking_option_defaults.sql`에 포함합니다. 2026-11-06 서버에 적용하고 기본값·기존 이력·접근 권한 유지까지 확인했습니다. 사용자 지정 설정과 주차 이력은 보존합니다.
 
 ## Google 로그인과 초대 링크
 
