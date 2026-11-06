@@ -1,6 +1,20 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+/// Ephemeral Apple credentials. Never persist these in preferences or logs.
+class AppleCredential {
+  const AppleCredential({
+    required this.identityToken,
+    required this.authorizationCode,
+    required this.userIdentifier,
+    required this.rawNonce,
+    this.fullName,
+  });
+
+  final String identityToken, authorizationCode, userIdentifier, rawNonce;
+  final String? fullName;
+}
+
 class LauncherIconState {
   const LauncherIconState({required this.supported, this.iconId});
   final bool supported;
@@ -10,6 +24,55 @@ class LauncherIconState {
 /// Native services keep optional widget access tokens in platform secure storage.
 class NativeBridge {
   static const _channel = MethodChannel('carcar/native');
+  static bool get supportsAppleSignIn =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+
+  /// Returns null when the user dismisses Apple's authentication sheet.
+  /// This only obtains credentials; it does not change the Supabase session.
+  static Future<AppleCredential?> signInWithApple() async {
+    if (!supportsAppleSignIn) {
+      throw PlatformException(
+        code: 'unsupported',
+        message: 'Apple 로그인은 iPhone 또는 iPad 앱에서 사용할 수 있어요.',
+      );
+    }
+    final response = await _channel.invokeMapMethod<String, dynamic>(
+      'signInWithApple',
+    );
+    if (response == null) return null;
+    final token = response['identityToken'];
+    final code = response['authorizationCode'];
+    final user = response['userIdentifier'];
+    final nonce = response['rawNonce'];
+    final name = response['fullName'];
+    if (token is! String ||
+        token.length > 16384 ||
+        !RegExp(
+          r'^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$',
+        ).hasMatch(token) ||
+        code is! String ||
+        code.trim().isEmpty ||
+        code.length > 8192 ||
+        user is! String ||
+        user.trim().isEmpty ||
+        user.length > 256 ||
+        nonce is! String ||
+        !RegExp(r'^[a-f0-9]{64}$').hasMatch(nonce) ||
+        (name != null && (name is! String || name.length > 200))) {
+      throw PlatformException(
+        code: 'apple_credential_invalid',
+        message: 'Apple 로그인 결과를 확인하지 못했어요. 다시 시도해 주세요.',
+      );
+    }
+    return AppleCredential(
+      identityToken: token,
+      authorizationCode: code,
+      userIdentifier: user,
+      rawNonce: nonce,
+      fullName: name is String && name.trim().isNotEmpty ? name.trim() : null,
+    );
+  }
+
   static bool get supportsOcr =>
       !kIsWeb &&
       (defaultTargetPlatform == TargetPlatform.android ||

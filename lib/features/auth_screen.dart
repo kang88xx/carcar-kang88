@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../app/theme.dart';
+import '../core/native_bridge.dart';
 import '../core/repository.dart';
 import '../shared/components.dart';
 
@@ -18,10 +19,12 @@ class AuthScreen extends StatefulWidget {
     this.startupError,
     this.startupNotice,
     this.onGoogleSignIn,
+    this.onAppleSignIn,
   });
   final SupabaseClient? client;
   final Future<void> Function() onDemo;
   final Future<bool> Function()? onGoogleSignIn;
+  final Future<AppleCredential?> Function()? onAppleSignIn;
   final String? startupError, startupNotice;
   @override
   State<AuthScreen> createState() => _AuthScreenState();
@@ -30,6 +33,49 @@ class AuthScreen extends StatefulWidget {
 class _AuthScreenState extends State<AuthScreen> {
   bool _busy = false;
   String? _error, _notice;
+
+  Future<void> _apple() async {
+    final client = widget.client;
+    if (_busy || client == null || client.auth.currentUser != null) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+      _notice = null;
+    });
+    try {
+      final credential =
+          await (widget.onAppleSignIn?.call() ??
+              NativeBridge.signInWithApple());
+      if (credential == null ||
+          !mounted ||
+          !identical(client, widget.client) ||
+          client.auth.currentUser != null) {
+        return;
+      }
+      final response = await client.auth.signInWithIdToken(
+        provider: OAuthProvider.apple,
+        idToken: credential.identityToken,
+        nonce: credential.rawNonce,
+      );
+      final session = response.session;
+      if (session == null ||
+          response.user?.id != session.user.id ||
+          client.auth.currentUser?.id != session.user.id ||
+          client.auth.currentSession?.accessToken != session.accessToken) {
+        throw const AppException('Apple 로그인을 확인하지 못했어요. 다시 시도해 주세요.');
+      }
+      // The shared auth listener opens the signed-in app. Existing profile names
+      // stay user-controlled; a missing Apple name never overwrites them.
+    } on Object catch (error) {
+      if (mounted && identical(client, widget.client)) {
+        setState(() => _error = friendlyError(error));
+      }
+    } finally {
+      if (mounted && identical(client, widget.client)) {
+        setState(() => _busy = false);
+      }
+    }
+  }
 
   Future<void> _google() async {
     if (_busy || widget.client == null) return;
@@ -181,7 +227,7 @@ class _AuthScreenState extends State<AuthScreen> {
         Text(
           widget.client == null
               ? '가입 없이 화면과 주차 기록을 체험할 수 있어요.'
-              : 'Google로 시작하고, 차량을 등록하거나 가족의 초대를 받아요.',
+              : '로그인하고, 차량을 등록하거나 가족의 초대를 받아요.',
           style: const TextStyle(color: Palette.muted, height: 1.6),
         ),
         const SizedBox(height: 22),
@@ -191,6 +237,19 @@ class _AuthScreenState extends State<AuthScreen> {
         if (_error != null) StatusNotice(_error!, error: true),
         if (_notice != null) StatusNotice(_notice!),
         if (widget.client != null) ...[
+          if (NativeBridge.supportsAppleSignIn) ...[
+            FilledButton.icon(
+              onPressed: _busy ? null : _apple,
+              icon: const Icon(Icons.apple, size: 24),
+              label: const Text('Apple로 계속하기'),
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.black,
+                foregroundColor: Colors.white,
+                minimumSize: const Size(48, 56),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           OutlinedButton.icon(
             onPressed: _busy ? null : _google,
             icon: _busy
@@ -229,7 +288,7 @@ class _AuthScreenState extends State<AuthScreen> {
         const SizedBox(height: 12),
         Text(
           widget.client == null
-              ? '체험 기록은 이 기기에만 저장돼요.\n실제 가족 공유는 Google 로그인 후 사용할 수 있어요.'
+              ? '체험 기록은 이 기기에만 저장돼요.\n실제 가족 공유는 로그인 후 사용할 수 있어요.'
               : '체험 기록은 이 기기에만 저장돼요.',
           textAlign: TextAlign.center,
           style: const TextStyle(

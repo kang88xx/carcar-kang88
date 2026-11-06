@@ -4,6 +4,9 @@ import Vision
 import WidgetKit
 import ActivityKit
 import UserNotifications
+import AuthenticationServices
+import CryptoKit
+import Security
 
 @main
 @objc class AppDelegate: FlutterAppDelegate {
@@ -11,6 +14,7 @@ import UserNotifications
   private var findingTask: Task<Void, Never>?
   private let familyPush = PushNotifications()
   private var changingLauncherIcon = false
+  private var appleSignInRequest: AppleSignInRequest?
   // Keep legacy names readable so an upgrade can restore or replace an old icon.
   private let launcherIcons = [
     "car_blue": "AppIconBlue", "car_black": "AppIconBlack",
@@ -37,6 +41,7 @@ import UserNotifications
         guard let self = self else { return }
         let args = call.arguments as? [String: Any] ?? [:]
         switch call.method {
+        case "signInWithApple": self.signInWithApple(result: result)
         case "pushStatus": self.familyPush.status(result: result)
         case "registerPush": self.familyPush.register(requestPermission: args["requestPermission"] as? Bool ?? true, result: result)
         case "disablePush": self.familyPush.disable(result: result)
@@ -114,6 +119,23 @@ import UserNotifications
     }
     // Presentation success does not mean the user sent an invitation.
     presenter.present(sheet, animated: true) { result(true) }
+  }
+
+  private func signInWithApple(result: @escaping FlutterResult) {
+    guard appleSignInRequest == nil else {
+      result(FlutterError(code: "apple_sign_in_busy", message: "진행 중인 Apple 로그인을 먼저 완료해 주세요.", details: nil)); return
+    }
+    guard UIApplication.shared.applicationState == .active,
+          let anchor = window, !anchor.isHidden,
+          anchor.rootViewController?.viewIfLoaded?.window != nil else {
+      result(FlutterError(code: "apple_sign_in_unavailable", message: "앱으로 돌아온 뒤 Apple 로그인을 다시 시도해 주세요.", details: nil)); return
+    }
+    let request = AppleSignInRequest(anchor: anchor) { [weak self] value in
+      self?.appleSignInRequest = nil
+      result(value)
+    }
+    appleSignInRequest = request
+    request.start()
   }
 
   private func launcherIconState() -> [String: Any] {
@@ -220,5 +242,88 @@ import UserNotifications
         result(nil)
       }
     } else { result(nil) }
+  }
+}
+
+/// Holds one system authentication request and its secrets only until completion.
+private final class AppleSignInRequest: NSObject, ASAuthorizationControllerDelegate, ASAuthorizationControllerPresentationContextProviding {
+  private let anchor: UIWindow
+  private var completion: FlutterResult?
+  private var controller: ASAuthorizationController?
+  private var rawNonce: String?
+  private var state: String?
+
+  init(anchor: UIWindow, completion: @escaping FlutterResult) {
+    self.anchor = anchor
+    self.completion = completion
+  }
+
+  private static func randomValue() -> String? {
+    var bytes = [UInt8](repeating: 0, count: 32)
+    let status = bytes.withUnsafeMutableBytes { buffer in
+      SecRandomCopyBytes(kSecRandomDefault, buffer.count, buffer.baseAddress!)
+    }
+    guard status == errSecSuccess else { return nil }
+    return bytes.map { String(format: "%02x", $0) }.joined()
+  }
+
+  func start() {
+    guard let nonce = Self.randomValue(), let requestState = Self.randomValue() else {
+      finish(FlutterError(code: "apple_sign_in_unavailable", message: "Apple 로그인을 준비하지 못했어요. 다시 시도해 주세요.", details: nil)); return
+    }
+    rawNonce = nonce
+    state = requestState
+    let request = ASAuthorizationAppleIDProvider().createRequest()
+    request.requestedScopes = [.fullName, .email]
+    request.nonce = SHA256.hash(data: Data(nonce.utf8)).map { String(format: "%02x", $0) }.joined()
+    request.state = requestState
+    let controller = ASAuthorizationController(authorizationRequests: [request])
+    self.controller = controller
+    controller.delegate = self
+    controller.presentationContextProvider = self
+    controller.performRequests()
+  }
+
+  func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
+    anchor
+  }
+
+  func authorizationController(controller: ASAuthorizationController, didCompleteWithAuthorization authorization: ASAuthorization) {
+    guard controller === self.controller else { return }
+    guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
+          credential.state == state, let nonce = rawNonce,
+          let tokenData = credential.identityToken,
+          let token = String(data: tokenData, encoding: .utf8), !token.isEmpty,
+          let codeData = credential.authorizationCode,
+          let code = String(data: codeData, encoding: .utf8), !code.isEmpty,
+          !credential.user.isEmpty else {
+      finish(FlutterError(code: "apple_credential_invalid", message: "Apple 로그인 결과를 확인하지 못했어요. 다시 시도해 주세요.", details: nil)); return
+    }
+    let fullName = credential.fullName.map { PersonNameComponentsFormatter().string(from: $0) }
+    finish([
+      "identityToken": token,
+      "authorizationCode": code,
+      "userIdentifier": credential.user,
+      "rawNonce": nonce,
+      "fullName": fullName as Any? ?? NSNull()
+    ])
+  }
+
+  func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
+    guard controller === self.controller else { return }
+    if let error = error as? ASAuthorizationError, error.code == .canceled {
+      finish(nil)
+    } else {
+      finish(FlutterError(code: "apple_sign_in_failed", message: "Apple 로그인을 완료하지 못했어요. 다시 시도해 주세요.", details: nil))
+    }
+  }
+
+  private func finish(_ value: Any?) {
+    let callback = completion
+    completion = nil
+    controller = nil
+    rawNonce = nil
+    state = nil
+    callback?(value)
   }
 }
