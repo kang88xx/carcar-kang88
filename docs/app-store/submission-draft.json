@@ -1,0 +1,70 @@
+{
+  "status": "draft-not-submitted",
+  "locale": "ko",
+  "listing": {
+    "name": "차자리 - 가족 주차 기록",
+    "subtitle": "우리 차 주차 위치를 가족과 함께",
+    "promotionalText": "우리 차, 어디에 주차했는지 다시 묻지 마세요. 층과 구역을 기록하고 초대받은 가족과 함께 확인하세요.",
+    "description": "우리 차 어디에 주차했지?\n차자리는 가족이 함께 사용하는 차의 마지막 주차 위치를 기록하고 공유하는 앱입니다.\n\n층과 구역을 간단하게 기록\n지상·지하 층과 구역을 선택하고 주차 번호를 남겨 보세요. 마지막 위치와 기록한 사람, 시간을 함께 확인할 수 있습니다.\n\n초대한 가족과 함께 확인\n차량 소유자가 보낸 초대 링크나 코드로 참여하면 같은 차량의 위치와 이력을 볼 수 있습니다. 가족 공유에는 로그인과 인터넷 연결이 필요합니다.\n\n사진으로 입력을 편리하게\n주차장 표지판을 촬영하면 기기에서 글자를 읽어 입력을 도와줍니다. 인식한 층과 구역을 직접 확인하고 수정한 뒤 저장하세요. 원본 사진은 서버에 업로드하지 않습니다.\n\n홈 화면에서 주차 위치 확인\n정사각형 위젯에서 마지막 기록 시각과 주차 위치를 확인하고, 기록 버튼을 눌러 앱의 입력 화면을 열 수 있습니다.\n\n필요할 때 차량 찾기 표시\n차량 찾기 모드를 켜면 잠금 화면의 실시간 현황에서 저장된 주차 위치를 확인할 수 있습니다. 표시 시간과 갱신은 운영체제 정책의 영향을 받습니다.\n\n이전 주차 기록도 한곳에\n주차 이력에서 이전 위치와 기록 시각을 확인하세요. 가족 알림은 기기별로 선택할 수 있습니다.\n\n차자리는 계정당 차량 한 대와 집 아파트 주차장을 기준으로 사용할 수 있습니다. 가입 없이 둘러보는 체험 모드의 기록은 해당 기기에만 저장됩니다.\n\niOS 15 이상에서 사용할 수 있으며 위젯과 차량 찾기 표시는 iOS 17 이상에서 지원합니다.",
+    "keywords": "아파트,주차위치,자동차,가족공유,주차장,차량찾기,주차기록",
+    "marketingUrl": "https://kang88xx.github.io/carcar-kang88/",
+    "privacyPolicyUrl": "https://kang88xx.github.io/carcar-kang88/privacy/",
+    "supportUrl": "https://kang88xx.github.io/carcar-kang88/support/",
+    "supportEmail": "kang88xx@gmail.com",
+    "copyright": null,
+    "proposedPrimaryCategory": "UTILITIES"
+  },
+  "release": {
+    "price": 0,
+    "territories": ["KOR"],
+    "priceAndTerritoriesConfirmed": true,
+    "proposedReleaseType": "MANUAL",
+    "releaseTypeConfirmed": false,
+    "selectedBuild": null
+  },
+  "screenshotPlan": {
+    "status": "not-captured-for-store",
+    "deviceFamilies": ["iPhone", "iPad"],
+    "portraitSizes": {
+      "iPhone": [1320, 2868],
+      "iPad": [2064, 2752]
+    },
+    "screens": [
+      {"screen": "home", "caption": "우리 차의 마지막 주차 위치"},
+      {"screen": "parking-entry", "caption": "층과 구역을 간단하게 기록"},
+      {"screen": "family", "caption": "초대한 가족과 함께 확인"},
+      {"screen": "history", "caption": "이전 주차 기록도 한곳에"},
+      {"screen": "native-home-widget", "caption": "홈 화면에서 바로 확인"}
+    ],
+    "requirements": [
+      "최종 제출 빌드와 일치하는 실제 화면으로 촬영",
+      "실제 사용자 이름·차량번호·초대 코드 대신 별도 촬영 데이터 사용",
+      "위젯 이미지는 최신 네이티브 위젯으로 촬영",
+      "PNG 또는 JPEG, 투명도 없음"
+    ]
+  },
+  "requiredBeforeSubmission": [
+    "Google 로그인 외 가이드라인 4.8을 충족하는 동등한 로그인 추가; Sign in with Apple 권장",
+    "Apple 로그인 채택 시 계정 삭제와 토큰 철회까지 구현·검증",
+    "최종 빌드의 로그인·가족 공유·계정 삭제·위젯 동작 확인",
+    "지원 연락처가 있는 공개 지원 페이지와 앱 내 문의 경로 준비",
+    "공개 개인정보 페이지의 이전 위젯 설명 정정",
+    "수집 데이터와 연결 여부·목적에 맞는 App Privacy 응답 작성",
+    "연령 등급·콘텐츠 권리·저작권자·가격·배포 국가 입력",
+    "최종 빌드 선택 및 iPhone·iPad 스크린샷 업로드",
+    "심사용 연락처와 가족 공유를 포함한 전체 기능 접근 방법 준비"
+  ],
+  "privacyNotes": {
+    "submissionAnswersVerified": false,
+    "serverDataToClassify": ["로그인 이름·이메일", "사용자 ID", "차량번호·차량 및 아파트 별명", "주차 위치·기록 시각·작성자·기존 메모", "설치 ID·알림 토큰·기기 설정"],
+    "photoProcessing": "현재 원본 사진은 기기에서만 처리하며 서버로 업로드하지 않음",
+    "trackingEvidence": "현재 저장소의 광고 추적 SDK는 발견되지 않았고 PrivacyInfo.xcprivacy의 NSPrivacyTracking은 false"
+  },
+  "references": [
+    "https://developer.apple.com/app-store/review/guidelines/#login-services",
+    "https://developer.apple.com/help/app-store-connect/reference/app-information/platform-version-information",
+    "https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications/",
+    "https://developer.apple.com/app-store/app-privacy-details/",
+    "https://developer.apple.com/help/app-store-connect/manage-submissions-to-app-review/submit-an-app"
+  ]
+}
