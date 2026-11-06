@@ -19,7 +19,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   const capture = bool.fromEnvironment('CAPTURE_IOS_UI');
-  const outputPath = 'docs/qa/ios-footer-review';
+  const outputPath = 'docs/qa/ios-fixed-header';
   final report = <Map<String, Object?>>[];
 
   setUpAll(() async {
@@ -95,7 +95,17 @@ void main() {
       DemoParkingRepository.storageKey: jsonEncode({
         'profileName': '나',
         'vehicles': [vehicle.toJson()],
-        'records': [record.toJson()],
+        'records': [
+          record.toJson(),
+          for (var i = 1; i <= 12; i++)
+            {
+              ...record.toJson(),
+              'id': 'ios-history-$i',
+              'created_at': record.createdAt
+                  .subtract(Duration(hours: i))
+                  .toIso8601String(),
+            },
+        ],
       }),
     });
     final preferences = await SharedPreferences.getInstance();
@@ -186,13 +196,6 @@ void main() {
         expect(tester.getSize(find.byType(NavigationBar)).height, 72);
         expect(find.text('최근 주차 기록'), findsNothing);
         expect(find.text('사진 기록'), findsNothing);
-        await saveCapture(
-          tester,
-          key,
-          'home-${scenario.name}',
-          scenario.size,
-          scenario.scale,
-        );
         const tabs = ['주차 위치', '주차 이력', '우리 가족', '설정'];
         for (final label in tabs) {
           final navLabel = find.descendant(
@@ -205,6 +208,7 @@ void main() {
           expect(rect.right, lessThanOrEqualTo(scenario.size.width));
         }
         for (final tab in [
+          (index: 0, name: 'home'),
           (index: 1, name: 'history'),
           (index: 2, name: 'family'),
           (index: 3, name: 'settings'),
@@ -229,6 +233,36 @@ void main() {
             scenario.size,
             scenario.scale,
           );
+          final header = find.byKey(const ValueKey('app-shell-header'));
+          final body = find.byKey(const ValueKey('app-shell-scroll'));
+          final headerRect = tester.getRect(header);
+          final scrollable = tester.state<ScrollableState>(
+            find.descendant(of: body, matching: find.byType(Scrollable)).first,
+          );
+          final beforePixels = scrollable.position.pixels;
+          await tester.drag(body, const Offset(0, -280));
+          await tester.pumpAndSettle();
+          expect(tester.getRect(header), headerRect);
+          if (scrollable.position.maxScrollExtent > 0) {
+            expect(scrollable.position.pixels, greaterThan(beforePixels));
+          } else {
+            expect(scrollable.position.pixels, beforePixels);
+          }
+          expect(find.byTooltip('최신 위치 새로고침').hitTestable(), findsOneWidget);
+          expect(find.byTooltip('설정 열기').hitTestable(), findsOneWidget);
+          await saveCapture(
+            tester,
+            key,
+            '${tab.name}-scrolled-${scenario.name}',
+            scenario.size,
+            scenario.scale,
+          );
+          report.last.addAll({
+            'headerUnchanged': true,
+            'headerControlsReachable': true,
+            'scrollNeeded': scrollable.position.maxScrollExtent > 0,
+            'scrollOffset': scrollable.position.pixels,
+          });
         }
         final apartment = find.text('우리집 아파트');
         await tester.ensureVisible(apartment);
@@ -263,7 +297,7 @@ void main() {
               .selectedIndex,
           0,
         );
-        final record = find.text('주차 위치 기록하기');
+        final record = find.text('주차 기록하기');
         await tester.ensureVisible(record);
         await tester.pumpAndSettle();
         if (record.hitTestable().evaluate().isEmpty) {
@@ -274,6 +308,12 @@ void main() {
           await tester.pumpAndSettle();
         }
         expect(record.hitTestable(), findsOneWidget);
+        final recordParagraph = tester.renderObject<RenderParagraph>(record);
+        final recordLine = recordParagraph.getBoxesForSelection(
+          TextSelection(baseOffset: 0, extentOffset: '주차 기록하기'.length),
+        );
+        expect(recordLine, isNotEmpty);
+        expect(recordLine.map((box) => box.top).toSet(), hasLength(1));
         await tester.tap(record);
         await tester.pumpAndSettle();
         expect(find.text('지상'), findsOneWidget);

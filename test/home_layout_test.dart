@@ -33,11 +33,12 @@ void main() {
     double textScale = 1,
     bool longValues = false,
     double bottomInset = 0,
+    double topInset = 0,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     tester.platformDispatcher.textScaleFactorTestValue = textScale;
-    tester.view.padding = FakeViewPadding(bottom: bottomInset);
+    tester.view.padding = FakeViewPadding(top: topInset, bottom: bottomInset);
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
@@ -115,9 +116,37 @@ void main() {
     tester,
   ) async {
     await showHome(tester);
-    final record = find.text('주차 위치 기록하기');
+    final record = find.text('주차 기록하기');
     expect(record.hitTestable(), findsOneWidget);
     expect(tester.takeException(), isNull);
+    await tester.tap(record);
+    await tester.pumpAndSettle();
+    expect(find.text('어디에 주차했나요?'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('record action stays on one line with large text at 320px', (
+    tester,
+  ) async {
+    await showHome(
+      tester,
+      size: const Size(320, 740),
+      textScale: 1.3,
+      topInset: 59,
+      bottomInset: 34,
+    );
+    const label = '주차 기록하기';
+    final record = find.text(label);
+    await tester.ensureVisible(record);
+    await tester.pumpAndSettle();
+    final paragraph = tester.renderObject<RenderParagraph>(record);
+    expect(
+      paragraph.getBoxesForSelection(
+        const TextSelection(baseOffset: 0, extentOffset: label.length),
+      ),
+      hasLength(1),
+    );
+    expect(record.hitTestable(), findsOneWidget);
     await tester.tap(record);
     await tester.pumpAndSettle();
     expect(find.text('어디에 주차했나요?'), findsOneWidget);
@@ -230,6 +259,73 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final scenario in [
+    (size: const Size(320, 740), scale: 1.3, topInset: 59.0),
+    (size: const Size(393, 852), scale: 1.3, topInset: 59.0),
+    (size: const Size(320, 740), scale: 2.0, topInset: 59.0),
+    (size: const Size(1024, 600), scale: 1.0, topInset: 24.0),
+  ]) {
+    testWidgets('header controls stay fixed while every tab scrolls at '
+        '${scenario.size.width}px / ${scenario.scale}x', (tester) async {
+      await showHome(
+        tester,
+        size: scenario.size,
+        textScale: scenario.scale,
+        topInset: scenario.topInset,
+        bottomInset: 34,
+      );
+      const labels = ['주차 위치', '주차 이력', '우리 가족', '설정'];
+      final header = find.byKey(const ValueKey('app-shell-header'));
+      final body = find.byKey(const ValueKey('app-shell-scroll'));
+      final refresh = find.byTooltip('최신 위치 새로고침');
+      final profile = find.byTooltip('설정 열기');
+      for (final label in labels) {
+        final destination = scenario.size.width < wideLayoutBreakpoint
+            ? find.descendant(
+                of: find.byType(NavigationBar),
+                matching: find.text(label),
+              )
+            : find.widgetWithText(ListTile, label);
+        expect(destination.hitTestable(), findsOneWidget);
+        await tester.tap(destination);
+        await tester.pumpAndSettle();
+        final scrollable = tester.state<ScrollableState>(
+          find.descendant(of: body, matching: find.byType(Scrollable)).first,
+        );
+        expect(scrollable.position.pixels, 0, reason: '$label starts at top');
+        final headerBefore = tester.getRect(header);
+        final refreshBefore = tester.getRect(refresh);
+        final profileBefore = tester.getRect(profile);
+        final viewport = tester.getRect(body);
+        expect(headerBefore.top, greaterThanOrEqualTo(scenario.topInset));
+        expect(viewport.top, greaterThanOrEqualTo(headerBefore.bottom));
+        expect(viewport.height, greaterThan(100));
+        expect(scrollable.position.maxScrollExtent, greaterThan(0));
+
+        await tester.drag(body, const Offset(0, -220));
+        await tester.pumpAndSettle();
+        expect(scrollable.position.pixels, greaterThan(0));
+        expect(tester.getRect(header), headerBefore);
+        expect(tester.getRect(refresh), refreshBefore);
+        expect(tester.getRect(profile), profileBefore);
+        expect(refresh.hitTestable(), findsOneWidget);
+        expect(profile.hitTestable(), findsOneWidget);
+        expect(destination.hitTestable(), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      }
+
+      // The fixed profile control still navigates after scrolling the body.
+      await tester.tap(profile);
+      await tester.pumpAndSettle();
+      expect(find.text('나에게 맞게 사용하기').hitTestable(), findsOneWidget);
+      final scrollable = tester.state<ScrollableState>(
+        find.descendant(of: body, matching: find.byType(Scrollable)).first,
+      );
+      expect(scrollable.position.pixels, 0);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   for (final scale in [1.3, 2.0]) {
     testWidgets(
       '320px home preserves long location and metadata at ${scale}x',
@@ -257,7 +353,7 @@ void main() {
             expect(find.bySemanticsLabel(text), findsOneWidget);
             expect(tester.takeException(), isNull);
           }
-          final record = find.text('주차 위치 기록하기');
+          final record = find.text('주차 기록하기');
           await tester.ensureVisible(record);
           await tester.pumpAndSettle();
           expect(record.hitTestable(), findsOneWidget);

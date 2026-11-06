@@ -168,87 +168,114 @@ class _AppShellState extends State<AppShell> {
               children: [
                 if (wide) _sidebar(),
                 Expanded(
-                  child: RefreshIndicator(
-                    onRefresh: c.refresh,
-                    child: CustomScrollView(
-                      controller: _scroll,
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      slivers: [
-                        SliverToBoxAdapter(
-                          child: Center(
-                            child: ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 1056),
-                              child: Padding(
-                                padding: EdgeInsets.fromLTRB(
-                                  wide ? 44 : 20,
-                                  wide ? 38 : 12,
-                                  wide ? 44 : 20,
-                                  40,
-                                ),
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
-                                  children: [
-                                    _top(wide),
-                                    const SizedBox(height: 22),
-                                    if (widget.inviteNotice != null)
-                                      StatusNotice(
-                                        widget.inviteNotice!,
-                                        error: true,
-                                      ),
-                                    if (widget.pendingInvite != null &&
-                                        c.vehicle != null)
-                                      StatusNotice(
-                                        '가족 초대를 받았지만 이미 연결된 차량이 있어요. 계정마다 차량 한 대만 사용할 수 있어요.',
-                                      ),
-                                    if (widget.pendingInvite != null &&
-                                        c.vehicle != null)
-                                      TextButton(
-                                        onPressed: widget.onClearInvite,
-                                        child: const Text('받은 초대 닫기'),
-                                      ),
-                                    if (c.isDemo)
-                                      const StatusNotice(
-                                        '체험 중 · 기록은 이 기기에만 저장돼요.',
-                                      ),
-                                    if (c.error != null)
-                                      StatusNotice(
-                                        c.error!,
-                                        error: true,
-                                        onRetry: c.refresh,
-                                      ),
-                                    if (c.widgetWarning != null)
-                                      StatusNotice(c.widgetWarning!),
-                                    if (c.loading && c.vehicles.isEmpty)
-                                      const Padding(
-                                        padding: EdgeInsets.all(60),
-                                        child: Center(
-                                          child: CircularProgressIndicator(),
-                                        ),
-                                      )
-                                    else if (c.vehicle == null && _tab != 3)
-                                      _onboarding()
-                                    else
-                                      switch (_tab) {
-                                        0 => _home(),
-                                        1 => _history(),
-                                        2 => FamilyScreen(controller: c),
-                                        _ => SettingsScreen(
-                                          widgetSectionKey: _widgetSettingsKey,
-                                          controller: c,
-                                          preferences: widget.preferences,
-                                          onLogout: widget.onLogout,
-                                          notifications: widget.notifications,
-                                        ),
-                                      },
-                                  ],
-                                ),
-                              ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Center(
+                        key: const ValueKey('app-shell-header'),
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 1056),
+                          child: Padding(
+                            padding: EdgeInsets.fromLTRB(
+                              wide ? 44 : 20,
+                              wide ? 38 : 12,
+                              wide ? 44 : 20,
+                              22,
                             ),
+                            child: _top(wide),
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                      Expanded(
+                        child: RefreshIndicator(
+                          onRefresh: c.refresh,
+                          child: CustomScrollView(
+                            key: const ValueKey('app-shell-scroll'),
+                            controller: _scroll,
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            slivers: [
+                              SliverToBoxAdapter(
+                                child: Center(
+                                  child: ConstrainedBox(
+                                    constraints: const BoxConstraints(
+                                      maxWidth: 1056,
+                                    ),
+                                    child: Padding(
+                                      padding: EdgeInsets.fromLTRB(
+                                        wide ? 44 : 20,
+                                        0,
+                                        wide ? 44 : 20,
+                                        40,
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                        children: [
+                                          if (widget.inviteNotice != null)
+                                            StatusNotice(
+                                              widget.inviteNotice!,
+                                              error: true,
+                                            ),
+                                          if (widget.pendingInvite != null &&
+                                              c.vehicle != null)
+                                            StatusNotice(
+                                              '가족 초대를 받았지만 이미 연결된 차량이 있어요. 계정마다 차량 한 대만 사용할 수 있어요.',
+                                            ),
+                                          if (widget.pendingInvite != null &&
+                                              c.vehicle != null)
+                                            TextButton(
+                                              onPressed: widget.onClearInvite,
+                                              child: const Text('받은 초대 닫기'),
+                                            ),
+                                          if (c.isDemo)
+                                            const StatusNotice(
+                                              '체험 중 · 기록은 이 기기에만 저장돼요.',
+                                            ),
+                                          if (c.error != null)
+                                            StatusNotice(
+                                              c.error!,
+                                              error: true,
+                                              onRetry: c.refresh,
+                                            ),
+                                          if (c.widgetWarning != null)
+                                            StatusNotice(c.widgetWarning!),
+                                          if (c.loading && c.vehicles.isEmpty)
+                                            const Padding(
+                                              padding: EdgeInsets.all(60),
+                                              child: Center(
+                                                child:
+                                                    CircularProgressIndicator(),
+                                              ),
+                                            )
+                                          else if (c.vehicle == null &&
+                                              _tab != 3)
+                                            _onboarding()
+                                          else
+                                            switch (_tab) {
+                                              0 => _home(),
+                                              1 => _history(),
+                                              2 => FamilyScreen(controller: c),
+                                              _ => SettingsScreen(
+                                                widgetSectionKey:
+                                                    _widgetSettingsKey,
+                                                controller: c,
+                                                preferences: widget.preferences,
+                                                onLogout: widget.onLogout,
+                                                notifications:
+                                                    widget.notifications,
+                                              ),
+                                            },
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -545,7 +572,7 @@ class _AppShellState extends State<AppShell> {
         _locationCard(),
         const SizedBox(height: 24),
         BusyButton(
-          label: '주차 위치 기록하기',
+          label: '주차 기록하기',
           icon: Icons.add_rounded,
           onPressed: _openParking,
         ),

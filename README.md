@@ -55,7 +55,7 @@ bash scripts/ios_qa.sh
 
 소스 저장소의 `Verify app` CI는 포맷·분석·테스트·웹 빌드를 실행합니다. TestFlight 배포와 실제 휴대폰 검증은 별도입니다. 개인 배포 정보가 있는 상세 로그는 로컬 및 비공개 빌드 저장소에서 보존합니다.
 
-2026-11-06 홈·주차 입력 수정은 iOS 화면을 우선 검증합니다. 다음 명령은 실제 Flutter 화면을 iOS 테마·안전 영역·그림자로 렌더링해 `docs/qa/ios-footer-review/`에 캡처합니다. 홈·이력·가족·설정과 입력창을 320/393px, 기본/1.3배 글자로 확인합니다. 이전 캡처는 `docs/qa/ios-ui-cleanup/`에 보존합니다. Xcode·iOS 실기기 검증을 대신하지 않으며, Android 검증은 별도입니다.
+2026-11-06 홈·주차 입력 수정은 iOS 화면을 우선 검증합니다. 다음 명령은 실제 Flutter 화면을 iOS 테마·안전 영역·그림자로 렌더링해 `docs/qa/ios-fixed-header/`에 캡처합니다. 홈·이력·가족·설정의 초기/스크롤 후 화면과 입력창을 320/393px, 기본/1.3배 글자로 확인합니다. 이전 캡처는 `docs/qa/ios-ui-cleanup/`과 `docs/qa/ios-footer-review/`에 보존합니다. Xcode·iOS 실기기 검증을 대신하지 않으며, Android 검증은 별도입니다.
 
 ```bash
 flutter test --no-pub test/ios_ui_capture_test.dart --dart-define=CAPTURE_IOS_UI=true

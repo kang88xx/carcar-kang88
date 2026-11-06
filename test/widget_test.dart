@@ -41,7 +41,7 @@ void main() {
       expect(find.textContaining('실제 가족 공유는'), findsOneWidget);
       await demo(tester);
       expect(find.text('마지막 주차 위치'), findsOneWidget);
-      await tester.tap(find.text('주차 위치 기록하기'));
+      await tester.tap(find.text('주차 기록하기'));
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(ChoiceChip, 'B3'));
       await tester.tap(find.widgetWithText(ChoiceChip, 'D'));
@@ -62,7 +62,7 @@ void main() {
   testWidgets('blank save is rejected and draft stays open', (tester) async {
     await start(tester);
     await demo(tester);
-    await tester.tap(find.text('주차 위치 기록하기'));
+    await tester.tap(find.text('주차 기록하기'));
     await tester.pumpAndSettle();
     final save = find.text('체험 기록 저장');
     await tester.ensureVisible(save);
@@ -142,7 +142,7 @@ void main() {
     expect(tester.takeException(), isNull);
     await demo(tester);
     expect(tester.takeException(), isNull);
-    final recordButton = find.text('주차 위치 기록하기');
+    final recordButton = find.text('주차 기록하기');
     await tester.ensureVisible(recordButton);
     await tester.pumpAndSettle();
     await tester.tap(recordButton);
@@ -157,7 +157,7 @@ void main() {
   ) async {
     await start(tester);
     await demo(tester);
-    await tester.tap(find.text('주차 위치 기록하기'));
+    await tester.tap(find.text('주차 기록하기'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ChoiceChip, 'B1'));
     await tester.tap(find.widgetWithText(ChoiceChip, 'A'));

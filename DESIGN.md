@@ -38,6 +38,12 @@ Verification must render the bundled fonts and actual blurred shadows; Flutter t
 ## Responsive behavior
 Mobile floating pill navigation below 760px; desktop white sidebar card and bounded 1056px content. Home content uses two columns only when its available width reaches 840px; location/actions lead, guide/history/family follow. Dialogs max 560px; forms scroll with keyboard. Support 320px phones and large text.
 
+## Fixed app header · 2026-11-06
+
+Keep the existing header (brand or page heading, greeting, refresh and profile controls) outside the content scroll area on home, history, family and settings. The safe area remains above it, and the body starts below it so scrolling cannot cover the header. Preserve the initial spacing, bottom navigation, pull-to-refresh and tab-change scroll reset. The desktop sidebar keeps its existing position. Sheet titles already stay fixed and do not change.
+
+The home action uses 주차 기록하기 so it stays on one line at 320px with 1.3× text. Verify real scroll movement with invariant header/control bounds across all four tabs at 320/393px, large text and a wide viewport; capture initial and scrolled views with bundled fonts and real shadows. Native iOS archive validation and TestFlight delivery follow after local checks.
+
 ## Interaction states
 Explicit loading and retry; first-car empty state; no-record state; no-history search result; server error preserves draft; no save success before acknowledgment; camera rejection falls back to manual entry. Demo records persist locally under a separate key. Logout clears native snapshots.
 

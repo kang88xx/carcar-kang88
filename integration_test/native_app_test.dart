@@ -61,8 +61,8 @@ void main() {
       await settle();
       expect(find.text('마지막 주차 위치'), findsOneWidget);
 
-      await tester.ensureVisible(find.text('주차 위치 기록하기'));
-      await tester.tap(find.text('주차 위치 기록하기'));
+      await tester.ensureVisible(find.text('주차 기록하기'));
+      await tester.tap(find.text('주차 기록하기'));
       await settle();
       if (Platform.isIOS) {
         expect(find.text('지상'), findsOneWidget);
