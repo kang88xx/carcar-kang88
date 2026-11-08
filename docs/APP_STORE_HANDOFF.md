@@ -1,18 +1,19 @@
 # App Store 등록 작업 인계 · 2026-11-08
 
-맥북에서 이어가는 App Store 준비 작업 기록이다. 현재 브랜치에는 Flutter·iOS 실행 환경 복구와 Apple 로그인 보완이 포함된다. **TestFlight 1.0.0 (13) 배포와 Apple 연결 해제 서버 설정은 완료했다. 2026-11-08 사용자가 Apple 로그인·주차 저장 성공을 보고했고, 실기기 미러링 탐색·입력 취소 후 기록 보존 및 시뮬레이터 촬영 자료를 확인했다. 스토어 등록 자료 반영과 JPEG 8장 업로드를 완료했으며 App Privacy 답변 미게시로 최종 제출이 차단됐다. 실제 철회·삭제 검증도 남아 있다.** 현재 검증 결과는 아래 최신 상태를 우선한다.
+맥북에서 이어가는 App Store 준비 작업 기록이다. 현재 브랜치에는 Flutter·iOS 실행 환경 복구와 Apple 로그인 보완이 포함된다. **TestFlight 1.0.0 (13) 배포와 Apple 연결 해제 서버 설정은 완료했다. 2026-11-08 사용자가 Apple 로그인·주차 저장 성공을 보고했고, 실기기 미러링 탐색·입력 취소 후 기록 보존 및 시뮬레이터 촬영 자료를 확인했다. 스토어 등록 자료·JPEG 8장과 App Privacy 답변 게시를 완료했고, App Store 버전 1.0은 심사 대기 중(`WAITING_FOR_REVIEW`)이다. 심사 승인·공개와 실제 철회·삭제 검증은 아직 완료되지 않았다.** 현재 검증 결과는 아래 최신 상태를 우선한다.
 
-## 최신 확인 · App Store 등록 준비 반영 · 2026-11-08
+## 최신 확인 · App Store 심사 제출 완료 · 2026-11-08
 
 - 비공개 `release/carcar-appstore-20261108`의 [등록 준비 CI](https://github.com/kang88xx/60base-mobile-build/actions/runs/42486691651)가 성공했다. 설명·부제·`UTILITIES` 카테고리·개인정보/지원 링크, 타사 콘텐츠 권리 사용 없음, 저작권, 연령 등급을 반영하고 재조회했다.
 - 기존 스토어 버전 **1.0**에 빌드 **1.0.0 (13)**을 연결했다. 심사 연락처와 한국어·영어 전 기능 접근 안내도 저장·검증했다. 개인 연락처 값은 공개 문서에 기록하지 않는다.
 - 가격 **무료(0)**, 배포 국가 **대한민국(KOR)만**, 새 국가 자동 추가 꺼짐을 확인했다. 출시 옵션은 **`AFTER_APPROVAL`(심사 승인 후 출시)**이다.
 - iPhone/iPad 각 4장, **JPEG 8장 모두 `COMPLETE`와 로컬 MD5 일치**를 확인했다. QA MOV와 비공개 실기기 영상은 스토어 미디어로 올리지 않았다.
 - 공개 개인정보 안내는 `fa8d690`의 [사이트 게시 CI](https://github.com/kang88xx/carcar-kang88/actions/runs/42484097529) 성공과 HTTP 200으로 확인했다. 사용자·설치 식별자, 수동 주차 위치, 보안·운영 로그, 선택적 이메일 문의 처리를 반영했다.
-- **최종 제출은 App Privacy 답변 미게시로 차단됐다.** [제출 CI](https://github.com/kang88xx/60base-mobile-build/actions/runs/42487225872)의 `POST /v1/reviewSubmissionItems`에 Apple이 HTTP **409**, `STATE_ERROR.ENTITY_STATE_INVALID`와 내부 원인 `STATE_ERROR.APP_DATA_USAGES_REQUIRED`를 반환했다. 공개 답변 게시를 요구한 오류이며 현재 보고된 차단 항목은 **`APP_PRIVACY_REQUIRED` 하나**다. API 사전 조건과 배포 설정은 모두 준비됨, 스크린샷 8장은 모두 `COMPLETE`였다.
-- 버전은 **`PREPARE_FOR_SUBMISSION`**, **`submitted=false`**다. 빈 심사 제출 초안만 있으며 심사 접수·심사자의 반려가 아니다. 사용자 재연결 후에도 브라우저 자동화 연결을 사용할 수 없어 [앱 개인정보 직접 입력 안내](app-store/privacy-console-steps.md)로 답변을 게시해야 한다. 분류 근거는 [개인정보 권장 답변](app-store/privacy-answers.md)을 따른다.
+- **App Privacy 답변 게시를 완료했다.** CUA로 열린 Chrome에서 12개 유형을 모두 앱 기능 목적·사용자 신원 연결·추적 사용 안 함으로 입력했다. 게시 확인창의 정확성·관련 법 준수·변경 시 갱신 문구에 사용자가 동의한 뒤 게시했고, 화면의 게시 완료 표시를 확인했다. [입력·게시 기록](app-store/privacy-console-steps.md)과 [분류 근거](app-store/privacy-answers.md)를 참고한다.
+- **최종 심사 제출을 완료했다.** [제출 CI](https://github.com/kang88xx/60base-mobile-build/actions/runs/42488929909)는 2026-11-08 **14:16:11 UTC / 23:16:11 KST**에 성공했다. `submission.json`의 `versionState`와 `submissionState`는 모두 **`WAITING_FOR_REVIEW`**, **`submitted=true`**, `blockers=[]`다. 스크린샷 8장 완료와 무료·KOR 한정 배포 설정도 함께 재확인했다.
+- 심사 제출 ID는 `26696dda-35de-4157-a091-a4bf4bec0334`다. 증거는 비공개 `~/.local/share/carcar-release/appstore-runs/42488929909/carcar-appstore-registration-12/submission.json`에 보관한다. 이전 [제출 시도](https://github.com/kang88xx/60base-mobile-build/actions/runs/42487225872)의 `APP_DATA_USAGES_REQUIRED` 오류는 개인정보 게시 후 해소됐다. 현재는 Apple 심사 결과를 기다리며 중복 제출하지 않는다. 심사 승인이나 App Store 공개가 완료된 것은 아니다.
 - 이번 도구 검증은 **Node 57/57개 통과**, Dart 포맷 **46개 파일·변경 0개**, `flutter analyze --no-pub` **문제 0개(2.4초)**다. 제품 코드는 `069dd4c` 그대로다. 심사 연락처 전달용 임시 secret은 작업 후 제거했고 잔여 0개를 확인했다.
-- 아래 실기기 확인 범위와 미검증 항목은 그대로다. 메타데이터·이미지 업로드 완료는 실제 인증·삭제·가족 공유 검증이나 심사 통과를 뜻하지 않는다.
+- 아래 실기기 확인 범위와 미검증 항목은 그대로다. 심사 접수 완료는 실제 인증·삭제·가족 공유 검증이나 심사 통과를 뜻하지 않는다.
 
 ## 최신 확인 · 실기기 탐색과 스토어 촬영 자료 · 2026-11-08
 
@@ -234,13 +235,8 @@ MethodChannel: carcar/native / signInWithApple
 6. **앱 코드 완료:** 문의 UI를 공개 고객지원으로 바꾸고 개인정보 문구에 Apple 재인증·삭제·수동 연결 해제 안내를 반영했다. TestFlight 빌드 13에 포함했다.
 7. **일부 확인:** Apple 로그인·저장 성공은 사용자 보고, 로그인된 실기기 화면 탐색과 입력 취소 후 기존 기록 보존은 직접 관찰했다. 설치 빌드 번호 직접 조회·인증 재시도·카메라 OCR·Face ID·두 기기 공유·푸시·계정 삭제/철회는 남았다. 실기기 QA 원본과 84초 정리본의 폰 조작·취소·새로고침 장면 검증은 완료했다. Apple 비공개 이메일을 추측해 Google 계정과 합치지 않는다.
 8. **등록 자료 반영 완료:** iPhone/iPad의 홈·입력·가족·이력 각 4장을 업로드·검증했고 연령 등급·저작권·심사용 전 기능 접근 안내도 반영했다. 네이티브 홈 위젯 촬영은 남았다. QA MOV는 App Preview 제출본이 아니며 체험 데이터는 실제 가족 공유 심사용 접근을 대신하지 않는다.
-9. **App Privacy 게시 후 제출 재시도:** 무료/KOR·등록 자료·심사 연락처·빌드 13 연결은 반영·재조회했다. [직접 입력 안내](app-store/privacy-console-steps.md)에 따라 App Privacy 답변을 저장하고 **게시(Publish)**한 뒤 아래 기존 제출 workflow를 다시 실행한다. 현재는 `APP_PRIVACY_REQUIRED`로 미제출이며, 재시도 후 실제 접수 상태를 확인한다.
-
-App Privacy 게시 후 사용할 재개 명령이다. CLI 옵션은 도움말로 확인했으며 아래 재시도 자체는 아직 실행하지 않았다. 기존 사용자의 등록·제출 승인 범위에서 이어간다.
-
-```bash
-gh workflow run carcar-appstore.yml -R kang88xx/60base-mobile-build --ref release/carcar-appstore-20261108 -f mode=submit -f release_type=AFTER_APPROVAL
-```
+9. **심사 제출 완료:** 개인정보 12개 유형을 게시하고 [최종 제출 CI](https://github.com/kang88xx/60base-mobile-build/actions/runs/42488929909)에서 빌드 13의 `WAITING_FOR_REVIEW`, `submitted=true`를 확인했다. 무료·대한민국 한정·심사 승인 후 자동 출시 설정을 유지한다.
+10. **Apple 심사 결과 대기:** [App Store Connect 앱 심사](https://appstoreconnect.apple.com/apps/6829616379/distribution/reviewsubmissions)에서 결과와 추가 정보 요청을 확인한다. 현재 제출을 다시 실행하지 않는다. Apple의 요청이 있으면 해당 내용을 근거로 대응하고, 승인 후 공개 상태는 별도로 확인한다. 7번의 미검증 실기기 항목은 심사 접수와 별도로 남아 있다.
 
 ### 구현한 삭제 흐름의 보안 경계
 

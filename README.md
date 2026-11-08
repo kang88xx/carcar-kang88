@@ -12,7 +12,7 @@
 
 [등록 준비 CI](https://github.com/kang88xx/60base-mobile-build/actions/runs/42486691651)가 성공했습니다. 설명·부제·카테고리·지원/개인정보 링크·저작권·심사 연락처와 한/영 심사 안내, 무료·대한민국 배포, 연령 등급을 반영·재조회했습니다. 기존 스토어 버전 1.0에 빌드 1.0.0 (13)을 연결했고 iPhone/iPad 스크린샷 각 4장도 업로드 완료·checksum 일치를 확인했습니다. 출시 옵션은 심사 승인 후 출시(`AFTER_APPROVAL`)입니다.
 
-공개 개인정보 안내도 [게시 CI](https://github.com/kang88xx/carcar-kang88/actions/runs/42484097529)와 HTTP 200으로 확인했습니다. **[최종 제출 시도](https://github.com/kang88xx/60base-mobile-build/actions/runs/42487225872)는 App Privacy 답변 미게시 오류(`APP_DATA_USAGES_REQUIRED`, HTTP 409)로 차단됐습니다.** 현재 Apple이 보고한 제출 차단 사유는 이 항목 하나이며, 심사에 접수되거나 심사자가 반려한 상태가 아닙니다. 브라우저 연결이 복구되지 않아 [직접 입력 안내](docs/app-store/privacy-console-steps.md)에 따라 개인정보 답변을 게시한 뒤 제출을 재시도해야 합니다. 재개 명령과 남은 실기기 검증은 [인계 문서](docs/APP_STORE_HANDOFF.md)를 따릅니다.
+**App Store 심사 제출을 완료했습니다.** 개인정보 12개 유형의 답변을 Chrome에서 입력하고 사용자 동의를 받아 게시했습니다. [최종 제출 CI](https://github.com/kang88xx/60base-mobile-build/actions/runs/42488929909)는 2026-11-08 23:16 KST에 성공했고, Apple 재조회에서 버전과 제출 상태 모두 **`WAITING_FOR_REVIEW`(심사 대기 중)**, `submitted=true`, 차단 항목 없음이 확인됐습니다. 심사 승인·공개가 완료된 상태는 아니며, 승인되면 대한민국 App Store에 무료로 자동 출시됩니다. 지금은 Apple 심사 결과를 기다리며 중복 제출하지 않습니다. 게시 내용과 남은 실기기 검증은 [인계 문서](docs/APP_STORE_HANDOFF.md)를 따릅니다.
 
 ## 실행
 

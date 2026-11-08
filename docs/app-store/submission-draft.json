@@ -1,5 +1,5 @@
 {
-  "status": "prepared-blocked-app-privacy",
+  "status": "submitted-waiting-for-review",
   "locale": "ko",
   "listing": {
     "name": "차자리 - 가족 주차 기록",
@@ -132,12 +132,9 @@
     },
     "uploadedAt": "2026-11-08T13:48:32.342Z"
   },
-  "requiredBeforeSubmission": [
-    "App Privacy 데이터 수집 답변 저장·게시 확인",
-    "Apple 최종 심사 제출 수락 및 원격 상태 재조회"
-  ],
+  "requiredBeforeSubmission": [],
   "privacyNotes": {
-    "submissionAnswersVerified": false,
+    "submissionAnswersVerified": true,
     "serverDataToClassify": [
       "로그인 이름·이메일",
       "사용자 ID",
@@ -147,7 +144,10 @@
     ],
     "photoProcessing": "현재 원본 사진은 기기에서만 처리하며 서버로 업로드하지 않음",
     "trackingEvidence": "현재 저장소의 광고 추적 SDK는 발견되지 않았고 PrivacyInfo.xcprivacy의 NSPrivacyTracking은 false",
-    "requiresConsolePublish": true
+    "requiresConsolePublish": false,
+    "publishedDate": "2026-11-08",
+    "publishedDataTypeCount": 12,
+    "publicationEvidence": "App Store Connect Chrome UI: published a few seconds ago; all 12 types App Functionality, linked to user, not used for tracking."
   },
   "references": [
     "https://developer.apple.com/app-store/review/guidelines/#login-services",
@@ -162,25 +162,29 @@
     "최종 빌드의 두 기기 가족 공유·푸시·카메라 OCR·위젯 동작 확인"
   ],
   "submission": {
-    "submitted": false,
+    "submitted": true,
     "finalRequestInProgress": false,
     "preparationRun": "https://github.com/kang88xx/60base-mobile-build/actions/runs/42486691651",
     "reviewContactEntered": true,
     "reviewNotesPath": "docs/app-store/review-notes.txt",
     "privacyConsoleGuide": "docs/app-store/privacy-console-steps.md",
     "reviewSubmissionId": "26696dda-35de-4157-a091-a4bf4bec0334",
-    "lastSubmissionRun": "https://github.com/kang88xx/60base-mobile-build/actions/runs/42487225872",
-    "lastErrorCode": "STATE_ERROR.APP_DATA_USAGES_REQUIRED",
-    "lastErrorHttpStatus": 409,
-    "diagnosis": "Apple requires published App Privacy data collection answers before this version can be added to review.",
-    "versionState": "PREPARE_FOR_SUBMISSION",
-    "lastErrorCodes": [
-      "STATE_ERROR.ENTITY_STATE_INVALID",
-      "STATE_ERROR.APP_DATA_USAGES_REQUIRED"
-    ],
-    "blockers": [
-      "APP_PRIVACY_REQUIRED"
-    ],
-    "lastCheckedAt": "2026-11-08T13:55:18.764Z"
+    "lastSubmissionRun": "https://github.com/kang88xx/60base-mobile-build/actions/runs/42488929909",
+    "diagnosis": "Apple accepted the submission; review is pending. Release remains automatic after approval.",
+    "versionState": "WAITING_FOR_REVIEW",
+    "blockers": [],
+    "lastCheckedAt": "2026-11-08T14:15:55.755Z",
+    "previousBlockedAttempt": {
+      "lastSubmissionRun": "https://github.com/kang88xx/60base-mobile-build/actions/runs/42487225872",
+      "lastErrorCode": "STATE_ERROR.APP_DATA_USAGES_REQUIRED",
+      "lastErrorHttpStatus": 409,
+      "lastErrorCodes": [
+        "STATE_ERROR.ENTITY_STATE_INVALID",
+        "STATE_ERROR.APP_DATA_USAGES_REQUIRED"
+      ],
+      "lastCheckedAt": "2026-11-08T13:55:18.764Z"
+    },
+    "submissionState": "WAITING_FOR_REVIEW",
+    "submissionWorkflowCompletedAt": "2026-11-08T14:16:11Z"
   }
 }
