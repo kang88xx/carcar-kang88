@@ -1,5 +1,5 @@
 {
-  "status": "draft-not-submitted",
+  "status": "prepared-blocked-app-privacy",
   "locale": "ko",
   "listing": {
     "name": "차자리 - 가족 주차 기록",
@@ -11,29 +11,45 @@
     "privacyPolicyUrl": "https://kang88xx.github.io/carcar-kang88/privacy/",
     "supportUrl": "https://kang88xx.github.io/carcar-kang88/support/",
     "supportEmail": "kang88xx@gmail.com",
-    "copyright": null,
+    "copyright": "2026 이강석",
     "proposedPrimaryCategory": "UTILITIES"
   },
   "release": {
     "price": 0,
-    "territories": ["KOR"],
+    "territories": [
+      "KOR"
+    ],
     "priceAndTerritoriesConfirmed": true,
-    "proposedReleaseType": "MANUAL",
-    "releaseTypeConfirmed": false,
-    "selectedBuild": null
+    "proposedReleaseType": "AFTER_APPROVAL",
+    "releaseTypeConfirmed": true,
+    "selectedBuild": {
+      "version": "1.0.0",
+      "number": "13",
+      "id": "2c30a8e4-1bfc-4cc1-b989-265f236225ae",
+      "storeVersion": "1.0"
+    }
   },
   "screenshotPlan": {
-    "status": "four-app-screens-ready-per-device-widget-pending",
-    "deviceFamilies": ["iPhone", "iPad"],
+    "status": "eight-app-screens-uploaded-and-processed-widget-optional",
+    "deviceFamilies": [
+      "iPhone",
+      "iPad"
+    ],
     "portraitSizes": {
-      "iPhone": [1320, 2868],
-      "iPad": [2064, 2752]
+      "iPhone": [
+        1320,
+        2868
+      ],
+      "iPad": [
+        2064,
+        2752
+      ]
     },
     "screens": [
       {
         "screen": "home",
         "caption": "우리 차의 마지막 주차 위치",
-        "status": "captured-not-uploaded",
+        "status": "uploaded-processing-complete",
         "files": {
           "iPhone": "iphone/01-home.jpg",
           "iPad": "ipad/01-home.jpg"
@@ -42,7 +58,7 @@
       {
         "screen": "parking-entry",
         "caption": "층과 구역을 간단하게 기록",
-        "status": "captured-not-uploaded",
+        "status": "uploaded-processing-complete",
         "files": {
           "iPhone": "iphone/02-parking-entry.jpg",
           "iPad": "ipad/02-parking-entry.jpg"
@@ -51,7 +67,7 @@
       {
         "screen": "family",
         "caption": "초대한 가족과 함께 확인",
-        "status": "captured-not-uploaded",
+        "status": "uploaded-processing-complete",
         "files": {
           "iPhone": "iphone/03-family.jpg",
           "iPad": "ipad/03-family.jpg"
@@ -60,7 +76,7 @@
       {
         "screen": "history",
         "caption": "이전 주차 기록도 한곳에",
-        "status": "captured-not-uploaded",
+        "status": "uploaded-processing-complete",
         "files": {
           "iPhone": "iphone/04-history.jpg",
           "iPad": "ipad/04-history.jpg"
@@ -85,7 +101,7 @@
     "productSourceMatchesTestFlight13": true,
     "deliveryPath": "build/app-store-media-20261108/delivery/",
     "archivePath": "build/app-store-media-20261108/차자리-스토어-촬영자료.zip",
-    "uploadedToAppStoreConnect": false,
+    "uploadedToAppStoreConnect": true,
     "verification": {
       "jpegCount": 8,
       "hasAlpha": false,
@@ -94,7 +110,9 @@
         "iPhone": "PASS",
         "iPad": "PASS"
       },
-      "nativeHomeWidgetCaptured": false
+      "nativeHomeWidgetCaptured": false,
+      "appStoreProcessedCount": 8,
+      "remoteChecksumsVerified": true
     },
     "qaVideos": {
       "status": "qa-only-not-app-preview-submission",
@@ -111,22 +129,25 @@
       ],
       "physicalDeviceRecordingSaved": "raw-verified-private",
       "physicalDeviceRecordingReview": "raw-and-84-second-derived-video-scenes-verified-private"
-    }
+    },
+    "uploadedAt": "2026-11-08T13:48:32.342Z"
   },
   "requiredBeforeSubmission": [
-    "실제 기기 Apple/Google 인증·취소·재시도 검증; Apple 로그인·저장 성공은 2026-11-08 사용자 보고로 기록",
-    "계정 삭제와 Apple 토큰 철회의 실제 왕복 검증",
-    "최종 빌드의 두 기기 가족 공유·푸시·카메라 OCR·위젯 동작 확인",
-    "수집 데이터와 연결 여부·목적에 맞는 App Privacy 응답 작성",
-    "연령 등급·콘텐츠 권리·저작권자·가격·배포 국가 입력",
-    "최종 빌드 선택 및 준비된 iPhone·iPad 앱 화면 각 4장 검토·업로드; 네이티브 홈 위젯은 별도 촬영",
-    "심사용 연락처와 가족 공유를 포함한 전체 기능 접근 방법 준비"
+    "App Privacy 데이터 수집 답변 저장·게시 확인",
+    "Apple 최종 심사 제출 수락 및 원격 상태 재조회"
   ],
   "privacyNotes": {
     "submissionAnswersVerified": false,
-    "serverDataToClassify": ["로그인 이름·이메일", "사용자 ID", "차량번호·차량 및 아파트 별명", "주차 위치·기록 시각·작성자·기존 메모", "설치 ID·알림 토큰·기기 설정"],
+    "serverDataToClassify": [
+      "로그인 이름·이메일",
+      "사용자 ID",
+      "차량번호·차량 및 아파트 별명",
+      "주차 위치·기록 시각·작성자·기존 메모",
+      "설치 ID·알림 토큰·기기 설정"
+    ],
     "photoProcessing": "현재 원본 사진은 기기에서만 처리하며 서버로 업로드하지 않음",
-    "trackingEvidence": "현재 저장소의 광고 추적 SDK는 발견되지 않았고 PrivacyInfo.xcprivacy의 NSPrivacyTracking은 false"
+    "trackingEvidence": "현재 저장소의 광고 추적 SDK는 발견되지 않았고 PrivacyInfo.xcprivacy의 NSPrivacyTracking은 false",
+    "requiresConsolePublish": true
   },
   "references": [
     "https://developer.apple.com/app-store/review/guidelines/#login-services",
@@ -134,5 +155,32 @@
     "https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications/",
     "https://developer.apple.com/app-store/app-privacy-details/",
     "https://developer.apple.com/help/app-store-connect/manage-submissions-to-app-review/submit-an-app"
-  ]
+  ],
+  "validationGaps": [
+    "실제 기기 Apple/Google 인증·취소·재시도 검증; Apple 로그인·저장 성공은 2026-11-08 사용자 보고로 기록",
+    "계정 삭제와 Apple 토큰 철회의 실제 왕복 검증",
+    "최종 빌드의 두 기기 가족 공유·푸시·카메라 OCR·위젯 동작 확인"
+  ],
+  "submission": {
+    "submitted": false,
+    "finalRequestInProgress": false,
+    "preparationRun": "https://github.com/kang88xx/60base-mobile-build/actions/runs/42486691651",
+    "reviewContactEntered": true,
+    "reviewNotesPath": "docs/app-store/review-notes.txt",
+    "privacyConsoleGuide": "docs/app-store/privacy-console-steps.md",
+    "reviewSubmissionId": "26696dda-35de-4157-a091-a4bf4bec0334",
+    "lastSubmissionRun": "https://github.com/kang88xx/60base-mobile-build/actions/runs/42487225872",
+    "lastErrorCode": "STATE_ERROR.APP_DATA_USAGES_REQUIRED",
+    "lastErrorHttpStatus": 409,
+    "diagnosis": "Apple requires published App Privacy data collection answers before this version can be added to review.",
+    "versionState": "PREPARE_FOR_SUBMISSION",
+    "lastErrorCodes": [
+      "STATE_ERROR.ENTITY_STATE_INVALID",
+      "STATE_ERROR.APP_DATA_USAGES_REQUIRED"
+    ],
+    "blockers": [
+      "APP_PRIVACY_REQUIRED"
+    ],
+    "lastCheckedAt": "2026-11-08T13:55:18.764Z"
+  }
 }
