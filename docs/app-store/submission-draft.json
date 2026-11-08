@@ -109,7 +109,8 @@
           "durationSeconds": 29.42
         }
       ],
-      "physicalDeviceRecordingSaved": "pending-confirmation"
+      "physicalDeviceRecordingSaved": "raw-verified-private",
+      "physicalDeviceRecordingReview": "raw-and-84-second-derived-video-scenes-verified-private"
     }
   },
   "requiredBeforeSubmission": [
