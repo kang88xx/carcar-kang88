@@ -4,6 +4,7 @@ import '../app/theme.dart';
 import '../core/app_controller.dart';
 import '../core/models.dart';
 import '../core/device_notifications.dart';
+import '../core/native_bridge.dart';
 import '../core/widget_links.dart';
 import '../shared/components.dart';
 import 'parking_form.dart';
@@ -152,6 +153,15 @@ class _AppShellState extends State<AppShell> {
         .map((m) => m.name.trim())
         .firstOrNull;
     return name == null || name.isEmpty || name == '나' ? null : name;
+  }
+
+  /// Floor shown inside the brand pin: only floors that also have a launcher
+  /// icon, so the header never promises an icon the device cannot show.
+  String? get _markFloor {
+    final floor = c.latest?.floor;
+    return NativeBridge.iconForFloor(floor) == null
+        ? null
+        : floor!.trim().toUpperCase();
   }
 
   @override
@@ -338,7 +348,10 @@ class _AppShellState extends State<AppShell> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(padding: EdgeInsets.only(left: 12), child: Brand()),
+          Padding(
+            padding: const EdgeInsets.only(left: 12),
+            child: Brand(floor: _markFloor),
+          ),
           const SizedBox(height: 40),
           ...List.generate(
             4,
@@ -410,7 +423,7 @@ class _AppShellState extends State<AppShell> {
         tooltip: '설정 열기',
         onPressed: () => _navigate(3),
         style: IconButton.styleFrom(
-          backgroundColor: Palette.ink,
+          backgroundColor: Palette.accent,
           fixedSize: const Size(48, 48),
         ),
         icon: Text(
@@ -429,7 +442,10 @@ class _AppShellState extends State<AppShell> {
         children: [
           Row(
             children: [
-              if (!wide) const Expanded(child: Brand()) else const Spacer(),
+              if (!wide)
+                Expanded(child: Brand(floor: _markFloor))
+              else
+                const Spacer(),
               ...controls,
             ],
           ),

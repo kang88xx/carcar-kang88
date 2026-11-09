@@ -1,6 +1,11 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="1024" android:viewportHeight="1024">
-  <group android:scaleX="0.7" android:scaleY="0.7" android:translateX="154" android:translateY="154">
-    <path android:fillColor="#FFFFFF" android:pathData="M300,274h232c136,0 214,73 214,187c0,118 -83,192 -218,192H421v133H300zM421,384v159h104c66,0 99,-28 99,-80c0,-53 -34,-79 -99,-79z" />
-    <path android:fillColor="#DBEAFE" android:pathData="M754,735a58,58 0,1 1,-116 0a58,58 0,1 1,116 0" />
+  <!-- 차자리 pin mark (design direction A). Scaled into the 66/108 adaptive safe zone. -->
+  <group android:scaleX="0.85" android:scaleY="0.85" android:translateX="76.8" android:translateY="76.8">
+    <path android:fillColor="#1D4ED8" android:pathData="M382,846a130,26 0,1 0,260 0a130,26 0,1 0,-260 0" />
+    <path android:fillColor="#FFFFFF" android:pathData="M512,830C420,700 276,590 276,430A236,236 0,0 1,748 430C748,590 604,700 512,830Z" />
+    <path android:fillColor="#2563EB" android:pathData="M492,290h40a60,60 0,0 1,60 60v160a60,60 0,0 1,-60 60h-40a60,60 0,0 1,-60 -60v-160a60,60 0,0 1,60 -60z" />
+    <path android:fillColor="#2563EB" android:pathData="M408,382a16,16 0,1 0,32 0a16,16 0,1 0,-32 0M584,382a16,16 0,1 0,32 0a16,16 0,1 0,-32 0" />
+    <path android:fillColor="#FFFFFF" android:pathData="M472,344h80a18,18 0,0 1,18 18v22a18,18 0,0 1,-18 18h-80a18,18 0,0 1,-18 -18v-22a18,18 0,0 1,18 -18z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M468,470h88a14,14 0,0 1,14 14v16a14,14 0,0 1,-14 14h-88a14,14 0,0 1,-14 -14v-16a14,14 0,0 1,14 -14z" />
   </group>
 </vector>

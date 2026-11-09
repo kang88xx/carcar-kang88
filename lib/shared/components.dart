@@ -1,26 +1,17 @@
 import 'package:flutter/material.dart';
 import '../app/theme.dart';
 
+/// App name beside the launcher pin. Pass the supported parked [floor] so the
+/// header mark follows the launcher icon (null shows the default car pin).
 class Brand extends StatelessWidget {
-  const Brand({super.key, this.large = false});
+  const Brand({super.key, this.large = false, this.floor});
   final bool large;
+  final String? floor;
   @override
   Widget build(BuildContext context) => Row(
     mainAxisSize: MainAxisSize.min,
     children: [
-      Container(
-        width: large ? 52 : 36,
-        height: large ? 52 : 36,
-        decoration: BoxDecoration(
-          color: Palette.ink,
-          borderRadius: BorderRadius.circular(large ? 17 : 12),
-        ),
-        child: Icon(
-          Icons.local_parking_rounded,
-          color: Palette.highlight,
-          size: large ? 34 : 24,
-        ),
-      ),
+      PinMark(size: large ? 52 : 36, floor: floor),
       const SizedBox(width: 10),
       Text(
         '차자리',
@@ -33,6 +24,106 @@ class Brand extends StatelessWidget {
       ),
     ],
   );
+}
+
+/// The 차자리 pin mark used by the launcher icon, drawn in the app's own
+/// geometry (1024-unit design space). The pin holds the car by default and the
+/// parked floor label (F1–F5, B1–B6) otherwise, like the alternate launcher
+/// icons. The header shows the saved floor at once; the launcher icon follows
+/// under its own conditions (supported platform, active app, native success).
+class PinMark extends StatelessWidget {
+  const PinMark({super.key, this.size = 36, this.floor});
+  final double size;
+  final String? floor;
+  @override
+  Widget build(BuildContext context) => Semantics(
+    image: true,
+    label: floor == null ? '차자리 마크' : '차자리 마크, 주차 층 $floor',
+    child: ExcludeSemantics(
+      child: SizedBox.square(
+        dimension: size,
+        child: CustomPaint(painter: _PinPainter(floor)),
+      ),
+    ),
+  );
+}
+
+class _PinPainter extends CustomPainter {
+  const _PinPainter(this.floor);
+  final String? floor;
+  static const _accentDeep = Palette.accentDeep;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final side = size.shortestSide;
+    canvas.translate((size.width - side) / 2, (size.height - side) / 2);
+    canvas.scale(side / 1024);
+    final blue = Paint()..color = Palette.accent;
+    final white = Paint()..color = Colors.white;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(0, 0, 1024, 1024),
+        const Radius.circular(300),
+      ),
+      blue,
+    );
+    canvas.drawOval(
+      Rect.fromCenter(center: const Offset(512, 846), width: 260, height: 52),
+      Paint()..color = _accentDeep,
+    );
+    final pin = Path()
+      ..moveTo(512, 830)
+      ..cubicTo(420, 700, 276, 590, 276, 430)
+      ..arcToPoint(const Offset(748, 430), radius: const Radius.circular(236))
+      ..cubicTo(748, 590, 604, 700, 512, 830)
+      ..close();
+    canvas.drawPath(pin, white);
+    final label = floor;
+    if (label == null) {
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          const Rect.fromLTWH(432, 290, 160, 280),
+          const Radius.circular(60),
+        ),
+        blue,
+      );
+      canvas.drawCircle(const Offset(424, 382), 16, blue);
+      canvas.drawCircle(const Offset(600, 382), 16, blue);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          const Rect.fromLTWH(454, 344, 116, 58),
+          const Radius.circular(18),
+        ),
+        white,
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          const Rect.fromLTWH(454, 470, 116, 44),
+          const Radius.circular(14),
+        ),
+        white,
+      );
+      return;
+    }
+    final text = TextPainter(
+      text: TextSpan(
+        text: label,
+        style: const TextStyle(
+          fontFamily: 'NotoSansKR',
+          fontSize: 236,
+          fontWeight: FontWeight.w700,
+          color: Palette.accent,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+      textScaler: TextScaler.noScaling,
+    )..layout();
+    text.paint(canvas, Offset(512 - text.width / 2, 430 - text.height / 2));
+    text.dispose();
+  }
+
+  @override
+  bool shouldRepaint(_PinPainter old) => old.floor != floor;
 }
 
 /// Borderless white card. Pass [color] for a tinted card.

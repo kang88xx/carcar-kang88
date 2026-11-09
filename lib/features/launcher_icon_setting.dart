@@ -27,27 +27,11 @@ class _LauncherIconSettingState extends State<LauncherIconSetting> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Center(
-              child: Container(
-                width: 76,
-                height: 76,
-                decoration: BoxDecoration(
-                  color: Palette.ink,
-                  borderRadius: BorderRadius.circular(19),
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  supportedFloor ? floor! : 'P',
-                  style: const TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
+              child: PinMark(size: 76, floor: supportedFloor ? floor : null),
             ),
             const SizedBox(height: 20),
             const Text(
-              '주차 위치를 저장하면 앱 아이콘도 해당 층으로 바뀌어요. 지상 F1~F5, 지하 B1~B6을 표시해요.',
+              '주차 위치를 저장하면 앱 홈 상단의 핀이 바로 해당 층으로 바뀌고, 앱 아이콘도 같은 층으로 맞춰요. 지상 F1~F5, 지하 B1~B6을 표시해요.',
             ),
             const SizedBox(height: 12),
             const Text(

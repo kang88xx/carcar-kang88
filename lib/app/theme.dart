@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 
-/// Calm editorial palette: neutral canvas, borderless white cards, ink
-/// primary actions, a blue tint for the hero card and a pale blue highlight.
+/// Calm editorial palette: neutral canvas, borderless white cards, brand-blue
+/// primary actions (the launcher pin's blue), ink text, a blue tint for the
+/// hero card and a pale blue highlight.
 /// Only Regular (400) and Bold (700) NotoSansKR ship, so styles use those two.
 abstract final class Palette {
   static const canvas = Color(0xFFF5F7FA),
       ink = Color(0xFF1E293B),
       accent = Color(0xFF2563EB),
+      accentDeep = Color(0xFF1D4ED8),
       muted = Color(0xFF526176),
       line = Color(0xFFE2E8F0),
       highlight = Color(0xFFDBEAFE),
@@ -32,7 +34,8 @@ ThemeData buildTheme() {
   final scheme = ColorScheme.fromSeed(
     seedColor: Palette.accent,
     brightness: Brightness.light,
-    primary: Palette.ink,
+    primary: Palette.accent,
+    onPrimary: Colors.white,
     surface: Colors.white,
     onSurface: Palette.ink,
     outline: Palette.line,
@@ -90,7 +93,7 @@ ThemeData buildTheme() {
     dividerTheme: const DividerThemeData(color: Palette.line, space: 1),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
-        backgroundColor: Palette.ink,
+        backgroundColor: Palette.accent,
         foregroundColor: Colors.white,
         disabledBackgroundColor: Palette.soft,
         disabledForegroundColor: Palette.muted,
@@ -145,7 +148,7 @@ ThemeData buildTheme() {
       border: field(),
       enabledBorder: field(),
       disabledBorder: field(),
-      focusedBorder: field(Palette.ink, 1.5),
+      focusedBorder: field(Palette.accent, 1.5),
       errorBorder: field(Palette.roseInk),
       focusedErrorBorder: field(Palette.roseInk, 1.5),
     ),
@@ -235,7 +238,7 @@ ThemeData buildTheme() {
       actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
     ),
     progressIndicatorTheme: const ProgressIndicatorThemeData(
-      color: Palette.ink,
+      color: Palette.accent,
       linearTrackColor: Palette.soft,
     ),
   );
