@@ -1,0 +1,78 @@
+# Install in the private build repository as .github/workflows/carcar-user-invitations.yml.
+# App source must be under apps/carcar. Cheap ubuntu job: no macOS compute.
+# Invites a family tester as a limited App Store Connect user (this app only) so
+# the internal TestFlight group can include them; cancels a stale invitation.
+name: Chagok App Store Connect user invitations
+on:
+  workflow_dispatch:
+    inputs:
+      invite_email:
+        description: 'Email to invite as an App Store Connect user (blank = none)'
+        type: string
+        default: ''
+      first_name:
+        description: 'Invitee first name (given name)'
+        type: string
+        default: ''
+      last_name:
+        description: 'Invitee last name (family name)'
+        type: string
+        default: ''
+      role:
+        description: 'Limited role for the invitee'
+        type: choice
+        options: [MARKETING, CUSTOMER_SUPPORT, SALES, DEVELOPER, APP_MANAGER]
+        default: MARKETING
+      cancel_email:
+        description: 'Email whose pending invitation should be cancelled (blank = none; accepted users are never removed)'
+        type: string
+        default: ''
+      apply:
+        description: 'Write changes (false = read-only report)'
+        type: boolean
+        default: false
+      resend:
+        description: 'Replace a pending invitation of invite_email with a fresh one'
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: chagok-user-invitations
+  cancel-in-progress: false
+jobs:
+  invitations:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: apps/carcar
+        shell: bash
+    env:
+      INVITE_EMAIL: ${{ inputs.invite_email }}
+      INVITE_FIRST_NAME: ${{ inputs.first_name }}
+      INVITE_LAST_NAME: ${{ inputs.last_name }}
+      INVITE_ROLE: ${{ inputs.role }}
+      CANCEL_EMAIL: ${{ inputs.cancel_email }}
+      APPLY: ${{ inputs.apply }}
+      RESEND: ${{ inputs.resend }}
+      USER_INVITATIONS_SUMMARY_PATH: ${{ github.workspace }}/user-invitations.json
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node --test scripts/user_invitations.test.mjs
+      - name: Report or apply App Store Connect user invitations
+        env:
+          APP_STORE_CONNECT_API_KEY_P8_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8_BASE64 }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+        run: node scripts/user_invitations.mjs
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        continue-on-error: true
+        with:
+          name: chagok-user-invitations-${{ github.run_number }}
+          path: ${{ github.workspace }}/user-invitations.json
+          if-no-files-found: ignore
