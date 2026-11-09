@@ -6,7 +6,9 @@
 
 소스 기준 저장소는 [kang88xx/carcar-kang88](https://github.com/kang88xx/carcar-kang88)입니다. TestFlight 서명과 배포는 기존 비공개 CI에서 실행하며 인증서·서버 비밀키·계정별 QA 기록은 공개 저장소에 포함하지 않습니다.
 
-현재 설치 가능한 최신 TestFlight는 **1.0.0 (13)**입니다. Apple 로그인·안전한 계정 삭제·UIScene 전환·공개 고객지원 UI를 포함하며, [비공개 배포 CI](https://github.com/kang88xx/60base-mobile-build/actions/runs/42215777783) 성공과 Apple 처리 `VALID`, 기존 내부 테스트 그룹 연결을 확인했습니다. 앱 소스는 `069dd4c`, 비공개 빌드 소스는 `6b2ea85`(`release/carcar-apple-login-20261106`)입니다. 2026-11-08 사용자가 Apple 로그인·주차 저장 성공을 보고했습니다. 에이전트는 실기기 미러링으로 로그인 상태·화면 탐색·입력 취소 후 기존 기록 보존을 확인했으며, 설치 빌드 번호 직접 조회와 실제 인증 왕복·계정 삭제 검증은 별도입니다.
+현재 설치 가능한 최신 TestFlight는 **1.0.1 (14)**입니다. 2026-11-10 자리 핀 앱 아이콘·층수 핀 아이콘·저장 층을 따라가는 홈 헤더 핀·브랜드 블루 톤을 담았으며, [빌드 14 비공개 CI](https://github.com/kang88xx/60base-mobile-build/actions/runs/42659222423) 성공과 Apple 처리 `VALID`, 내부 테스트 그룹 연결을 확인했습니다. App Store에 승인된 1.0.0 트레인은 닫혀 있어 마케팅 버전을 1.0.1로 올렸습니다. 앱 소스는 `ac54e4d`, 비공개 빌드 소스는 `b8bebc0`(`release/carcar-pin-icon-20261110`)입니다. 실기기 설치·아이콘 전환 확인은 아직입니다.
+
+이전 TestFlight **1.0.0 (13)**은 Apple 로그인·안전한 계정 삭제·UIScene 전환·공개 고객지원 UI를 포함하며, [비공개 배포 CI](https://github.com/kang88xx/60base-mobile-build/actions/runs/42215777783) 성공과 Apple 처리 `VALID`, 기존 내부 테스트 그룹 연결을 확인했습니다. 앱 소스는 `069dd4c`, 비공개 빌드 소스는 `6b2ea85`(`release/carcar-apple-login-20261106`)입니다. 2026-11-08 사용자가 Apple 로그인·주차 저장 성공을 보고했습니다. 에이전트는 실기기 미러링으로 로그인 상태·화면 탐색·입력 취소 후 기존 기록 보존을 확인했으며, 설치 빌드 번호 직접 조회와 실제 인증 왕복·계정 삭제 검증은 별도입니다.
 
 ## App Store 등록 진행 · 2026-11-08
 
