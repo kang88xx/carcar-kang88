@@ -86,6 +86,33 @@ test('resend replaces a pending invitation', async () => {
   assert.deepEqual(summary.writes, ['DELETE /v1/userInvitations/inv-new', 'POST /v1/userInvitations']);
 });
 
+test('resend retries a transient duplicate-email conflict after cancelling', async () => {
+  const state = freshState();
+  state.invitations.push({type: 'userInvitations', id: 'inv-new', attributes: {email: 'new.tester@gmail.com', roles: ['MARKETING']}});
+  const {fetchImpl} = fakeApple(state);
+  let conflicts = 2;
+  const flaky = async (url, init) => {
+    if (init.method === 'POST' && conflicts-- > 0) return {ok: false, status: 409, json: async () => ({errors: [{code: 'ENTITY_ERROR.ATTRIBUTE.INVALID.DUPLICATE', title: 'Duplicate', detail: 'The email is already being used.'}]})};
+    return fetchImpl(url, init);
+  };
+  const waits = [];
+  const summary = await manageInvitations({...baseEnv, APPLY: 'true', RESEND: 'true', CANCEL_EMAIL: ''}, flaky, async ms => { waits.push(ms); });
+  assert.equal(summary.invite.invitationSent, true);
+  assert.deepEqual(waits, [5000, 10000]);
+  assert.equal(state.created.length, 1);
+});
+
+test('a duplicate conflict without a prior cancellation is not retried', async () => {
+  const state = freshState();
+  const flaky = async (url, init) => {
+    if (init.method === 'POST') return {ok: false, status: 409, json: async () => ({errors: [{code: 'ENTITY_ERROR.ATTRIBUTE.INVALID.DUPLICATE', title: 'Duplicate', detail: 'The email is already being used.'}]})};
+    return fakeApple(state).fetchImpl(url, init);
+  };
+  const waits = [];
+  await assert.rejects(manageInvitations({...baseEnv, APPLY: 'true', CANCEL_EMAIL: ''}, flaky, async ms => { waits.push(ms); }), /HTTP 409/);
+  assert.deepEqual(waits, []);
+});
+
 test('input validation blocks unsafe values and destinations', async () => {
   assert.throws(() => safeApiUrl('/v1/apps/6829616379'), /destination/);
   assert.throws(() => safeApiUrl('https://evil.example/v1/users'), /destination/);

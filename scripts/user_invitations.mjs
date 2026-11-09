@@ -39,7 +39,7 @@ export function parseName(value, name) {
   return text;
 }
 
-export async function manageInvitations(env, fetchImpl = fetch) {
+export async function manageInvitations(env, fetchImpl = fetch, sleep = ms => new Promise(done => setTimeout(done, ms))) {
   for (const name of ['APP_STORE_CONNECT_API_KEY_P8_BASE64', 'APP_STORE_CONNECT_ISSUER_ID', 'APP_STORE_CONNECT_KEY_ID']) {
     requireValue(Boolean(env[name]), 'Missing App Store Connect input: ' + name);
   }
@@ -135,11 +135,22 @@ export async function manageInvitations(env, fetchImpl = fetch) {
         }
       }
       if (!state.invitations.length || resend) {
-        await request('/v1/userInvitations', 'POST', {data: {
+        const body = {data: {
           type: 'userInvitations',
           attributes: {email: inviteEmail, firstName, lastName, roles: [role], allAppsVisible: false, provisioningAllowed: false},
           relationships: {visibleApps: {data: [{type: 'apps', id: appId}]}},
-        }});
+        }};
+        // Apple keeps a just-cancelled address reserved for a moment and answers
+        // 409 DUPLICATE; retry briefly after a replacement instead of leaving the
+        // tester with no invitation at all.
+        const attempts = replaced.length ? 4 : 1;
+        for (let attempt = 1; ; attempt++) {
+          try { await request('/v1/userInvitations', 'POST', body); break; }
+          catch (error) {
+            if (!(error instanceof InvitationError) || attempt >= attempts || !/HTTP 409 .*DUPLICATE/.test(error.message)) throw error;
+            await sleep(attempt * 5_000);
+          }
+        }
         sent = true;
       }
     }
