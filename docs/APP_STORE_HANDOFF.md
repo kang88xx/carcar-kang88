@@ -1,5 +1,19 @@
 # App Store 등록 작업 인계 · 2026-11-08
 
+## 최신 확인 · 업데이트 1.0.1 (15) 심사 제출 · 2026-11-11
+
+아래 기록보다 이 절을 우선한다. **버전 1.0 (13)은 2026-11-08 승인·공개됐고, 업데이트 1.0.1 (15)가 심사 대기 중(`WAITING_FOR_REVIEW`)이다.** 승인이나 공개가 끝난 것은 아니다.
+
+- **1.0 공개 확인:** 공개 조회에서 한국 스토어 버전 `1.0`, 출시 2026-11-08 21:48 UTC. App Store Connect 조회에서 `READY_FOR_DISTRIBUTION`, 출시 방식 `AFTER_APPROVAL`. 아래 2026-11-08 절의 "심사 대기" 표현은 당시 상태다. 1.0 전용이던 `app_store_registration.mjs`의 조회는 이제 `Expected exactly one editable app information record.`로 실패한다(공개 후 정상).
+- **소스:** 쉬운 사용 우선 정리(`docs/DECISIONS.md` 2026-11-11)의 앱 소스는 `0c90de1`. 로컬 검사 `dart format` 변경 0, `flutter analyze` 문제 0, `flutter test` 374개 통과/4개 선택 검사 건너뜀. 이 Mac의 SSH 권한 문제로 공개 저장소에는 푸시하지 않았다(브랜치는 origin보다 앞서 있음).
+- **빌드 15:** 비공개 `release/carcar-simplify-20261111`의 `ab70b75`(공개 `0c90de1`과 파일 해시 일치 확인)에서 [배포 CI](https://github.com/kang88xx/60base-mobile-build/actions/runs/43024120354) 성공(12:52:46–13:04:43 UTC). Apple build ID `e8bf3859-36de-473b-85e5-9d51e8a107d8`, 버전 `15`, `VALID`, 만료 아님, 내부 그룹 연결(`addedNow=true`). 실행 전 이번 달 Actions 사용량은 macOS 214분·Linux 170분, 청구 $0였다.
+- **시뮬레이터 검사:** iPhone 18 Pro / iOS 27.2에서 `scripts/ios_qa.sh` 통과(저장·이력·Vision OCR·위젯 안내·층수 아이콘 스위치·프로필 편집 취소). 첫 실행은 시뮬레이터에 남은 이전 설치(아이콘이 이미 B2) 때문에 알림 수가 맞지 않아 실패했고, 앱 삭제 후 재실행에서 통과했다. 증거 `build/ios-runtime-qa-20261111/`.
+- **스토어 자료:** iPhone 1320×2868·iPad 2064×2752 각 4장을 현재 화면으로 다시 찍어(`build/app-store-media-20261111/`, 내장 체험 데이터) 1.0.1의 한국어 스크린샷 8장을 교체했다. `scripts/store_screenshots.sh`는 소스 `069dd4c`·`1.0.0 (13)`에 고정돼 있어 `build/` 아래 복사본으로 실행했다.
+- **업데이트 도구:** `scripts/app_store_update.mjs`(조회·준비·제출, 테스트 40개)와 원고 `docs/app-store/update-1.0.1.json`(새 기능 문구, 심사 안내 `Build: 1.0.1 (15).`)을 추가했다. 쓰기는 버전 생성·출시 방식·새 기능 문구·심사 메모·빌드 연결·스크린샷·심사 제출로 제한되고 가격·판매 국가·앱 정보·연령 등급·개인정보·버전 삭제·출시·제출 취소는 하지 않는다. 비공개 저장소에는 등록된 파일명 `.github/workflows/carcar-appstore.yml`로 설치했다(틀은 `.github/workflows/appstore-update.yml.template`).
+- **실행 기록:** [조회](https://github.com/kang88xx/60base-mobile-build/actions/runs/43025552028) → [준비](https://github.com/kang88xx/60base-mobile-build/actions/runs/43025992996)(버전 `914a4667-d28f-47d6-9a47-5024a715c935` 생성, 새 기능 문구, 심사 메모, 빌드 15 연결; 심사 연락처는 이전 버전에서 이어받아 변경하지 않음) → [스크린샷 교체](https://github.com/kang88xx/60base-mobile-build/actions/runs/43026140869)(8장 업로드·`COMPLETE` 확인 뒤 이전 8장 삭제) → [재조회](https://github.com/kang88xx/60base-mobile-build/actions/runs/43026326911)(막힌 항목 0) → [제출](https://github.com/kang88xx/60base-mobile-build/actions/runs/43026432850).
+- **제출 결과:** 심사 제출 ID `182e1ae3-2a31-49ef-8f9a-0ba112a7abbd`, 제출·버전 상태 모두 `WAITING_FOR_REVIEW`, 출시 방식 `AFTER_APPROVAL`(사용자가 2026-11-11 승인 후 자동 출시를 선택). 요약 파일은 비공개 `~/.local/share/carcar-release/appstore-update-1.0.1/`.
+- **남은 것:** 빌드 15의 실기기 확인(같은 계정 재시작 뒤 위젯·차량 찾기 표시 유지, iPhone 층수 아이콘 스위치, 참여자 이름, 약한 신호에서 저장 제한 시간)은 하지 않았다. 승인되면 자동으로 공개되므로 문제를 발견하면 App Store Connect에서 심사 제출을 철회한다. Android 빌드·실기기 확인은 이번에도 하지 않았다. 반려되면 이 도구가 아니라 App Store Connect에서 대응한다.
+
 맥북에서 이어가는 App Store 준비 작업 기록이다. 현재 브랜치에는 Flutter·iOS 실행 환경 복구와 Apple 로그인 보완이 포함된다. **TestFlight 1.0.0 (13) 배포와 Apple 연결 해제 서버 설정은 완료했다. 2026-11-08 사용자가 Apple 로그인·주차 저장 성공을 보고했고, 실기기 미러링 탐색·입력 취소 후 기록 보존 및 시뮬레이터 촬영 자료를 확인했다. 스토어 등록 자료·JPEG 8장과 App Privacy 답변 게시를 완료했고, App Store 버전 1.0은 심사 대기 중(`WAITING_FOR_REVIEW`)이다. 심사 승인·공개와 실제 철회·삭제 검증은 아직 완료되지 않았다.** 현재 검증 결과는 아래 최신 상태를 우선한다.
 
 ## 최신 확인 · App Store 심사 제출 완료 · 2026-11-08

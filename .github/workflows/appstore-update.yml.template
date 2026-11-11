@@ -1,0 +1,126 @@
+# Install in the private build repository as .github/workflows/carcar-appstore-update.yml.
+# App source must be under apps/carcar. Cheap ubuntu job: no macOS compute.
+# Inert in this public repository: it has no secrets and the file is not a workflow here.
+#
+# inspect  reads only and always succeeds after a successful read (blockers are listed in the summary).
+# prepare  creates the update version if needed, sets the release text and review notes,
+#          attaches the named build, and optionally replaces the Korean screenshots. Safe to run again.
+#          Also works on a version that an unfinished submit left alone in an unsubmitted review submission,
+#          except for screenshots, which Apple locks there (remove the version from the draft submission first).
+# submit   sends the prepared version to App Review. It never releases, cancels or deletes anything,
+#          and never changes the release setting: a release_type that differs from the version stops it.
+#
+# Screenshots must be the live version's images in the live order, or exactly the folder named below;
+# a set left half replaced by an interrupted run is neither and blocks prepare and submit until prepare
+# is run again with the same folder. New images are uploaded and confirmed before old ones are removed.
+# A rejected version (REJECTED, METADATA_REJECTED, DEVELOPER_REJECTED) is not handled here:
+# resubmit it in App Store Connect.
+name: Manage carcar App Store update
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'inspect (read only), prepare (create/fill the update version), or submit (send it to App Review)'
+        type: choice
+        options: [inspect, prepare, submit]
+        default: inspect
+      version:
+        description: 'App Store version of the update; must be higher than the live version'
+        type: string
+        default: '1.0.1'
+      build_number:
+        description: 'Build number already uploaded for this version (for example 15)'
+        type: string
+        required: true
+      release_type:
+        description: 'KEEP = same as the live version when creating, unchanged if the version exists. MANUAL / AFTER_APPROVAL are applied by prepare only; inspect and submit stop if the version has another setting'
+        type: choice
+        options: [KEEP, MANUAL, AFTER_APPROVAL]
+        default: KEEP
+      replace_screenshots:
+        description: 'Use apps/carcar/store-media/<media_folder> as the Korean iPhone and iPad screenshots: prepare replaces the store images with it, inspect and submit only check the store against it. Off = must equal the live version'
+        type: boolean
+        default: false
+      media_folder:
+        description: 'Folder under apps/carcar/store-media that holds manifest.json (used only when replace_screenshots is on)'
+        type: string
+        default: ''
+permissions:
+  contents: read
+concurrency:
+  group: carcar-appstore-update
+  cancel-in-progress: false
+jobs:
+  update:
+    if: startsWith(github.ref, 'refs/heads/release/carcar-')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: apps/carcar
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify bounded update helper
+        run: node --test scripts/app_store_update.test.mjs scripts/app_store_registration.test.mjs scripts/app_store_distribution.test.mjs scripts/app_store_submit.test.mjs
+      - name: Resolve optional screenshot folder
+        id: media
+        env:
+          MODE: ${{ inputs.mode }}
+          REPLACE_SCREENSHOTS: ${{ inputs.replace_screenshots }}
+          MEDIA_FOLDER: ${{ inputs.media_folder }}
+        run: |
+          set -euo pipefail
+          if [[ "$REPLACE_SCREENSHOTS" != "true" ]]; then
+            echo "root=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Only prepare writes screenshots; inspect and submit compare the store with this folder.
+          echo "Screenshot folder is used by mode=$MODE."
+          if [[ ! "$MEDIA_FOLDER" =~ ^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$ ]]; then
+            echo "media_folder must be a single folder name under store-media." >&2
+            exit 1
+          fi
+          if [[ ! -f "store-media/$MEDIA_FOLDER/manifest.json" ]]; then
+            echo "store-media/$MEDIA_FOLDER/manifest.json was not found on this branch." >&2
+            exit 1
+          fi
+          echo "root=store-media/$MEDIA_FOLDER" >> "$GITHUB_OUTPUT"
+      - name: Inspect, prepare or submit only the carcar update
+        env:
+          APP_STORE_CONNECT_API_KEY_P8_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8_BASE64 }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_REVIEW_CONTACT_JSON: ${{ secrets.CARCAR_APP_STORE_REVIEW_CONTACT_JSON }}
+          APP_STORE_UPDATE_MODE: ${{ inputs.mode }}
+          APP_STORE_UPDATE_VERSION: ${{ inputs.version }}
+          APP_STORE_UPDATE_BUILD: ${{ inputs.build_number }}
+          APP_STORE_RELEASE_TYPE: ${{ inputs.release_type }}
+          APP_STORE_SUBMIT: ${{ inputs.mode == 'submit' && 'true' || 'false' }}
+          APP_STORE_UPDATE_MEDIA_ROOT: ${{ steps.media.outputs.root }}
+          APP_STORE_UPDATE_SUMMARY_PATH: ${{ runner.temp }}/carcar-appstore-update/summary.json
+          APP_STORE_UPDATE_DIAGNOSTIC_PATH: ${{ runner.temp }}/carcar-appstore-update/diagnostics.json
+        run: node scripts/app_store_update.mjs
+      - name: Confirm the helper really ran
+        env:
+          MODE: ${{ inputs.mode }}
+          SUMMARY: ${{ runner.temp }}/carcar-appstore-update/summary.json
+        run: |
+          set -euo pipefail
+          if [[ ! -s "$SUMMARY" ]]; then
+            echo "The helper exited without writing its summary; nothing was done." >&2
+            exit 1
+          fi
+          node --input-type=module -e 'import {readFileSync} from "node:fs"; const s = JSON.parse(readFileSync(process.env.SUMMARY, "utf8")); if (s.tool !== "app_store_update" || s.mode !== process.env.MODE) { console.error("The summary does not belong to this run."); process.exit(1); }'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: carcar-appstore-update-${{ inputs.mode }}-${{ github.run_number }}
+          path: |
+            ${{ runner.temp }}/carcar-appstore-update/summary.json
+            ${{ runner.temp }}/carcar-appstore-update/diagnostics.json
+          retention-days: 3
+          if-no-files-found: ignore

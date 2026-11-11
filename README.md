@@ -6,7 +6,9 @@
 
 소스 기준 저장소는 [kang88xx/carcar-kang88](https://github.com/kang88xx/carcar-kang88)입니다. TestFlight 서명과 배포는 기존 비공개 CI에서 실행하며 인증서·서버 비밀키·계정별 QA 기록은 공개 저장소에 포함하지 않습니다.
 
-현재 설치 가능한 최신 TestFlight는 **1.0.1 (14)**입니다. 2026-11-10 자리 핀 앱 아이콘·층수 핀 아이콘·저장 층을 따라가는 홈 헤더 핀·브랜드 블루 톤을 담았으며, [빌드 14 비공개 CI](https://github.com/kang88xx/60base-mobile-build/actions/runs/42659222423) 성공과 Apple 처리 `VALID`, 내부 테스트 그룹 연결을 확인했습니다. App Store에 승인된 1.0.0 트레인은 닫혀 있어 마케팅 버전을 1.0.1로 올렸습니다. 앱 소스는 `ac54e4d`, 비공개 빌드 소스는 `b8bebc0`(`release/carcar-pin-icon-20261110`)입니다. 실기기 설치·아이콘 전환 확인은 아직입니다.
+**2026-11-11 · App Store 업데이트 1.0.1 (15) 심사 제출.** 버전 1.0 (13)은 2026-11-08 승인되어 한국 App Store에 공개 중입니다(공개 조회와 App Store Connect `READY_FOR_DISTRIBUTION` 확인). 같은 날 반영한 쉬운 사용 우선 정리(앱 소스 `0c90de1`)를 [빌드 15 비공개 CI](https://github.com/kang88xx/60base-mobile-build/actions/runs/43024120354)로 서명·업로드했고(Apple 처리 `VALID`, 내부 테스트 그룹 연결), 새 버전 1.0.1에 새 기능 문구·심사 안내·새 스크린샷 8장·빌드 15를 연결해 [심사에 제출](https://github.com/kang88xx/60base-mobile-build/actions/runs/43026432850)했습니다. 제출·버전 상태는 `WAITING_FOR_REVIEW`, 출시 방식은 승인 후 자동 출시입니다. 이 빌드의 실기기 확인은 아직입니다. 자세한 기록은 [인계 문서](docs/APP_STORE_HANDOFF.md) 맨 위를 따릅니다.
+
+이전 TestFlight는 **1.0.1 (14)**입니다. 2026-11-10 자리 핀 앱 아이콘·층수 핀 아이콘·저장 층을 따라가는 홈 헤더 핀·브랜드 블루 톤을 담았으며, [빌드 14 비공개 CI](https://github.com/kang88xx/60base-mobile-build/actions/runs/42659222423) 성공과 Apple 처리 `VALID`, 내부 테스트 그룹 연결을 확인했습니다. App Store에 승인된 1.0.0 트레인은 닫혀 있어 마케팅 버전을 1.0.1로 올렸습니다. 앱 소스는 `ac54e4d`, 비공개 빌드 소스는 `b8bebc0`(`release/carcar-pin-icon-20261110`)입니다. 실기기 설치·아이콘 전환 확인은 아직입니다.
 
 이전 TestFlight **1.0.0 (13)**은 Apple 로그인·안전한 계정 삭제·UIScene 전환·공개 고객지원 UI를 포함하며, [비공개 배포 CI](https://github.com/kang88xx/60base-mobile-build/actions/runs/42215777783) 성공과 Apple 처리 `VALID`, 기존 내부 테스트 그룹 연결을 확인했습니다. 앱 소스는 `069dd4c`, 비공개 빌드 소스는 `6b2ea85`(`release/carcar-apple-login-20261106`)입니다. 2026-11-08 사용자가 Apple 로그인·주차 저장 성공을 보고했습니다. 에이전트는 실기기 미러링으로 로그인 상태·화면 탐색·입력 취소 후 기존 기록 보존을 확인했으며, 설치 빌드 번호 직접 조회와 실제 인증 왕복·계정 삭제 검증은 별도입니다.
 
@@ -46,7 +48,7 @@ flutter run --dart-define-from-file=config/local.json
 
 ## 구현한 기능
 
-아래는 현재 소스 기준입니다. 2026-11-11 정리(차량 등록 간소화·iPhone 층수 아이콘 스위치·받은 초대 한 번 탭 참여 등, [결정 기록](docs/DECISIONS.md))는 아직 배포 전이며 TestFlight 1.0.1 (14)와 App Store에 공개된 1.0 (13)에는 포함되지 않았습니다.
+아래는 현재 소스 기준입니다. 2026-11-11 정리(차량 등록 간소화·iPhone 층수 아이콘 스위치·받은 초대 한 번 탭 참여 등, [결정 기록](docs/DECISIONS.md))는 TestFlight 1.0.1 (15)에 담겨 App Store 업데이트 심사 대기 중이며, 공개된 1.0 (13)과 TestFlight 1.0.1 (14)에는 포함되지 않았습니다.
 
 - Google·iOS Apple 로그인, 표시 이름 편집, 계정 전환을 방어하는 삭제와 Apple 연결 해제
 - 설정의 공개 고객지원·개인정보 안내
