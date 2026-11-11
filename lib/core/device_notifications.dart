@@ -374,7 +374,12 @@ class DeviceNotificationController extends ChangeNotifier {
   Future<void> setPushEnabled(bool enabled) =>
       save(settings.copyWith(pushEnabled: enabled));
 
-  Future<void> save(DeviceNotificationSettings next) async {
+  /// [quiet] is for a copy the user is not waiting on: the save still runs
+  /// one at a time, but a failed attempt leaves no error on the settings.
+  Future<void> save(
+    DeviceNotificationSettings next, {
+    bool quiet = false,
+  }) async {
     if (!supported || !initialized) {
       throw const AppException('휴대폰 앱에서 기기 설정을 먼저 불러와 주세요.');
     }
@@ -427,6 +432,8 @@ class DeviceNotificationController extends ChangeNotifier {
       if (_current(generation)) {
         error = committed
             ? '서버 설정은 저장했지만 기기 알림 정리를 확인하지 못했어요. 다시 시도해 주세요.'
+            : quiet
+            ? null
             : _message(failure);
         if (registered && !committed && !previous.pushEnabled) {
           try {

@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import '../app/theme.dart';
 import '../core/app_controller.dart';
 import '../core/native_bridge.dart';
+import '../core/repository.dart';
 import '../shared/components.dart';
 
-/// Shows the automatic floor icon; it is never a shared vehicle color selector.
+/// The floor icon of this device: a switch on iPhone, automatic on Android.
+/// It is never a shared vehicle color selector.
 class LauncherIconSetting extends StatefulWidget {
   const LauncherIconSetting({super.key, required this.controller});
   final AppController controller;
@@ -39,7 +41,7 @@ class _LauncherIconSettingState extends State<LauncherIconSetting> {
             ),
             const SizedBox(height: 12),
             const Text(
-              'iPhone에서는 아이콘 변경 안내가 표시될 수 있어요. 홈 화면에 반영되는 시점은 기기에 따라 다를 수 있어요.',
+              '홈 화면에 반영되는 시점은 기기에 따라 다를 수 있어요.',
               style: TextStyle(fontSize: 12, height: 1.6, color: Palette.muted),
             ),
           ],
@@ -54,28 +56,48 @@ class _LauncherIconSettingState extends State<LauncherIconSetting> {
     );
   }
 
+  Future<void> _toggle(bool enabled) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await widget.controller.setFloorIconEnabled(enabled);
+    } on Object catch (e) {
+      if (mounted) showMessage(context, friendlyError(e));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _retry() async {
     if (_busy) return;
     setState(() => _busy = true);
     await widget.controller.syncFloorIcon();
     if (!mounted) return;
     setState(() => _busy = false);
-    showMessage(
-      context,
-      widget.controller.iconWarning ?? '현재 주차 층수로 앱 아이콘을 확인했어요.',
-    );
+    showMessage(context, widget.controller.iconWarning ?? '앱 아이콘을 확인했어요.');
   }
 
   @override
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      ActionRow(
-        icon: Icons.apps_rounded,
-        title: '주차 층수 앱 아이콘',
-        subtitle: widget.controller.iconWarning ?? '저장한 층수에 맞춰 자동으로 바뀌어요.',
-        onTap: _details,
-      ),
+      if (NativeBridge.floorIconIsOptIn)
+        SwitchRow(
+          icon: Icons.apps_rounded,
+          title: '주차 층수 앱 아이콘',
+          subtitle:
+              widget.controller.iconWarning ??
+              '켜면 층이 바뀔 때마다 iPhone이 확인 창을 띄워요.',
+          value: widget.controller.floorIconEnabled,
+          onChanged: _busy ? null : _toggle,
+        )
+      else
+        ActionRow(
+          icon: Icons.apps_rounded,
+          title: '주차 층수 앱 아이콘',
+          subtitle: widget.controller.iconWarning ?? '저장한 층수에 맞춰 자동으로 바뀌어요.',
+          onTap: _details,
+        ),
       if (widget.controller.iconWarning != null)
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),

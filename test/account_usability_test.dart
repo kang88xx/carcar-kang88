@@ -421,6 +421,69 @@ void main() {
     },
   );
 
+  testWidgets('profile name keeps its limit without a visible counter', (
+    tester,
+  ) async {
+    await pumpPage(
+      tester,
+      ProfileEditorDialog(repository: ProfileRepository()),
+    );
+    final name = find.byType(TextField);
+    expect(tester.widget<TextField>(name).maxLength, 40);
+    await tester.enterText(name, '가' * 50);
+    await tester.pump();
+    expect(tester.widget<TextField>(name).controller!.text, '가' * 40);
+    expect(find.textContaining(RegExp(r'^\d+\s*/\s*\d+$')), findsNothing);
+  });
+
+  test('sign-in name suggestion comes only from a non-empty account name', () {
+    User user(Map<String, dynamic>? data) => User(
+      id: 'owner',
+      appMetadata: const {},
+      userMetadata: data,
+      aud: 'authenticated',
+      createdAt: '2026-01-01T00:00:00Z',
+    );
+    expect(accountDisplayName(user({'full_name': ' 김민수 '})), '김민수');
+    expect(
+      accountDisplayName(user({'full_name': ' ', 'name': 'Minsu'})),
+      'Minsu',
+    );
+    expect(
+      accountDisplayName(user({'full_name': 7, 'email': 'a@b.c'})),
+      isNull,
+    );
+    expect(accountDisplayName(user(null)), isNull);
+    expect(accountDisplayName(null), isNull);
+    // Never longer than a profile name may be.
+    expect(
+      validatedProfileName(accountDisplayName(user({'name': '가' * 60}))!),
+      '가' * 40,
+    );
+  });
+
+  test('server errors read as what the user can do next', () {
+    expect(
+      friendlyError(
+        const PostgrestException(message: 'invalid_plate', code: '22023'),
+      ),
+      '차량 번호를 확인해 주세요. 예: 123가 4567',
+    );
+    // Sign-in is Apple or Google only: nothing to type, nothing to re-enter.
+    for (final error in const [
+      AuthException('Invalid login', code: 'invalid_credentials'),
+      AuthException('Email not confirmed', code: 'email_not_confirmed'),
+      AuthException('private detail', statusCode: '500'),
+    ]) {
+      expect(friendlyError(error), '로그인을 완료하지 못했어요. 잠시 후 다시 시도해 주세요.');
+    }
+    // One invitation is for one person: say so and what to ask the family for.
+    expect(
+      friendlyError(const InvalidInviteException()),
+      '이미 사용했거나 24시간이 지난 초대예요. 가족에게 새 초대를 받아 주세요.',
+    );
+  });
+
   test('profile name uses bounded Unicode character count', () {
     expect(validatedProfileName('  가족  '), '가족');
     expect(validatedProfileName('😀' * 40), '😀' * 40);

@@ -137,6 +137,11 @@ class NativeBridge {
   }
 
   static bool get supportsLauncherIcons => supportsOcr;
+
+  /// iOS confirms every icon change with a system alert the app cannot hide,
+  /// so there the floor icon is a per-device choice that starts off.
+  static bool get floorIconIsOptIn =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
   static const floorIconIds = {
     'floor_f1',
     'floor_f2',

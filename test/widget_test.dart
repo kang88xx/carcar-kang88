@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:carcar/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -33,6 +34,37 @@ void main() {
     await tester.tap(find.text('체험 시작하기'));
     await tester.pumpAndSettle();
   }
+
+  testWidgets('settings footer shows the version from pubspec.yaml', (
+    tester,
+  ) async {
+    final version = RegExp(
+      r'^version:\s*(\d+\.\d+\.\d+)',
+      multiLine: true,
+    ).firstMatch(File('pubspec.yaml').readAsStringSync())!.group(1)!;
+    await start(tester);
+    await demo(tester);
+    await tester.tap(find.text('설정'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('차자리 $version\n'), findsOneWidget);
+  });
+
+  testWidgets('family alert switch opens the settings tab without scrolling', (
+    tester,
+  ) async {
+    await start(tester, size: const Size(393, 852));
+    await demo(tester);
+    await tester.tap(find.text('설정'));
+    await tester.pumpAndSettle();
+    final alert = find.text('가족 주차 알림');
+    expect(alert.hitTestable(), findsOneWidget);
+    for (final later in ['우리 주차장', '이 기기에서 보기', '개인정보와 계정']) {
+      expect(
+        tester.getTopLeft(alert).dy,
+        lessThan(tester.getTopLeft(find.text(later)).dy),
+      );
+    }
+  });
 
   testWidgets(
     'welcome explains local demo, opens home and records confirmed location',
@@ -82,13 +114,14 @@ void main() {
     await tester.enterText(find.byType(TextField), 'not-a-location');
     await tester.pumpAndSettle();
     expect(find.text('검색한 기록이 없어요'), findsOneWidget);
+    // Each page is titled with its tab name: once in the bar, once on top.
     await tester.tap(find.text('우리 가족'));
     await tester.pumpAndSettle();
-    expect(find.text('우리 가족, 같은 자리'), findsOneWidget);
+    expect(find.text('우리 가족'), findsNWidgets(2));
     expect(tester.takeException(), isNull);
     await tester.tap(find.text('설정'));
     await tester.pumpAndSettle();
-    expect(find.text('나에게 맞게 사용하기'), findsOneWidget);
+    expect(find.text('설정'), findsNWidgets(2));
     expect(tester.takeException(), isNull);
   });
   testWidgets('logout returns to welcome and preserves explicit demo records', (
@@ -131,7 +164,12 @@ void main() {
       await tester.tap(find.text('홈 화면 위젯'));
       await tester.pumpAndSettle();
       expect(find.textContaining('정사각형 위젯에서 마지막 주차 위치'), findsOneWidget);
-      expect(find.textContaining('별도의 위젯 저장 권한은 필요 없어요.'), findsOneWidget);
+      expect(find.text('다른 가족의 새 기록은 앱을 열면 위젯에 보여요.'), findsOneWidget);
+      // Tests run as Android: its own note shows, the iPhone steps do not.
+      expect(find.textContaining('Android 위젯의 실제 크기와 모양'), findsOneWidget);
+      expect(find.text('iPhone'), findsNothing);
+      expect(find.textContaining('별도의 위젯 저장 권한'), findsNothing);
+      expect(find.text('위젯 설정으로 이동'), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );
@@ -174,5 +212,21 @@ void main() {
     await tester.tap(find.text('취소'));
     await tester.pumpAndSettle();
     expect(find.text('어디에 주차했나요?'), findsOneWidget);
+  });
+  testWidgets('chips alone close without a discard confirmation', (
+    tester,
+  ) async {
+    await start(tester);
+    await demo(tester);
+    await tester.tap(find.text('주차 기록하기'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ChoiceChip, 'B1'));
+    await tester.tap(find.widgetWithText(ChoiceChip, 'A'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('기록 창 닫기'));
+    await tester.pumpAndSettle();
+    expect(find.text('기록을 그만둘까요?'), findsNothing);
+    expect(find.text('어디에 주차했나요?'), findsNothing);
+    expect(find.text('마지막 주차 위치'), findsOneWidget);
   });
 }

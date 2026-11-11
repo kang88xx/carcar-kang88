@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:carcar/core/app_controller.dart';
 import 'package:carcar/core/models.dart';
 import 'package:carcar/core/native_bridge.dart';
 import 'package:carcar/core/repository.dart';
@@ -55,6 +56,12 @@ void main() {
       SharedPreferences.getInstance,
     );
     await preferences.remove(DemoParkingRepository.storageKey);
+    if (Platform.isIOS) {
+      // The iPhone floor icon is a per-device switch that starts off. This run
+      // starts as a device that has it switched on, so the real icon path and
+      // UIKit's two icon notices (first B2, then the saved B3) are exercised.
+      await preferences.setBool(AppController.floorIconPreferenceKey, true);
+    }
     await step('app-main', app.main);
     await settle();
     await tester.ensureVisible(find.text('체험 시작하기'));
@@ -136,10 +143,11 @@ void main() {
 
     if (Platform.isIOS) {
       // Read real capabilities without asking for notification permission or
-      // changing the current launcher icon here. Automatic floor sync after
-      // the save above can show UIKit's real icon-change alert. If that alert
-      // blocks interaction, the native UI harness must dismiss it; never mock
-      // the bridge or disable automatic sync to make this scenario pass.
+      // changing the current launcher icon here. With the floor icon switched
+      // on, the sync after the save above can show UIKit's real icon-change
+      // alert. If that alert blocks interaction, the native UI harness must
+      // dismiss it; never mock the bridge or switch the floor icon off to make
+      // this scenario pass.
       checkpoint('confirmed-floor-icon:before');
       final iconDeadline = DateTime.now().add(const Duration(seconds: 30));
       LauncherIconState? confirmedIcon;
@@ -246,27 +254,12 @@ void main() {
       await settle();
       expect(find.text('홈 화면에 주차 위치 두기'), findsOneWidget);
       await binding.takeScreenshot('native-widget-guide');
-      await tester.tap(find.text('위젯 설정으로 이동'));
+      expect(find.text('위젯 설정으로 이동'), findsNothing);
+      await tester.tap(find.text('닫기'));
       await settle();
-      expect(find.text('홈 화면 위젯').hitTestable(), findsOneWidget);
-      await binding.takeScreenshot('native-widget-settings');
-      binding.reportData!['widgetGuideNavigatesToSettings'] = true;
-      await tester.tap(find.text('주차 위치').last);
-      await settle();
-      await tester.scrollUntilVisible(
-        find.text('위젯 설정'),
-        250,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await settle();
-      expect(find.text('위젯 설정').hitTestable(), findsOneWidget);
-      await tester.tap(find.text('위젯 설정'));
-      await settle();
-      expect(find.text('홈 화면 위젯').hitTestable(), findsOneWidget);
-      binding.reportData!['widgetDirectButtonNavigatesToSettings'] = true;
-      // Reset the settings scroll before inspecting the complete settings flow.
-      await tester.tap(find.text('주차 위치').last);
-      await settle();
+      expect(find.text('홈 화면에 주차 위치 두기'), findsNothing);
+      expect(find.text('위젯 설정'), findsNothing);
+      binding.reportData!['widgetGuideClosesInPlace'] = true;
       final profileBefore = await fresh.profileName();
       final iconBefore = await NativeBridge.launcherIconState().timeout(
         const Duration(seconds: 10),
@@ -276,7 +269,15 @@ void main() {
       );
       await tester.tap(find.text('설정'));
       await settle();
-      expect(find.text('나에게 맞게 사용하기').hitTestable(), findsOneWidget);
+      expect(
+        find
+            .descendant(
+              of: find.byKey(const ValueKey('app-shell-header')),
+              matching: find.text('설정'),
+            )
+            .hitTestable(),
+        findsOneWidget,
+      );
       await binding.takeScreenshot('native-settings-top');
 
       Future<void> reveal(String label) async {
@@ -291,21 +292,15 @@ void main() {
       }
 
       await reveal('주차 층수 앱 아이콘');
-      await tester.tap(find.text('주차 층수 앱 아이콘'));
-      await settle();
-      final dialog = find.byType(AlertDialog);
-      expect(dialog, findsOneWidget);
-      expect(
-        find.descendant(of: dialog, matching: find.byType(ChoiceChip)),
-        findsNothing,
+      // Read the switch without tapping it: the icon must stay as it is.
+      final floorIcon = tester.widget<SwitchListTile>(
+        find.widgetWithText(SwitchListTile, '주차 층수 앱 아이콘'),
       );
-      expect(find.textContaining('F1~F5'), findsOneWidget);
+      expect(floorIcon.value, isTrue);
+      expect(find.textContaining('iPhone이 확인 창을'), findsOneWidget);
       await binding.takeScreenshot('native-launcher-floor');
-      await tester.tap(find.descendant(of: dialog, matching: find.text('닫기')));
-      await settle();
-      expect(dialog, findsNothing);
 
-      await reveal('알림과 차량 찾기');
+      await reveal('알림');
       final familyToggle = tester.widget<SwitchListTile>(
         find.widgetWithText(SwitchListTile, '가족 주차 알림'),
       );
@@ -372,8 +367,7 @@ void main() {
       await settle();
       expect(find.text('D구역 · 52번'), findsOneWidget);
       binding.reportData!['iosSettingsInspection'] = {
-        'launcherFloorDetailsReadOnly': true,
-        'launcherFloorDetailsClosed': true,
+        'launcherFloorSwitchShownOn': true,
         'demoFamilyNotificationsDisabled': true,
         'profileEditorCancelled': true,
         'profileVehiclesAndRecordsUnchanged': true,

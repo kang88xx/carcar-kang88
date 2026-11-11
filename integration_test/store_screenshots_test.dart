@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:carcar/core/app_controller.dart';
 import 'package:carcar/core/native_bridge.dart';
 import 'package:carcar/core/repository.dart';
 import 'package:carcar/main.dart' as app;
@@ -58,6 +59,9 @@ void main() {
     };
     final preferences = await SharedPreferences.getInstance();
     await preferences.remove(DemoParkingRepository.storageKey);
+    // The iPhone floor icon starts off. Capture as a device that switched it
+    // on, so the icon checks and the native notice watcher below still apply.
+    await preferences.setBool(AppController.floorIconPreferenceKey, true);
     await app.main();
     await settle();
     await tester.ensureVisible(find.text('체험 시작하기'));

@@ -35,6 +35,15 @@ import app_links
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
     UNUserNotificationCenter.current().delegate = self
+    // The timer that ends a finding display dies with the app. Remove displays
+    // whose time already ran out; one that is still running is kept.
+    if #available(iOS 16.2, *) {
+      Task { @MainActor in
+        for activity in Activity<ParkingAttributes>.activities where activity.content.state.expiresAt <= Date() {
+          await activity.end(nil, dismissalPolicy: .immediate)
+        }
+      }
+    }
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 

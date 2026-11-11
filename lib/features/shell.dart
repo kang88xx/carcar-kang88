@@ -5,6 +5,7 @@ import '../core/app_controller.dart';
 import '../core/models.dart';
 import '../core/device_notifications.dart';
 import '../core/native_bridge.dart';
+import '../core/repository.dart';
 import '../core/widget_links.dart';
 import '../shared/components.dart';
 import 'parking_form.dart';
@@ -43,10 +44,11 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   static const _bannerKey = 'carcar.home.widget_banner_hidden';
   int _tab = 0;
-  String _search = '';
+  final _search = TextEditingController();
   final _scroll = ScrollController();
-  final _widgetSettingsKey = GlobalKey();
   bool _parkingFormOpen = false, _widgetLinkScheduled = false;
+  bool _joining = false;
+  String? _joinError;
   int? _handledWidgetLinkId;
   late bool _bannerHidden = widget.preferences.getBool(_bannerKey) ?? false;
   AppController get c => widget.controller;
@@ -111,31 +113,16 @@ class _AppShellState extends State<AppShell> {
   @override
   void dispose() {
     c.removeListener(_scheduleWidgetLink);
+    _search.dispose();
     _scroll.dispose();
     super.dispose();
   }
 
   void _navigate(int index) {
+    // The history filter never outlives the visit that typed it.
+    _search.clear();
     setState(() => _tab = index);
     if (_scroll.hasClients) _scroll.jumpTo(0);
-  }
-
-  void _openWidgetSettings() {
-    _navigate(3);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final target = _widgetSettingsKey.currentContext;
-      if (mounted && _tab == 3 && target != null) {
-        Scrollable.ensureVisible(
-          target,
-          duration: const Duration(milliseconds: 220),
-          alignment: .12,
-        );
-      }
-    });
-  }
-
-  Future<void> _widgetGuide() async {
-    if (await showWidgetGuide(context) && mounted) _openWidgetSettings();
   }
 
   Future<void> _hideBanner() async {
@@ -152,7 +139,10 @@ class _AppShellState extends State<AppShell> {
         .where((m) => m.id == c.repository.userId)
         .map((m) => m.name.trim())
         .firstOrNull;
-    return name == null || name.isEmpty || name == '나' ? null : name;
+    // '나' and '가족' are the server's placeholders, not a name to greet by.
+    return name == null || name.isEmpty || name == '나' || name == '가족'
+        ? null
+        : name;
   }
 
   /// Floor shown inside the brand pin: only floors that also have a launcher
@@ -163,6 +153,16 @@ class _AppShellState extends State<AppShell> {
         ? null
         : floor!.trim().toUpperCase();
   }
+
+  /// Nothing has ever loaded for this session, so "no vehicle" is unknown, not
+  /// confirmed. Onboarding is only for a successful load with zero vehicles.
+  bool get _firstLoadFailed =>
+      c.vehicle == null && c.lastSynced == null && c.error != null && _tab != 3;
+
+  /// A received invitation next to an already connected vehicle. Not while
+  /// this invitation itself is being joined and is about to be cleared.
+  bool get _inviteUnusable =>
+      widget.pendingInvite != null && c.vehicle != null && !_joining;
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
@@ -228,13 +228,11 @@ class _AppShellState extends State<AppShell> {
                                               widget.inviteNotice!,
                                               error: true,
                                             ),
-                                          if (widget.pendingInvite != null &&
-                                              c.vehicle != null)
+                                          if (_inviteUnusable)
                                             StatusNotice(
                                               '가족 초대를 받았지만 이미 연결된 차량이 있어요. 계정마다 차량 한 대만 사용할 수 있어요.',
                                             ),
-                                          if (widget.pendingInvite != null &&
-                                              c.vehicle != null)
+                                          if (_inviteUnusable)
                                             TextButton(
                                               onPressed: widget.onClearInvite,
                                               child: const Text('받은 초대 닫기'),
@@ -243,7 +241,8 @@ class _AppShellState extends State<AppShell> {
                                             const StatusNotice(
                                               '체험 중 · 기록은 이 기기에만 저장돼요.',
                                             ),
-                                          if (c.error != null)
+                                          if (c.error != null &&
+                                              !_firstLoadFailed)
                                             StatusNotice(
                                               c.error!,
                                               error: true,
@@ -259,6 +258,8 @@ class _AppShellState extends State<AppShell> {
                                                     CircularProgressIndicator(),
                                               ),
                                             )
+                                          else if (_firstLoadFailed)
+                                            _loadFailed()
                                           else if (c.vehicle == null &&
                                               _tab != 3)
                                             _onboarding()
@@ -268,8 +269,6 @@ class _AppShellState extends State<AppShell> {
                                               1 => _history(),
                                               2 => FamilyScreen(controller: c),
                                               _ => SettingsScreen(
-                                                widgetSectionKey:
-                                                    _widgetSettingsKey,
                                                 controller: c,
                                                 preferences: widget.preferences,
                                                 onLogout: widget.onLogout,
@@ -391,9 +390,7 @@ class _AppShellState extends State<AppShell> {
     final name = _myName;
     final headline = switch (_tab) {
       0 => greetingFor(DateTime.now(), name: name),
-      1 => '쌓여 가는 주차 기록',
-      2 => '우리 가족, 같은 자리',
-      _ => '나에게 맞게 사용하기',
+      _ => _labels[_tab],
     };
     final title = MediaQuery.withClampedTextScaling(
       maxScaleFactor: headlineMaxTextScale,
@@ -414,9 +411,17 @@ class _AppShellState extends State<AppShell> {
         onPressed: c.loading ? null : c.refresh,
         style: IconButton.styleFrom(
           backgroundColor: Colors.white,
+          disabledBackgroundColor: Colors.white,
           fixedSize: const Size(48, 48),
         ),
-        icon: const Icon(Icons.refresh_rounded, size: 21),
+        // Progress shows on the button that was pressed, on every tab.
+        icon: c.loading
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.refresh_rounded, size: 21),
       ),
       const SizedBox(width: 8),
       IconButton(
@@ -484,41 +489,93 @@ class _AppShellState extends State<AppShell> {
     );
   }
 
-  Widget _onboarding() => Surface(
+  Widget _loadFailed() => Surface(
     child: EmptyState(
-      icon: Icons.directions_car_outlined,
-      title: widget.pendingInvite != null ? '가족 초대를 받았어요' : '우리 가족의 차 한 대',
-      description: '처음이라면 새 차량을 등록하고,\n가족이 먼저 등록했다면 초대코드로 참여해요.',
-      action: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          FilledButton.icon(
-            onPressed: () async {
-              if (await openCreateVehicle(context, c)) {
-                await widget.onClearInvite?.call();
-              }
-            },
-            icon: const Icon(Icons.add),
-            label: const Text('새 차량 등록'),
-          ),
-          const SizedBox(height: 10),
-          OutlinedButton(
-            onPressed: () async {
-              if (await openJoinVehicle(
-                context,
-                c,
-                initialCode: widget.pendingInvite,
-              )) {
-                await widget.onClearInvite?.call();
-              }
-            },
-            child: const Text('기존 차량 참여 · 초대코드 입력'),
-          ),
-          TextButton(onPressed: widget.onLogout, child: const Text('로그아웃')),
-        ],
-      ),
+      icon: Icons.error_outline_rounded,
+      title: '주차 위치를 불러오지 못했어요',
+      description: '연결을 확인한 뒤 다시 시도해 주세요.',
+      action: FilledButton(onPressed: c.refresh, child: const Text('다시 시도')),
     ),
   );
+
+  /// Joins with the invitation this device received. Membership is created
+  /// only by the server check, and only after this explicit tap.
+  Future<void> _joinInvited() async {
+    final code = widget.pendingInvite;
+    final clearInvite = widget.onClearInvite;
+    if (_joining || code == null) return;
+    setState(() {
+      _joining = true;
+      _joinError = null;
+    });
+    try {
+      await c.join(code);
+      await clearInvite?.call();
+    } on Object catch (e) {
+      if (!mounted) return;
+      setState(() => _joinError = friendlyError(e));
+      // A used or expired invitation cannot work again: back to the normal card.
+      if (e is InvalidInviteException) await clearInvite?.call();
+    } finally {
+      if (mounted) setState(() => _joining = false);
+    }
+  }
+
+  Future<void> _createVehicle() async {
+    setState(() => _joinError = null);
+    if (await openCreateVehicle(context, c)) {
+      await widget.onClearInvite?.call();
+    }
+  }
+
+  Widget _onboarding() {
+    final invited = widget.pendingInvite != null;
+    return Surface(
+      child: EmptyState(
+        icon: Icons.directions_car_outlined,
+        title: invited ? '가족 초대를 받았어요' : '우리 가족의 차 한 대',
+        description: invited ? '가족 차의 주차 위치를 함께 봐요.' : '가족 차에는 받은 초대로 참여해요.',
+        action: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (_joinError != null) StatusNotice(_joinError!, error: true),
+            if (invited) ...[
+              BusyButton(
+                label: '참여하기',
+                onPressed: _joinInvited,
+                busy: _joining,
+              ),
+              const SizedBox(height: 10),
+              OutlinedButton(
+                onPressed: _joining ? null : _createVehicle,
+                child: const Text('새 차량 등록'),
+              ),
+            ] else ...[
+              FilledButton.icon(
+                onPressed: _createVehicle,
+                icon: const Icon(Icons.add),
+                label: const Text('새 차량 등록'),
+              ),
+              const SizedBox(height: 10),
+              OutlinedButton(
+                onPressed: () async {
+                  setState(() => _joinError = null);
+                  if (await openJoinVehicle(context, c)) {
+                    await widget.onClearInvite?.call();
+                  }
+                },
+                child: const Text('받은 초대로 참여'),
+              ),
+            ],
+            TextButton(
+              onPressed: _joining ? null : widget.onLogout,
+              child: const Text('로그아웃'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _home() => LayoutBuilder(
     builder: (context, constraints) {
@@ -529,7 +586,11 @@ class _AppShellState extends State<AppShell> {
       final secondary = Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (!_bannerHidden) ...[_widgetBanner(), const SizedBox(height: 24)],
+          // The widget has nothing to show before the first record.
+          if (!_bannerHidden && c.latest != null) ...[
+            _widgetBanner(),
+            const SizedBox(height: 24),
+          ],
           _familyRow(),
         ],
       );
@@ -611,27 +672,13 @@ class _AppShellState extends State<AppShell> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            const Expanded(
-              child: Text(
-                '마지막 주차 위치',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-              ),
-            ),
-            if (c.loading)
-              const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            else
-              const Icon(Icons.local_parking_rounded, size: 20),
-          ],
+        const Text(
+          '마지막 주차 위치',
+          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 24),
         Semantics(
-          label: '현재 주차 위치 ${r.position}',
+          label: '마지막 주차 위치 ${r.position}',
           excludeSemantics: true,
           child: LayoutBuilder(
             builder: (context, constraints) {
@@ -666,7 +713,7 @@ class _AppShellState extends State<AppShell> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '${r.zone} 구역',
+                    zoneLabel(r.zone, gap: ' '),
                     style: const TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.w700,
@@ -674,11 +721,13 @@ class _AppShellState extends State<AppShell> {
                       height: 1.3,
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    r.spot.isEmpty ? '번호 미입력' : '${r.spot}번 자리',
-                    style: const TextStyle(fontSize: 15),
-                  ),
+                  if (r.spot.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      '${spotLabel(r.spot)} 자리',
+                      style: const TextStyle(fontSize: 15),
+                    ),
+                  ],
                 ],
               );
               final stacked =
@@ -711,10 +760,7 @@ class _AppShellState extends State<AppShell> {
         const SizedBox(height: 14),
         Text(
           '${c.author(r.createdBy)} 기록 · ${formatDate(r.createdAt)}',
-          style: TextStyle(
-            fontSize: 12,
-            color: Palette.ink.withValues(alpha: .8),
-          ),
+          style: const TextStyle(fontSize: 14),
         ),
       ],
     );
@@ -756,20 +802,9 @@ class _AppShellState extends State<AppShell> {
         const SizedBox(height: 10),
         Padding(
           padding: const EdgeInsets.only(left: 38),
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 4,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              TextButton(
-                onPressed: _widgetGuide,
-                child: const Text('추가 방법 보기'),
-              ),
-              TextButton(
-                onPressed: _openWidgetSettings,
-                child: const Text('위젯 설정'),
-              ),
-            ],
+          child: TextButton(
+            onPressed: () => showWidgetGuide(context),
+            child: const Text('추가 방법 보기'),
           ),
         ),
       ],
@@ -880,7 +915,7 @@ class _AppShellState extends State<AppShell> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '${r.zone}구역${r.spot.isEmpty ? '' : ' · ${r.spot}번'}',
+                    '${zoneLabel(r.zone)}${r.spot.isEmpty ? '' : ' · ${spotLabel(r.spot)}'}',
                     style: const TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 15,
@@ -938,32 +973,28 @@ class _AppShellState extends State<AppShell> {
           (r) =>
               '${r.floor} ${r.zone} ${r.spot} ${r.note} ${c.author(r.createdBy)}'
                   .toLowerCase()
-                  .contains(_search.toLowerCase()),
+                  .contains(_search.text.toLowerCase()),
         )
         .toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          '${c.vehicle!.name}의 최근 200개 기록을 확인해요.',
-          style: const TextStyle(color: Palette.muted),
-        ),
-        const SizedBox(height: 18),
         TextField(
+          controller: _search,
           decoration: const InputDecoration(
             fillColor: Colors.white,
             hintText: '층수, 구역, 번호 또는 메모 검색',
             prefixIcon: Icon(Icons.search_rounded, color: Palette.muted),
           ),
-          onChanged: (value) => setState(() => _search = value),
+          onChanged: (_) => setState(() {}),
         ),
         const SizedBox(height: 20),
         if (results.isEmpty)
           Surface(
             child: EmptyState(
               icon: Icons.history_rounded,
-              title: _search.isEmpty ? '아직 기록이 없어요' : '검색한 기록이 없어요',
-              description: _search.isEmpty
+              title: _search.text.isEmpty ? '아직 기록이 없어요' : '검색한 기록이 없어요',
+              description: _search.text.isEmpty
                   ? '주차 위치를 기록하면 이곳에 차례로 쌓여요.'
                   : '다른 층수나 구역으로 검색해 보세요.',
             ),

@@ -5,6 +5,7 @@ import 'package:carcar/core/repository.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class FloorRepository implements ParkingRepository {
   ParkingRecord record = floorRecord('B1');
@@ -65,10 +66,27 @@ void main() {
     }
   }
 
-  setUp(() {
+  // Replaces the controller with one reading this device's stored choice.
+  Future<void> device(Map<String, Object> stored) async {
+    controller.dispose();
+    SharedPreferences.setMockInitialValues(stored);
+    controller = AppController(
+      repository,
+      preferences: await SharedPreferences.getInstance(),
+    );
+  }
+
+  setUp(() async {
     debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
     repository = FloorRepository();
-    controller = AppController(repository);
+    // The shared cases below run on an iPhone whose floor icon is switched on.
+    SharedPreferences.setMockInitialValues({
+      AppController.floorIconPreferenceKey: true,
+    });
+    controller = AppController(
+      repository,
+      preferences: await SharedPreferences.getInstance(),
+    );
     writes = [];
     current = 'floor_b1';
     fail = false;
@@ -94,6 +112,85 @@ void main() {
     debugDefaultTargetPlatformOverride = null;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, null);
+  });
+  test('iPhone is off by default and never changes a new user icon', () async {
+    await device({});
+    current = null;
+    expect(controller.floorIconEnabled, isFalse);
+    await controller.initialize();
+    await drain();
+    repository.pendingSave = Completer()..complete(floorRecord('B2'));
+    await controller.save(const ParkingDraft(floor: 'B2', zone: 'A'));
+    await drain();
+    await controller.syncFloorIcon();
+    expect(controller.latest!.floor, 'B2');
+    expect(writes, isEmpty);
+    expect(current, isNull);
+    expect(controller.iconWarning, isNull);
+  });
+  test(
+    'iPhone left off returns an applied floor icon to default once',
+    () async {
+      await device({});
+      await controller.initialize();
+      await drain();
+      expect(writes, [null]);
+      expect(current, isNull);
+      repository.record = floorRecord('F3');
+      await controller.refresh();
+      await drain();
+      expect(writes, [null]);
+    },
+  );
+  test(
+    'switching off restores the default icon and on applies the floor',
+    () async {
+      await controller.initialize();
+      await drain();
+      expect(writes, isEmpty);
+      await controller.setFloorIconEnabled(false);
+      expect(controller.floorIconEnabled, isFalse);
+      expect(writes, [null]);
+      expect(current, isNull);
+      await controller.setFloorIconEnabled(true);
+      expect(controller.floorIconEnabled, isTrue);
+      expect(writes, [null, 'floor_b1']);
+      expect(current, 'floor_b1');
+      expect(
+        (await SharedPreferences.getInstance()).getBool(
+          AppController.floorIconPreferenceKey,
+        ),
+        isTrue,
+      );
+    },
+  );
+  test('a choice that cannot be stored changes nothing', () async {
+    controller.dispose();
+    controller = AppController(repository);
+    await controller.initialize();
+    await drain();
+    writes.clear();
+    current = null;
+    await expectLater(
+      controller.setFloorIconEnabled(true),
+      throwsA(isA<AppException>()),
+    );
+    expect(controller.floorIconEnabled, isFalse);
+    expect(writes, isEmpty);
+  });
+  test('Android stays automatic with no stored choice', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    await device({});
+    current = null;
+    expect(controller.floorIconEnabled, isTrue);
+    await controller.initialize();
+    await drain();
+    expect(writes, ['floor_b1']);
+    repository.record = floorRecord('B2');
+    await controller.refresh();
+    await drain();
+    expect(writes, ['floor_b1', 'floor_b2']);
+    expect(current, 'floor_b2');
   });
   test('save changes icon only after server confirmation', () async {
     await controller.initialize();

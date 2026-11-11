@@ -107,6 +107,7 @@ class _ProfileEditorDialogState extends State<ProfileEditorDialog> {
                   decoration: const InputDecoration(
                     labelText: '가족에게 표시할 이름',
                     hintText: '예: 민수, 엄마',
+                    counterText: '',
                   ),
                   textInputAction: TextInputAction.done,
                   validator: (value) {

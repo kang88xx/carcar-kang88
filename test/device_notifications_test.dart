@@ -1,8 +1,12 @@
 import 'dart:async';
 import 'package:carcar/app/theme.dart';
+import 'package:carcar/core/app_controller.dart';
 import 'package:carcar/core/device_notifications.dart';
+import 'package:carcar/core/models.dart';
 import 'package:carcar/core/repository.dart';
+import 'package:carcar/features/management.dart';
 import 'package:carcar/features/notification_settings.dart';
+import 'package:carcar/features/shell.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -32,6 +36,64 @@ class DeviceClient implements SupabaseClient {
   GoTrueClient get auth => deviceAuth;
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+/// A signed-in family owner with one vehicle: enough for the shell's tabs.
+class SignedInRepository implements ParkingRepository {
+  @override
+  bool get isDemo => false;
+  @override
+  String get userId => 'owner';
+  @override
+  Future<List<Vehicle>> vehicles() async => const [
+    Vehicle(
+      id: 'car',
+      ownerId: 'owner',
+      name: '가족 차',
+      plate: '12가 3456',
+      apartment: '집',
+    ),
+  ];
+  @override
+  Future<List<ParkingRecord>> records(String vehicleId) async => const [];
+  @override
+  Future<List<FamilyMember>> members(String vehicleId) async => const [
+    FamilyMember(id: 'owner', name: '나', owner: true),
+  ];
+  @override
+  void watch(void Function() onChange) {}
+  @override
+  Future<void> dispose() async {}
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+/// The same family with a confirmed parking position to find.
+class ParkedRepository extends SignedInRepository {
+  @override
+  Future<List<Vehicle>> vehicles() async => const [
+    Vehicle(
+      id: 'car',
+      ownerId: 'owner',
+      name: '가족 차',
+      plate: '12가 3456',
+      apartment: '집',
+      latestId: 'spot',
+    ),
+  ];
+  @override
+  Future<List<ParkingRecord>> records(String vehicleId) async => [
+    ParkingRecord(
+      id: 'spot',
+      vehicleId: 'car',
+      floor: 'B2',
+      zone: 'C',
+      spot: '24',
+      note: '',
+      createdBy: 'owner',
+      createdAt: DateTime(2026, 11, 10, 9),
+    ),
+  ];
 }
 
 class FakePushNative implements NotificationNativeAdapter {
@@ -614,99 +676,260 @@ void main() {
   );
 
   testWidgets(
-    'turning live display off stops it only after server confirmation',
+    'signed-in settings open on a family alert switch that can be turned on',
     (tester) async {
-      server.settings = const DeviceNotificationSettings(liveEnabled: true);
+      tester.view.physicalSize = const Size(393, 852);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      const channel = MethodChannel('carcar/native');
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (_) async => null);
+      addTearDown(
+        () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null),
+      );
+      final app = AppController(SignedInRepository());
+      addTearDown(app.dispose);
+      await app.initialize();
       await controller.initialize();
-      server.pendingSave = Completer<void>();
-      var stops = 0;
       await tester.pumpWidget(
         MaterialApp(
-          theme: buildTheme(),
-          home: Scaffold(
-            body: SingleChildScrollView(
-              child: NotificationSettings(
-                controller: controller,
-                onLiveDisabled: () async {
-                  stops++;
-                },
-              ),
-            ),
+          theme: buildTheme().copyWith(platform: TargetPlatform.iOS),
+          home: AppShell(
+            controller: app,
+            preferences: preferences,
+            onLogout: () async {},
+            notifications: controller,
           ),
         ),
       );
-      await tester.ensureVisible(find.text('차량 찾기 표시 사용'));
-      await tester.tap(find.text('차량 찾기 표시 사용'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('설정'));
+      await tester.pumpAndSettle();
+      // No scrolling: the switch is on the first screen, above the other groups.
+      final alert = find.widgetWithText(SwitchListTile, '가족 주차 알림');
+      expect(find.text('가족 주차 알림').hitTestable(), findsOneWidget);
+      for (final later in ['우리 주차장', '이 기기에서 보기', '개인정보와 계정']) {
+        expect(
+          tester.getTopLeft(alert).dy,
+          lessThan(tester.getTopLeft(find.text(later)).dy),
+        );
+      }
+      expect(tester.widget<SwitchListTile>(alert).value, isFalse);
+      expect(native.permissionRequests, isEmpty);
+      await tester.tap(alert);
+      await tester.pumpAndSettle();
+      // The permission prompt follows this tap, and the server confirms.
+      expect(native.permissionRequests, [true]);
+      expect(server.settings.pushEnabled, isTrue);
+      expect(tester.widget<SwitchListTile>(alert).value, isTrue);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  test('a quiet save failure leaves no error; a direct one is shown', () async {
+    await controller.initialize();
+    server.saveError = const AppException('저장 실패');
+    final next = controller.settings.copyWith(liveEnabled: true);
+    await expectLater(
+      controller.save(next, quiet: true),
+      throwsA(isA<AppException>()),
+    );
+    expect(controller.error, isNull);
+    expect(controller.saving, isFalse);
+    expect(controller.settings.liveEnabled, isFalse);
+    await expectLater(controller.save(next), throwsA(isA<AppException>()));
+    expect(controller.error, '저장 실패');
+  });
+
+  Widget settings(Widget child) => MaterialApp(
+    theme: buildTheme(),
+    home: Scaffold(body: SingleChildScrollView(child: child)),
+  );
+
+  testWidgets('settings hold alerts only; finding is controlled in its sheet', (
+    tester,
+  ) async {
+    await tester.pumpWidget(settings(const NotificationSettings(isDemo: true)));
+    expect(find.text('알림'), findsOneWidget);
+    server.settings = const DeviceNotificationSettings(liveEnabled: true);
+    await controller.initialize();
+    await tester.pumpWidget(
+      settings(NotificationSettings(controller: controller)),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('알림'), findsOneWidget);
+    expect(find.byType(SwitchListTile), findsNWidgets(3));
+    expect(find.byType(ChoiceChip), findsNothing);
+    expect(find.textContaining('차량 찾기'), findsNothing);
+    expect(find.textContaining('OS 정책'), findsNothing);
+  });
+
+  testWidgets(
+    'a switch shows progress while saving and turns on only once confirmed',
+    (tester) async {
+      await controller.initialize();
+      await tester.pumpWidget(
+        settings(NotificationSettings(controller: controller)),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(LinearProgressIndicator), findsNothing);
+      final alert = find.widgetWithText(SwitchListTile, '가족 주차 알림');
+      server.pendingSave = Completer<void>();
+      await tester.tap(alert);
       await tester.pump();
-      expect(stops, 0);
-      expect(controller.settings.liveEnabled, isTrue);
+      await tester.pump();
+      // Waiting for the server: progress in this group, and still off.
+      expect(events, contains('save_device_settings'));
+      expect(find.byType(LinearProgressIndicator), findsOneWidget);
+      expect(tester.widget<SwitchListTile>(alert).value, isFalse);
+      expect(tester.widget<SwitchListTile>(alert).onChanged, isNull);
       server.pendingSave!.complete();
       await tester.pumpAndSettle();
-      expect(controller.settings.liveEnabled, isFalse);
-      expect(stops, 1);
+      expect(find.byType(LinearProgressIndicator), findsNothing);
+      expect(tester.widget<SwitchListTile>(alert).value, isTrue);
     },
   );
 
-  testWidgets(
-    'live stop failure reports unconfirmed display while keeping server setting off',
-    (tester) async {
-      server.settings = const DeviceNotificationSettings(liveEnabled: true);
+  group('finding sheet', () {
+    const channel = MethodChannel('carcar/native');
+    const started = '차량 찾기 표시를 요청했어요. 잠금 화면 또는 알림을 확인해 주세요.';
+    late List<MethodCall> nativeCalls;
+    // What the device answers to a start: shown, or refused.
+    late bool startResult;
+
+    Future<void> openSheet(WidgetTester tester) async {
+      nativeCalls = [];
+      startResult = true;
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        events.add(call.method);
+        nativeCalls.add(call);
+        if (call.method == 'launcherIconState') return {'supported': false};
+        return call.method == 'startFinding' ? startResult : null;
+      });
+      addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+      final app = AppController(ParkedRepository());
+      addTearDown(app.dispose);
+      await app.initialize();
       await controller.initialize();
       await tester.pumpWidget(
         MaterialApp(
           theme: buildTheme(),
           home: Scaffold(
-            body: SingleChildScrollView(
-              child: NotificationSettings(
-                controller: controller,
-                onLiveDisabled: () async {
-                  throw StateError('private native details');
-                },
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => openFinding(
+                  context,
+                  app,
+                  preferences,
+                  notifications: controller,
+                ),
+                child: const Text('찾기 열기'),
               ),
             ),
           ),
         ),
       );
-      await tester.ensureVisible(find.text('차량 찾기 표시 사용'));
-      await tester.tap(find.text('차량 찾기 표시 사용'));
+      await tester.tap(find.text('찾기 열기'));
       await tester.pumpAndSettle();
-      expect(controller.settings.liveEnabled, isFalse);
-      expect(
-        find.textContaining('현재 차량 찾기 표시의 종료를 확인하지 못했어요.'),
-        findsOneWidget,
-      );
-      expect(find.textContaining('private native details'), findsNothing);
-    },
-  );
+      expect(find.text('B2 · C구역 · 24번'), findsOneWidget);
+    }
 
-  testWidgets(
-    'failed server preference save never claims live display was stopped',
-    (tester) async {
-      server.settings = const DeviceNotificationSettings(liveEnabled: true);
-      await controller.initialize();
-      server.saveError = const AppException('저장 실패');
-      var stops = 0;
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: buildTheme(),
-          home: Scaffold(
-            body: SingleChildScrollView(
-              child: NotificationSettings(
-                controller: controller,
-                onLiveDisabled: () async {
-                  stops++;
-                },
-              ),
-            ),
-          ),
-        ),
+    Iterable<Map<String, dynamic>> saves() =>
+        server.calls.where((call) => call['name'] == 'save_device_settings');
+    bool selected(WidgetTester tester, String label) => tester
+        .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, label))
+        .selected;
+    void sheetTest(String description, WidgetTesterCallback body) =>
+        testWidgets(
+          description,
+          body,
+          variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+        );
+
+    sheetTest('display starts on the device without waiting for the server', (
+      tester,
+    ) async {
+      await openSheet(tester);
+      // A basement: the server does not answer.
+      server.pendingSave = Completer<void>();
+      await tester.tap(find.widgetWithText(ChoiceChip, '4시간'));
+      await tester.pump();
+      await tester.tap(find.text('표시 시작'));
+      await tester.pumpAndSettle();
+      final start = nativeCalls.singleWhere((c) => c.method == 'startFinding');
+      expect((start.arguments as Map)['minutes'], 240);
+      expect((start.arguments as Map)['floor'], 'B2');
+      expect(find.byType(Dialog), findsNothing);
+      expect(find.text(started), findsOneWidget);
+      // The server copy is sent after the device, and nobody waits for it.
+      expect(
+        events.indexOf('startFinding'),
+        lessThan(events.indexOf('save_device_settings')),
       );
-      await tester.ensureVisible(find.text('차량 찾기 표시 사용'));
-      await tester.tap(find.text('차량 찾기 표시 사용'));
+      expect(saves().single['p_live_enabled'], isTrue);
+      expect(saves().single['p_preferred_live_minutes'], 240);
+      expect(controller.settings.liveEnabled, isFalse);
+      server.pendingSave!.complete();
       await tester.pumpAndSettle();
       expect(controller.settings.liveEnabled, isTrue);
-      expect(stops, 0);
-      expect(find.text('저장 실패'), findsOneWidget);
-    },
-  );
+      expect(controller.settings.preferredLiveMinutes, 240);
+    });
+
+    sheetTest('a failed server copy is not shown and the last duration stays', (
+      tester,
+    ) async {
+      await openSheet(tester);
+      expect(selected(tester, '2시간'), isTrue);
+      server.saveError = const AppException('연결 실패');
+      await tester.tap(find.widgetWithText(ChoiceChip, '8시간'));
+      await tester.pump();
+      await tester.tap(find.text('표시 시작'));
+      await tester.pumpAndSettle();
+      expect(find.byType(Dialog), findsNothing);
+      expect(find.text(started), findsOneWidget);
+      expect(saves(), hasLength(1));
+      expect(controller.error, isNull);
+      expect(find.text('연결 실패'), findsNothing);
+      // The server still holds the old default; this device remembers.
+      expect(controller.settings.preferredLiveMinutes, 120);
+      await tester.tap(find.text('찾기 열기'));
+      await tester.pumpAndSettle();
+      expect(selected(tester, '8시간'), isTrue);
+    });
+
+    sheetTest('a device refusal is explained and nothing is saved', (
+      tester,
+    ) async {
+      await openSheet(tester);
+      startResult = false;
+      await tester.tap(find.text('표시 시작'));
+      await tester.pumpAndSettle();
+      expect(find.byType(Dialog), findsOneWidget);
+      expect(
+        find.text('표시 권한이 꺼져 있거나 지원하지 않는 기기예요. 기기 설정에서 허용해 주세요.'),
+        findsOneWidget,
+      );
+      expect(find.text(started), findsNothing);
+      expect(saves(), isEmpty);
+      expect(preferences.getInt('carcar.finding.minutes'), isNull);
+    });
+
+    sheetTest('stopping ends the display even when the server is unreachable', (
+      tester,
+    ) async {
+      await openSheet(tester);
+      server.saveError = const AppException('연결 실패');
+      await tester.tap(find.text('표시 종료'));
+      await tester.pumpAndSettle();
+      expect(nativeCalls.map((c) => c.method), contains('stopFinding'));
+      expect(find.byType(Dialog), findsNothing);
+      expect(find.text('차량 찾기 표시를 종료했어요.'), findsOneWidget);
+      expect(saves().single['p_live_enabled'], isFalse);
+      expect(controller.error, isNull);
+    });
+  });
 }

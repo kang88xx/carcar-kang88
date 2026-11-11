@@ -16,6 +16,14 @@ import 'core/widget_links.dart';
 import 'features/auth_screen.dart';
 import 'features/shell.dart';
 
+/// Ends a stalled server request itself at the save time limit, so a save the
+/// app already reported as failed is not left open to arrive later as a stale
+/// location. Token renewal and connecting come before this takes effect and
+/// are bounded by the AppController timeouts only.
+const serverRequestOptions = PostgrestClientOptions(
+  requestTimeout: Duration(seconds: 15),
+);
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   const url = String.fromEnvironment('SUPABASE_URL');
@@ -34,6 +42,7 @@ Future<void> main() async {
       await Supabase.initialize(
         url: url,
         publishableKey: key,
+        postgrestOptions: serverRequestOptions,
         authOptions: FlutterAuthClientOptions(
           localStorage: kIsWeb ? null : const SecureSessionStorage(),
           detectSessionInUriPredicate: (uri) => kIsWeb
@@ -103,6 +112,9 @@ class _CarcarAppState extends State<CarcarApp> with WidgetsBindingObserver {
   String? _cleanupNotice;
   String? _authNotice;
   String? _inviteNotice;
+  // The user whose native widget, finding display and push registration are
+  // known to be on this device. Only written after a confirmed cleanup.
+  static const _lastUserKey = 'carcar.session.user';
   @override
   void initState() {
     super.initState();
@@ -119,7 +131,7 @@ class _CarcarAppState extends State<CarcarApp> with WidgetsBindingObserver {
         (uri) => unawaited(_receiveLink(uri)),
         onError: (_) {
           if (mounted) {
-            setState(() => _inviteNotice = '초대 링크를 읽지 못했어요. 초대 코드를 붙여 넣어 주세요.');
+            setState(() => _inviteNotice = '초대 링크를 읽지 못했어요. 받은 링크를 붙여 넣어 주세요.');
           }
         },
       );
@@ -218,7 +230,7 @@ class _CarcarAppState extends State<CarcarApp> with WidgetsBindingObserver {
     } on Object {
       if (mounted) {
         setState(
-          () => _inviteNotice = '초대 링크를 보관하지 못했어요. 앱을 다시 열면 초대코드를 붙여 넣어 주세요.',
+          () => _inviteNotice = '초대 링크를 보관하지 못했어요. 앱을 다시 열면 받은 링크를 붙여 넣어 주세요.',
         );
       }
     }
@@ -263,6 +275,10 @@ class _CarcarAppState extends State<CarcarApp> with WidgetsBindingObserver {
     }
   }
 
+  void _forgetLastUser() => unawaited(
+    widget.preferences.remove(_lastUserKey).catchError((Object _) => false),
+  );
+
   Future<void> _clearController() async {
     _discardWidgetLink();
     _navigatorKey.currentState?.popUntil((route) => route.isFirst);
@@ -271,12 +287,21 @@ class _CarcarAppState extends State<CarcarApp> with WidgetsBindingObserver {
     _notifications = null;
     _controller?.dispose();
     _controller = null;
+    // Forget the user before the native cleanup: if the cleanup is interrupted,
+    // the next sign-in cleans again instead of trusting leftover state.
+    _forgetLastUser();
     if (mounted) setState(() {});
     await _clearNativeSnapshot();
     if (mounted) setState(() {});
   }
 
   Future<void> _changeRealSession(String userId) async {
+    // Reopening the app as the same signed-in user keeps that user's own
+    // widget, finding display and push registration. Every other entry (other
+    // account, demo, unknown previous user) cleans the device first.
+    final sameUserRestart =
+        _controller == null &&
+        widget.preferences.getString(_lastUserKey) == userId;
     if (_controller != null ||
         (_widgetLinkUserId != null && _widgetLinkUserId != userId)) {
       _discardWidgetLink();
@@ -288,11 +313,21 @@ class _CarcarAppState extends State<CarcarApp> with WidgetsBindingObserver {
     _controller?.dispose();
     _controller = null;
     if (mounted) setState(() {});
-    await _clearNativeSnapshot(resetIcon: false);
-    if (!mounted ||
-        generation != _authGeneration ||
-        widget.client?.auth.currentUser?.id != userId) {
-      return;
+    if (!sameUserRestart) {
+      _forgetLastUser();
+      await _clearNativeSnapshot(resetIcon: false);
+      if (!mounted ||
+          generation != _authGeneration ||
+          widget.client?.auth.currentUser?.id != userId) {
+        return;
+      }
+      if (_cleanupNotice == null) {
+        unawaited(
+          widget.preferences
+              .setString(_lastUserKey, userId)
+              .catchError((Object _) => false),
+        );
+      }
     }
     _connectReal();
     setState(() {});
@@ -302,6 +337,7 @@ class _CarcarAppState extends State<CarcarApp> with WidgetsBindingObserver {
     if (_startingDemo) return;
     _startingDemo = true;
     try {
+      _forgetLastUser();
       final repo = DemoParkingRepository(widget.preferences);
       await repo.initialize();
       if (!mounted) return;
@@ -410,15 +446,20 @@ class _CarcarAppState extends State<CarcarApp> with WidgetsBindingObserver {
           onCancel: () => _finishPasswordRecovery(completed: false),
         )
       : _controller == null
-      ? AuthScreen(
-          client: widget.client,
-          createAppleAuth: widget.createAppleAuth,
-          onDemo: _demo,
-          startupError: _inviteNotice ?? _cleanupNotice ?? widget.startupError,
-          startupNotice: _pendingInvite.code != null
-              ? '가족 초대를 받았어요. Google 로그인 후 참여할 수 있어요.'
-              : _authNotice,
-        )
+      // Signed in, but this account's home is still being prepared. Show
+      // progress instead of a login screen that looks like nothing happened.
+      ? widget.client?.auth.currentUser != null
+            ? const Scaffold(body: Center(child: CircularProgressIndicator()))
+            : AuthScreen(
+                client: widget.client,
+                createAppleAuth: widget.createAppleAuth,
+                onDemo: _demo,
+                startupError:
+                    _inviteNotice ?? _cleanupNotice ?? widget.startupError,
+                startupNotice: _pendingInvite.code != null
+                    ? '가족 초대를 받았어요. 로그인하면 바로 참여할 수 있어요.'
+                    : _authNotice,
+              )
       : AppShell(
           key: ValueKey(_controller),
           controller: _controller!,

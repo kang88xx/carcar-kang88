@@ -38,6 +38,9 @@ class Harness {
   bool malformedSuccess = false;
   int logoutStatus = 200;
   String? gatePath;
+
+  /// JSON answers by request path; every other path answers `null`.
+  final answers = <String, Object?>{};
   final entered = Completer<void>();
   final release = Completer<void>();
   late SupabaseParkingRepository repository;
@@ -100,7 +103,7 @@ class Harness {
       request.response.statusCode = logoutStatus;
       request.response.write(jsonEncode({'message': 'cleanup failed'}));
     } else {
-      request.response.write('null');
+      request.response.write(jsonEncode(answers[request.uri.path]));
     }
     await request.response.close();
   }

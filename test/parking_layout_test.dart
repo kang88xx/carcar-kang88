@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'package:carcar/app/theme.dart';
 import 'package:carcar/core/app_controller.dart';
 import 'package:carcar/core/models.dart';
 import 'package:carcar/core/repository.dart';
 import 'package:carcar/features/parking_form.dart';
+import 'package:carcar/shared/components.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -20,6 +22,30 @@ class FailingParkingRepository extends DemoParkingRepository {
       throw const AppException('연결을 확인하고 다시 시도해 주세요. 입력한 내용은 그대로 남아 있어요.');
 }
 
+/// The first request never answers, like a connection that stalls after it
+/// was opened. Later requests reach the repository normally.
+class StallingParkingRepository extends DemoParkingRepository {
+  StallingParkingRepository(super.preferences);
+  final keys = <String>[];
+
+  @override
+  Future<ParkingRecord> save(String vehicleId, ParkingDraft draft, String key) {
+    keys.add(key);
+    return keys.length == 1
+        ? Completer<ParkingRecord>().future
+        : super.save(vehicleId, draft, key);
+  }
+}
+
+/// Local storage that reports itself as a signed-in account, to show the
+/// wording a real family sees. It never claims a server round trip.
+class SignedInParkingRepository extends DemoParkingRepository {
+  SignedInParkingRepository(super.preferences);
+
+  @override
+  bool get isDemo => false;
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -28,12 +54,17 @@ void main() {
     Size size = const Size(390, 844),
     double textScale = 1,
     bool longValuesWithSaveFailure = false,
+    bool saveFails = false,
+    FakeViewPadding padding = const FakeViewPadding(top: 59, bottom: 34),
+    bool stallFirstSave = false,
+    bool signedIn = false,
+    TargetPlatform platform = TargetPlatform.iOS,
     List<String>? customZones,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
-    tester.view.padding = const FakeViewPadding(top: 59, bottom: 34);
-    tester.view.viewPadding = const FakeViewPadding(top: 59, bottom: 34);
+    tester.view.padding = padding;
+    tester.view.viewPadding = padding;
     tester.platformDispatcher.textScaleFactorTestValue = textScale;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -47,8 +78,12 @@ void main() {
         );
     SharedPreferences.setMockInitialValues({});
     final preferences = await SharedPreferences.getInstance();
-    final repository = longValuesWithSaveFailure
+    final repository = longValuesWithSaveFailure || saveFails
         ? FailingParkingRepository(preferences)
+        : stallFirstSave
+        ? StallingParkingRepository(preferences)
+        : signedIn
+        ? SignedInParkingRepository(preferences)
         : DemoParkingRepository(preferences);
     await repository.initialize();
     if (customZones != null) {
@@ -74,7 +109,7 @@ void main() {
     addTearDown(controller.dispose);
     await tester.pumpWidget(
       MaterialApp(
-        theme: buildTheme().copyWith(platform: TargetPlatform.iOS),
+        theme: buildTheme().copyWith(platform: platform),
         home: Scaffold(
           body: SafeArea(
             child: Builder(
@@ -173,6 +208,70 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('parking number keeps its limit without a visible counter', (
+    tester,
+  ) async {
+    await openForm(tester);
+    final spot = find.widgetWithText(TextField, '주차 번호 (선택)');
+    await tester.ensureVisible(spot);
+    await tester.enterText(spot, '1' * 30);
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(spot).controller!.text, '1' * 20);
+    expect(find.textContaining(RegExp(r'^\d+\s*/\s*\d+$')), findsNothing);
+  });
+
+  testWidgets('sheet shows the question and the demo note, not the car name', (
+    tester,
+  ) async {
+    final controller = await openForm(tester);
+    expect(find.text('어디에 주차했나요?'), findsOneWidget);
+    expect(find.text(controller.vehicle!.name), findsNothing);
+    expect(find.text('체험 기록 저장'), findsOneWidget);
+    expect(find.text('이 기기에만 저장돼요.'), findsOneWidget);
+  });
+
+  testWidgets('real account has no caption and saves a typed unit once', (
+    tester,
+  ) async {
+    final controller = await openForm(tester, signedIn: true);
+    expect(find.text('저장 후 가족과 위치를 공유해요.'), findsNothing);
+    expect(find.text('이 기기에만 저장돼요.'), findsNothing);
+    expect(find.text(controller.vehicle!.name), findsNothing);
+    for (final label in ['B3', 'D']) {
+      final choice = find.widgetWithText(ChoiceChip, label);
+      await tester.ensureVisible(choice);
+      await tester.tap(choice);
+      await tester.pumpAndSettle();
+    }
+    final spot = find.widgetWithText(TextField, '주차 번호 (선택)');
+    await tester.ensureVisible(spot);
+    await tester.enterText(spot, '24번');
+    await tester.pumpAndSettle();
+    final save = find.text('주차 기록 저장');
+    await tester.ensureVisible(save);
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+    expect(find.byType(ParkingForm), findsNothing);
+    expect(controller.latest!.spot, '24번');
+    expect(find.text('B3 · D구역 · 24번에 주차 기록을 저장했어요.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'iPhone opens digits for the parking number, Android keeps text',
+    (tester) async {
+      final spot = find.widgetWithText(TextField, '주차 번호 (선택)');
+      await openForm(tester);
+      expect(
+        tester.widget<TextField>(spot).keyboardType,
+        const TextInputType.numberWithOptions(signed: true),
+      );
+      await tester.pumpWidget(const SizedBox());
+      await openForm(tester, platform: TargetPlatform.android);
+      expect(tester.widget<TextField>(spot).keyboardType, TextInputType.text);
+    },
+  );
+
   testWidgets('save stays visible while parking fields scroll', (tester) async {
     await openForm(tester);
     final save = find.text('체험 기록 저장');
@@ -188,6 +287,163 @@ void main() {
     await tester.tap(save);
     await tester.pumpAndSettle();
     expect(find.text('층수를 선택해 주세요.').hitTestable(), findsOneWidget);
+    // A missing floor is not a connection problem.
+    expect(find.byIcon(Icons.wifi_off_rounded), findsNothing);
+    expect(find.byIcon(Icons.error_outline_rounded), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  group('haptics', () {
+    late List<String> felt;
+    setUp(() {
+      felt = [];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+            if (call.method == 'HapticFeedback.vibrate') {
+              felt.add(call.arguments as String);
+            }
+            return null;
+          });
+    });
+    tearDown(
+      () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, null),
+    );
+    const click = 'HapticFeedbackType.selectionClick';
+    const success = 'HapticFeedbackType.successNotification';
+    Future<void> choose(WidgetTester tester, String label) async {
+      final choice = find.widgetWithText(ChoiceChip, label);
+      await tester.ensureVisible(choice);
+      await tester.tap(choice);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('a floor or zone chip clicks once for each change', (
+      tester,
+    ) async {
+      await openForm(tester);
+      expect(felt, isEmpty);
+      await choose(tester, 'B2');
+      expect(felt, [click]);
+      // The same chip again changes nothing.
+      await choose(tester, 'B2');
+      expect(felt, [click]);
+      await choose(tester, 'C');
+      await choose(tester, 'B3');
+      expect(felt, [click, click, click]);
+    });
+
+    testWidgets('success is felt only once the save is confirmed', (
+      tester,
+    ) async {
+      await openForm(tester, stallFirstSave: true);
+      await choose(tester, 'B3');
+      await choose(tester, 'D');
+      final save = find.text('체험 기록 저장');
+      await tester.ensureVisible(save);
+      await tester.tap(save);
+      await tester.pump(const Duration(seconds: 14));
+      // Sent but unanswered, then timed out: nothing claims success.
+      expect(felt, [click, click]);
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pumpAndSettle();
+      expect(find.byType(ParkingForm), findsOneWidget);
+      expect(felt, [click, click]);
+      await tester.ensureVisible(save);
+      await tester.tap(save);
+      await tester.pumpAndSettle();
+      expect(find.byType(ParkingForm), findsNothing);
+      expect(felt, [click, click, success]);
+    });
+  });
+
+  testWidgets('stalled save unlocks the sheet with the chosen floor and zone', (
+    tester,
+  ) async {
+    final controller = await openForm(tester, stallFirstSave: true);
+    final repository = controller.repository as StallingParkingRepository;
+    final confirmed = controller.latest?.id;
+    for (final label in ['B3', 'D']) {
+      final choice = find.widgetWithText(ChoiceChip, label);
+      await tester.ensureVisible(choice);
+      await tester.tap(choice);
+      await tester.pumpAndSettle();
+    }
+    VoidCallback? close() => tester
+        .widget<RoundCloseButton>(find.byType(RoundCloseButton))
+        .onPressed;
+    final save = find.text('체험 기록 저장');
+    await tester.ensureVisible(save);
+    await tester.tap(save);
+    await tester.pump(const Duration(seconds: 14));
+    // Still waiting for the server: locked, and nothing claims success.
+    expect(controller.saving, isTrue);
+    expect(close(), isNull);
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+    expect(controller.saving, isFalse);
+    expect(controller.latest?.id, confirmed);
+    expect(find.textContaining('저장했어요'), findsNothing);
+    expect(find.byType(ParkingForm), findsOneWidget);
+    expect(find.text('연결이 불안정해요. 다시 시도해 주세요.'), findsOneWidget);
+    for (final label in ['B3', 'D']) {
+      expect(
+        tester
+            .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, label))
+            .selected,
+        isTrue,
+      );
+    }
+    expect(close(), isNotNull);
+    // The same draft goes out again under the same idempotency key.
+    await tester.ensureVisible(save);
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+    expect(find.byType(ParkingForm), findsNothing);
+    expect(repository.keys, hasLength(2));
+    expect(repository.keys[1], repository.keys[0]);
+    expect(controller.latest!.floor, 'B3');
+    expect(controller.latest!.zone, 'D');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('375x667: a save error never pushes the save button away', (
+    tester,
+  ) async {
+    const size = Size(375, 667);
+    await openForm(
+      tester,
+      size: size,
+      padding: const FakeViewPadding(top: 20),
+      saveFails: true,
+    );
+    for (final label in ['B2', 'C']) {
+      final choice = find.widgetWithText(ChoiceChip, label);
+      await tester.ensureVisible(choice);
+      await tester.tap(choice);
+      await tester.pumpAndSettle();
+    }
+    final fields = tester.state<ScrollableState>(
+      find
+          .descendant(
+            of: find.byType(Dialog),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.tap(find.text('체험 기록 저장'));
+    await tester.pumpAndSettle();
+    // Message and button sit below the scrolling fields, both on screen
+    // without the user having to scroll for the button to press again.
+    final error = find.text('연결을 확인하고 다시 시도해 주세요. 입력한 내용은 그대로 남아 있어요.');
+    expect(error.hitTestable(), findsOneWidget);
+    final button = find.byType(FilledButton);
+    expect(
+      find.descendant(of: find.byWidget(fields.widget), matching: button),
+      findsNothing,
+    );
+    expect(tester.getRect(button).bottom, lessThanOrEqualTo(size.height));
+    expect(button.hitTestable(), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

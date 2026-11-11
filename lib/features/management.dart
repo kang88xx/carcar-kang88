@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -27,9 +28,8 @@ Future<bool> openCreateVehicle(
 
 Future<bool> openJoinVehicle(
   BuildContext context,
-  AppController controller, {
-  String? initialCode,
-}) async {
+  AppController controller,
+) async {
   var joined = false;
   await showSheetDialog<void>(
     context,
@@ -38,7 +38,6 @@ Future<bool> openJoinVehicle(
       description: '가족에게 받은 초대 코드나 링크를 입력해 주세요. 참여 버튼을 눌러야 차량에 연결돼요.',
       fields: const ['초대 코드 또는 링크'],
       hints: const ['가족에게 받은 초대 붙여넣기'],
-      initial: [initialCode ?? ''],
       maxLengths: const [2048],
       button: '가족 차량에 참여하기',
       submit: (values) async {
@@ -137,6 +136,7 @@ class _EntryDialogState extends State<_EntryDialog> {
                   decoration: InputDecoration(
                     labelText: widget.fields[i],
                     hintText: widget.hints[i],
+                    counterText: '',
                   ),
                   validator: (value) => value == null || value.trim().isEmpty
                       ? '${widget.fields[i]}을(를) 입력해 주세요.'
@@ -160,99 +160,37 @@ class FamilyScreen extends StatefulWidget {
 }
 
 class _FamilyScreenState extends State<FamilyScreen> {
-  bool _busy = false;
+  // _inviting marks the one action whose progress belongs on the invite button.
+  bool _busy = false, _inviting = false;
   AppController get c => widget.controller;
-  Future<void> _run(Future<void> Function() action) async {
+  Future<void> _run(
+    Future<void> Function() action, {
+    bool inviting = false,
+  }) async {
     if (_busy) return;
-    setState(() => _busy = true);
+    setState(() {
+      _busy = true;
+      _inviting = inviting;
+    });
     try {
       await action();
       await c.refresh();
     } on Object catch (e) {
       if (mounted) showMessage(context, friendlyError(e));
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) setState(() => _busy = _inviting = false);
     }
   }
 
   Future<void> _invite() async {
-    await _run(() async {
+    await _run(inviting: true, () async {
       final invite = await c.repository.invite(c.vehicle!.id);
       if (!mounted) return;
-      final code = invite['code'] as String;
-      Future<void> share() async {
-        try {
-          final text =
-              '차자리에서 우리 가족 차의 주차 위치를 함께 확인해요.\n${inviteLink(code)}\n\n초대 코드: $code\n24시간 동안 한 번 사용할 수 있어요.';
-          final presented = await NativeBridge.shareText(text);
-          if (!presented) {
-            await Clipboard.setData(ClipboardData(text: text));
-            if (mounted) showMessage(context, '초대 링크와 코드를 복사했어요. 가족에게 보내 주세요.');
-          }
-        } on Object catch (error) {
-          if (mounted) showMessage(context, friendlyError(error));
-        }
-      }
-
       await showSheetDialog<void>(
         context,
-        barrierDismissible: true,
-        builder: (context) => SheetDialog(
-          title: '가족을 초대하세요',
-          subtitle: '24시간 동안 한 번만 사용할 수 있어요. 이 창을 닫으면 코드를 다시 볼 수 없어요.',
-          onClose: () => Navigator.pop(context),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Surface(
-                color: Palette.tint,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 18,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      '초대 코드',
-                      style: TextStyle(fontSize: 12.5, color: Palette.muted),
-                    ),
-                    const SizedBox(height: 6),
-                    SelectableText(
-                      code,
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: .5,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '만료: ${formatDate(DateTime.parse(invite['expires_at'] as String), full: true)}',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 18),
-              FilledButton.icon(
-                onPressed: share,
-                icon: const Icon(Icons.ios_share_rounded, size: 18),
-                label: const Text('초대 링크 공유'),
-              ),
-              const SizedBox(height: 8),
-              OutlinedButton.icon(
-                onPressed: () async {
-                  await Clipboard.setData(ClipboardData(text: code));
-                  if (context.mounted) {
-                    showMessage(context, '초대 코드를 복사했어요. 믿을 수 있는 가족에게만 보내 주세요.');
-                  }
-                },
-                icon: const Icon(Icons.copy_rounded, size: 18),
-                label: const Text('코드 복사'),
-              ),
-            ],
-          ),
+        builder: (_) => _InviteSheet(
+          code: invite['code'] as String,
+          expiresAt: DateTime.parse(invite['expires_at'] as String),
         ),
       );
     });
@@ -384,10 +322,10 @@ class _FamilyScreenState extends State<FamilyScreen> {
       const SizedBox(height: 16),
       if (c.isOwner)
         BusyButton(
-          label: c.isDemo ? '가족 초대 안내' : '가족 초대 코드 만들기',
+          label: c.isDemo ? '가족 초대 안내' : '가족 초대하기',
           icon: Icons.person_add_alt_1_outlined,
-          onPressed: _invite,
-          busy: _busy,
+          onPressed: _busy ? null : _invite,
+          busy: _inviting,
         )
       else
         OutlinedButton(
@@ -410,6 +348,90 @@ class _FamilyScreenState extends State<FamilyScreen> {
   );
 }
 
+/// One invitation for one person, shown once. Sharing the link is the main
+/// action; results stay inside the sheet, where a snackbar would be hidden.
+class _InviteSheet extends StatefulWidget {
+  const _InviteSheet({required this.code, required this.expiresAt});
+  final String code;
+  final DateTime expiresAt;
+  @override
+  State<_InviteSheet> createState() => _InviteSheetState();
+}
+
+class _InviteSheetState extends State<_InviteSheet> {
+  String? _notice;
+  bool _failed = false, _copied = false;
+  Timer? _copiedTimer;
+
+  @override
+  void dispose() {
+    _copiedTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _share() async {
+    try {
+      final text =
+          '차자리에서 우리 가족 차의 주차 위치를 함께 확인해요.\n${inviteLink(widget.code)}\n\n한 사람만, 24시간 안에 쓸 수 있어요.';
+      final presented = await NativeBridge.shareText(text);
+      if (!presented) await Clipboard.setData(ClipboardData(text: text));
+      if (!mounted) return;
+      setState(() {
+        _failed = false;
+        _notice = presented ? null : '초대 링크를 복사했어요. 가족에게 보내 주세요.';
+      });
+    } on Object catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _failed = true;
+        _notice = friendlyError(error);
+      });
+    }
+  }
+
+  Future<void> _copy() async {
+    await Clipboard.setData(ClipboardData(text: widget.code));
+    if (!mounted) return;
+    _copiedTimer?.cancel();
+    _copiedTimer = Timer(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _copied = false);
+    });
+    setState(() => _copied = true);
+  }
+
+  @override
+  Widget build(BuildContext context) => SheetDialog(
+    title: '가족을 초대하세요',
+    subtitle: '한 사람만, 24시간 안에 쓸 수 있어요. 가족마다 새로 보내 주세요.',
+    onClose: () => Navigator.pop(context),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (_notice != null) StatusNotice(_notice!, error: _failed),
+        Text(
+          '만료: ${formatDate(widget.expiresAt, full: true)}',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        const SizedBox(height: 18),
+        FilledButton.icon(
+          onPressed: _share,
+          icon: const Icon(Icons.ios_share_rounded, size: 18),
+          label: const Text('초대 링크 공유'),
+        ),
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          onPressed: _copy,
+          icon: Icon(
+            _copied ? Icons.check_rounded : Icons.copy_rounded,
+            size: 18,
+          ),
+          label: Text(_copied ? '복사했어요' : '코드 복사'),
+        ),
+      ],
+    ),
+  );
+}
+
 Future<void> openFinding(
   BuildContext context,
   AppController c,
@@ -420,9 +442,27 @@ Future<void> openFinding(
     showMessage(context, '차량 찾기 표시는 Android·iPhone 앱에서 사용할 수 있어요.');
     return;
   }
-  var duration = notifications?.initialized == true
-      ? notifications!.settings.preferredLiveMinutes
-      : prefs.getInt('carcar.finding.minutes') ?? 120;
+  // The sheet remembers its own last choice on this device first.
+  var duration =
+      prefs.getInt('carcar.finding.minutes') ??
+      (notifications?.initialized == true
+          ? notifications!.settings.preferredLiveMinutes
+          : 120);
+  // The display runs on this device, so the server copy of the choice is sent
+  // without making the user wait and a failed attempt is not shown.
+  void remember(bool enabled) {
+    if (notifications?.initialized != true) return;
+    notifications!
+        .save(
+          notifications.settings.copyWith(
+            liveEnabled: enabled,
+            preferredLiveMinutes: enabled ? duration : null,
+          ),
+          quiet: true,
+        )
+        .ignore();
+  }
+
   bool busy = false;
   String? error;
   await showSheetDialog<void>(
@@ -474,23 +514,13 @@ Future<void> openFinding(
               onPressed: () async {
                 setState(() => busy = true);
                 try {
-                  if (notifications != null && notifications.supported) {
-                    if (!notifications.initialized) {
-                      await notifications.refresh();
-                    }
-                    await notifications.save(
-                      notifications.settings.copyWith(
-                        liveEnabled: true,
-                        preferredLiveMinutes: duration,
-                      ),
-                    );
-                  }
                   final started = await NativeBridge.startFinding(
                     c.snapshot,
                     duration,
                   );
                   if (!context.mounted) return;
                   if (started) {
+                    remember(true);
                     await prefs.setInt('carcar.finding.minutes', duration);
                     if (context.mounted) {
                       Navigator.pop(context);
@@ -520,11 +550,7 @@ Future<void> openFinding(
                   : () async {
                       try {
                         await NativeBridge.stopFinding();
-                        if (notifications?.initialized == true) {
-                          await notifications!.save(
-                            notifications.settings.copyWith(liveEnabled: false),
-                          );
-                        }
+                        remember(false);
                         if (context.mounted) {
                           Navigator.pop(context);
                           showMessage(context, '차량 찾기 표시를 종료했어요.');
@@ -554,14 +580,12 @@ class SettingsScreen extends StatefulWidget {
     required this.onLogout,
     this.onAccountDeleted,
     this.notifications,
-    this.widgetSectionKey,
   });
   final AppController controller;
   final SharedPreferences preferences;
   final Future<void> Function() onLogout;
   final Future<void> Function(AppController controller)? onAccountDeleted;
   final DeviceNotificationController? notifications;
-  final Key? widgetSectionKey;
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
@@ -671,8 +695,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      const Text('필요한 기능만 편안하게 설정하세요.', style: TextStyle(color: Palette.muted)),
-      const SizedBox(height: 24),
+      NotificationSettings(controller: widget.notifications, isDemo: c.isDemo),
+      const SizedBox(height: 22),
       if (c.vehicle != null) ...[
         const GroupLabel('우리 주차장'),
         Surface(
@@ -726,15 +750,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
             ),
             const RowDivider(),
-            KeyedSubtree(
-              key: widget.widgetSectionKey,
-              child: ActionRow(
-                icon: Icons.widgets_outlined,
-                title: '홈 화면 위젯',
-                subtitle: '정사각형 위젯에서 위치를 보고 앱의 기록 화면을 열어요.',
-                onTap: () =>
-                    showWidgetGuide(context, showSettingsAction: false),
-              ),
+            ActionRow(
+              icon: Icons.widgets_outlined,
+              title: '홈 화면 위젯',
+              subtitle: '정사각형 위젯에서 위치를 보고 앱의 기록 화면을 열어요.',
+              onTap: () => showWidgetGuide(context),
             ),
             if (c.widgetQuickSaveEnabled) ...[
               const RowDivider(),
@@ -765,8 +785,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ],
         ),
       ),
-      const SizedBox(height: 22),
-      NotificationSettings(controller: widget.notifications, isDemo: c.isDemo),
       const SizedBox(height: 22),
       const GroupLabel('개인정보와 계정'),
       Surface(
@@ -836,7 +854,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
       const SizedBox(height: 28),
       const Text(
-        '차자리 1.0.0\n가족과 함께 기억하는 우리 차의 자리',
+        '차자리 1.0.1\n가족과 함께 기억하는 우리 차의 자리',
         textAlign: TextAlign.center,
         style: TextStyle(fontSize: 12, color: Palette.muted, height: 1.8),
       ),

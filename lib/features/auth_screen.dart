@@ -35,7 +35,9 @@ class AuthScreen extends StatefulWidget {
 }
 
 class _AuthScreenState extends State<AuthScreen> {
-  bool _busy = false;
+  // The sign-in the user started; only that button shows progress.
+  OAuthProvider? _signingIn;
+  bool get _busy => _signingIn != null;
   String? _error, _notice;
   int _authVersion = 0;
   StreamSubscription<AuthState>? _authSubscription;
@@ -59,7 +61,7 @@ class _AuthScreenState extends State<AuthScreen> {
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.client, widget.client)) {
       _authVersion++;
-      _busy = false;
+      _signingIn = null;
       unawaited(_authSubscription?.cancel());
       _watchAuth();
     }
@@ -75,7 +77,7 @@ class _AuthScreenState extends State<AuthScreen> {
     final client = widget.client;
     if (_busy || client == null || client.auth.currentUser != null) return;
     setState(() {
-      _busy = true;
+      _signingIn = OAuthProvider.apple;
       _error = null;
       _notice = null;
     });
@@ -116,6 +118,8 @@ class _AuthScreenState extends State<AuthScreen> {
               DateTime.now().millisecondsSinceEpoch ~/ 1000 + 60) {
         throw const AppException('Apple 로그인을 확인하지 못했어요. 다시 시도해 주세요.');
       }
+      // Kept in memory only, as a first name for an account without a profile.
+      rememberAppleName(session.user.id, credential.fullName);
       // For a fresh session recoverSession applies synchronously before its
       // first await. Never feed it an expired token that could trigger refresh.
       await client.auth.recoverSession(jsonEncode(session.toJson()));
@@ -128,7 +132,7 @@ class _AuthScreenState extends State<AuthScreen> {
     } finally {
       exchange?.dispose();
       if (mounted && identical(client, widget.client)) {
-        setState(() => _busy = false);
+        setState(() => _signingIn = null);
       }
     }
   }
@@ -136,7 +140,7 @@ class _AuthScreenState extends State<AuthScreen> {
   Future<void> _google() async {
     if (_busy || widget.client == null) return;
     setState(() {
-      _busy = true;
+      _signingIn = OAuthProvider.google;
       _error = null;
       _notice = null;
     });
@@ -161,7 +165,7 @@ class _AuthScreenState extends State<AuthScreen> {
     } on Object catch (error) {
       if (mounted) setState(() => _error = friendlyError(error));
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) setState(() => _signingIn = null);
     }
   }
 
@@ -189,7 +193,7 @@ class _AuthScreenState extends State<AuthScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         _intro(),
-                        const SizedBox(height: 40),
+                        const SizedBox(height: 24),
                         _formPanel(),
                       ],
                     ),
@@ -204,7 +208,7 @@ class _AuthScreenState extends State<AuthScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Brand(large: true),
-        const SizedBox(height: 36),
+        const SizedBox(height: 24),
         MediaQuery.withClampedTextScaling(
           maxScaleFactor: headlineMaxTextScale,
           child: Text(
@@ -216,7 +220,7 @@ class _AuthScreenState extends State<AuthScreen> {
         ),
         const SizedBox(height: 14),
         const Text(
-          '한 번 기록하면, 온 가족이 알아요.\n복잡한 지하 주차장에서도 헤매지 않도록.',
+          '한 번 기록하면, 온 가족이 알아요.',
           style: TextStyle(color: Palette.muted, fontSize: 16, height: 1.7),
         ),
         const SizedBox(height: 26),
@@ -227,8 +231,8 @@ class _AuthScreenState extends State<AuthScreen> {
             crossAxisAlignment: WrapCrossAlignment.end,
             spacing: 18,
             runSpacing: 8,
-            children: [
-              const Text(
+            children: const [
+              Text(
                 'B2',
                 style: TextStyle(
                   fontSize: 52,
@@ -239,28 +243,14 @@ class _AuthScreenState extends State<AuthScreen> {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text(
-                      'C 구역 · 24번',
-                      style: TextStyle(
-                        fontSize: 19,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -.5,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      '이렇게 간단하게 기억해요.',
-                      style: TextStyle(
-                        color: Palette.ink.withValues(alpha: .78),
-                        fontSize: 12.5,
-                      ),
-                    ),
-                  ],
+                padding: EdgeInsets.only(bottom: 4),
+                child: Text(
+                  'C 구역 · 24번',
+                  style: TextStyle(
+                    fontSize: 19,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -.5,
+                  ),
                 ),
               ),
             ],
@@ -275,18 +265,15 @@ class _AuthScreenState extends State<AuthScreen> {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          widget.client == null ? '차자리를 먼저 만나보세요' : '우리 가족의 차 한 대',
-          style: Theme.of(context).textTheme.titleLarge,
-        ),
-        const SizedBox(height: 8),
-        Text(
-          widget.client == null
-              ? '가입 없이 화면과 주차 기록을 체험할 수 있어요.'
-              : '로그인하고, 차량을 등록하거나 가족의 초대를 받아요.',
-          style: const TextStyle(color: Palette.muted, height: 1.6),
-        ),
-        const SizedBox(height: 22),
+        if (widget.client == null) ...[
+          Text('차자리를 먼저 만나보세요', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 8),
+          const Text(
+            '가입 없이 화면과 주차 기록을 체험할 수 있어요.',
+            style: TextStyle(color: Palette.muted, height: 1.6),
+          ),
+          const SizedBox(height: 22),
+        ],
         if (widget.startupError != null)
           StatusNotice(widget.startupError!, error: true),
         if (widget.startupNotice != null) StatusNotice(widget.startupNotice!),
@@ -296,8 +283,14 @@ class _AuthScreenState extends State<AuthScreen> {
           if (NativeBridge.supportsAppleSignIn) ...[
             FilledButton.icon(
               onPressed: _busy ? null : _apple,
-              icon: const Icon(Icons.apple, size: 24),
-              label: const Text('Apple로 계속하기'),
+              icon: _signingIn == OAuthProvider.apple
+                  ? _progress
+                  : const Icon(Icons.apple, size: 24),
+              // Shrinks instead of wrapping on a narrow screen with large text.
+              label: const FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text('Apple로 계속하기'),
+              ),
               style: FilledButton.styleFrom(
                 backgroundColor: Colors.black,
                 foregroundColor: Colors.white,
@@ -308,55 +301,47 @@ class _AuthScreenState extends State<AuthScreen> {
           ],
           OutlinedButton.icon(
             onPressed: _busy ? null : _google,
-            icon: _busy
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
+            icon: _signingIn == OAuthProvider.google
+                ? _progress
                 : Image.asset(
                     'assets/brand/google-g.png',
                     width: 20,
                     height: 20,
                   ),
-            label: const Text('Google로 계속하기'),
+            label: const FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text('Google로 계속하기'),
+            ),
             style: OutlinedButton.styleFrom(minimumSize: const Size(48, 56)),
           ),
           const SizedBox(height: 12),
+          TextButton(
+            onPressed: _busy ? null : widget.onDemo,
+            child: const Text('가입 없이 먼저 둘러보기'),
+          ),
+        ] else ...[
+          BusyButton(
+            label: '체험 시작하기',
+            icon: Icons.arrow_forward_rounded,
+            onPressed: widget.onDemo,
+          ),
+          const SizedBox(height: 12),
           const Text(
-            '별도의 차자리 비밀번호나 인증 문자는 필요 없어요.',
-            style: TextStyle(fontSize: 12, color: Palette.muted, height: 1.6),
+            '체험 기록은 이 기기에만 저장돼요.\n실제 가족 공유는 로그인 후 사용할 수 있어요.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Palette.muted, fontSize: 12, height: 1.7),
           ),
-          const SizedBox(height: 16),
-          const Divider(),
-          const SizedBox(height: 8),
         ],
-        widget.client == null
-            ? BusyButton(
-                label: '체험 시작하기',
-                icon: Icons.arrow_forward_rounded,
-                onPressed: widget.onDemo,
-              )
-            : TextButton(
-                onPressed: _busy ? null : widget.onDemo,
-                child: const Text('가입 없이 먼저 둘러보기'),
-              ),
-        const SizedBox(height: 12),
-        Text(
-          widget.client == null
-              ? '체험 기록은 이 기기에만 저장돼요.\n실제 가족 공유는 로그인 후 사용할 수 있어요.'
-              : '체험 기록은 이 기기에만 저장돼요.',
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: Palette.muted,
-            fontSize: 12,
-            height: 1.7,
-          ),
-        ),
       ],
     ),
   );
 }
+
+const _progress = SizedBox(
+  width: 20,
+  height: 20,
+  child: CircularProgressIndicator(strokeWidth: 2),
+);
 
 class PasswordRecoveryScreen extends StatefulWidget {
   const PasswordRecoveryScreen({

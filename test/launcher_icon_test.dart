@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -180,21 +181,127 @@ void main() {
       ),
     ),
   );
-  iconWidgetTest('floor details are informative and never write an icon', (
+  testWidgets(
+    'Android floor details are informative, with no switch and no icon write',
+    (tester) async {
+      final controller = AppController(FloorRepository());
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(screen(controller));
+      await tester.pumpAndSettle();
+      expect(find.byType(SwitchListTile), findsNothing);
+      expect(find.text('저장한 층수에 맞춰 자동으로 바뀌어요.'), findsOneWidget);
+      await tester.tap(find.text('주차 층수 앱 아이콘'));
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(find.byType(ChoiceChip), findsNothing);
+      expect(find.textContaining('F1~F5'), findsOneWidget);
+      expect(find.textContaining('iPhone'), findsNothing);
+      await tester.tap(find.text('닫기'));
+      await tester.pumpAndSettle();
+      expect(calls.where((c) => c.method == 'setLauncherIcon'), isEmpty);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.android),
+  );
+  iconWidgetTest('iPhone offers one switch, off by default, and no dialog', (
     tester,
   ) async {
+    SharedPreferences.setMockInitialValues({});
+    final controller = AppController(
+      FloorRepository(),
+      preferences: await SharedPreferences.getInstance(),
+    );
+    addTearDown(controller.dispose);
+    await controller.initialize();
+    await tester.pumpWidget(screen(controller));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
+      isFalse,
+    );
+    expect(find.text('주차 층수 앱 아이콘'), findsOneWidget);
+    expect(find.text('켜면 층이 바뀔 때마다 iPhone이 확인 창을 띄워요.'), findsOneWidget);
+    expect(find.byIcon(Icons.chevron_right_rounded), findsNothing);
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(calls.where((c) => c.method == 'setLauncherIcon'), isEmpty);
+  });
+  iconWidgetTest(
+    'iPhone switch applies the confirmed floor and off restores the default',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final preferences = await SharedPreferences.getInstance();
+      final controller = AppController(
+        FloorRepository(),
+        preferences: preferences,
+      );
+      addTearDown(controller.dispose);
+      await controller.initialize();
+      await tester.pumpWidget(screen(controller));
+      await tester.pumpAndSettle();
+      List<Object?> written() => [
+        for (final call in calls)
+          if (call.method == 'setLauncherIcon')
+            (call.arguments as Map)['iconId'],
+      ];
+      await tester.tap(find.byType(SwitchListTile));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
+        isTrue,
+      );
+      expect(preferences.getBool(AppController.floorIconPreferenceKey), isTrue);
+      expect(written(), ['floor_b1']);
+      expect(find.byType(AlertDialog), findsNothing);
+      await tester.tap(find.byType(SwitchListTile));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
+        isFalse,
+      );
+      expect(
+        preferences.getBool(AppController.floorIconPreferenceKey),
+        isFalse,
+      );
+      expect(written(), ['floor_b1', null]);
+      expect(current, isNull);
+    },
+  );
+  iconWidgetTest('a switch that cannot be saved says so and stays off', (
+    tester,
+  ) async {
+    // No device storage: the choice cannot be kept.
     final controller = AppController(FloorRepository());
     addTearDown(controller.dispose);
     await tester.pumpWidget(screen(controller));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('주차 층수 앱 아이콘'));
+    await tester.tap(find.byType(SwitchListTile));
     await tester.pumpAndSettle();
-    expect(find.byType(AlertDialog), findsOneWidget);
-    expect(find.byType(ChoiceChip), findsNothing);
-    expect(find.textContaining('F1~F5'), findsOneWidget);
-    await tester.tap(find.text('닫기'));
-    await tester.pumpAndSettle();
+    expect(find.text('기기 설정을 저장하지 못했어요. 다시 시도해 주세요.'), findsOneWidget);
+    expect(
+      tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
+      isFalse,
+    );
     expect(calls.where((c) => c.method == 'setLauncherIcon'), isEmpty);
+  });
+  iconWidgetTest('a failed icon change is explained as an icon problem', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final controller = AppController(
+      FloorRepository(),
+      preferences: await SharedPreferences.getInstance(),
+    );
+    addTearDown(controller.dispose);
+    await controller.initialize();
+    failChange = true;
+    await tester.pumpWidget(screen(controller));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(SwitchListTile));
+    await tester.pumpAndSettle();
+    // Nothing was just parked and this already is the settings screen.
+    expect(find.text('아이콘을 바꾸지 못했어요.'), findsOneWidget);
+    expect(find.textContaining('주차 기록'), findsNothing);
+    expect(find.textContaining('설정에서'), findsNothing);
+    expect(find.text('아이콘 다시 맞추기'), findsOneWidget);
   });
   iconWidgetTest('warning exposes retry and native failure stays visible', (
     tester,
@@ -212,20 +319,30 @@ void main() {
     expect(current, 'floor_b2');
     expect(calls.where((c) => c.method == 'setLauncherIcon'), hasLength(1));
   });
-  iconWidgetTest('floor details fit narrow width and large text', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(320, 740);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-    final controller = AppController(FloorRepository());
-    addTearDown(controller.dispose);
-    await tester.pumpWidget(screen(controller, scale: 2));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('주차 층수 앱 아이콘'));
-    await tester.pumpAndSettle();
-    expect(find.byType(AlertDialog), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
+  testWidgets(
+    'floor row fits narrow width and large text',
+    (tester) async {
+      tester.view.physicalSize = const Size(320, 740);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final controller = AppController(FloorRepository());
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(screen(controller, scale: 2));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      if (defaultTargetPlatform == TargetPlatform.iOS) {
+        expect(find.byType(SwitchListTile), findsOneWidget);
+      } else {
+        await tester.tap(find.text('주차 층수 앱 아이콘'));
+        await tester.pumpAndSettle();
+        expect(find.byType(AlertDialog), findsOneWidget);
+      }
+      expect(tester.takeException(), isNull);
+    },
+    variant: TargetPlatformVariant({
+      TargetPlatform.iOS,
+      TargetPlatform.android,
+    }),
+  );
 }

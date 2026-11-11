@@ -81,7 +81,7 @@ private struct ParkingWidgetView: View {
                 Image(systemName: "clock").accessibilityHidden(true)
                 Text(recordTime).lineLimit(1).minimumScaleFactor(0.75)
             }
-            .font(.system(size: 10.5))
+            .font(.system(size: 12))
             .foregroundStyle(WidgetPalette.mist)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(recordTime)

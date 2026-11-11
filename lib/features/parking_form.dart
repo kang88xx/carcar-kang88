@@ -143,6 +143,8 @@ class _ParkingFormState extends State<ParkingForm> {
     try {
       final record = await widget.controller.save(draft);
       if (!mounted) return;
+      // Only a confirmed save is felt, never an attempt.
+      HapticFeedback.successNotification();
       Navigator.pop(context);
       showMessage(
         context,
@@ -168,7 +170,6 @@ class _ParkingFormState extends State<ParkingForm> {
       },
       child: SheetDialog(
         title: '어디에 주차했나요?',
-        subtitle: vehicle?.name ?? '주차 기록',
         closeTooltip: '기록 창 닫기',
         onClose: locked ? null : _close,
         footer: _confirmation(),
@@ -216,9 +217,15 @@ class _ParkingFormState extends State<ParkingForm> {
               controller: _spot,
               maxLength: 20,
               enabled: !locked,
+              // iPhone opens digits first and can still switch to letters.
+              // Android's number pad cannot, so it keeps the text keyboard.
+              keyboardType: Theme.of(context).platform == TargetPlatform.iOS
+                  ? const TextInputType.numberWithOptions(signed: true)
+                  : null,
               decoration: const InputDecoration(
                 labelText: '주차 번호 (선택)',
                 hintText: '예: 24',
+                counterText: '',
               ),
               onChanged: (_) => setState(() {
                 _dirty = true;
@@ -242,26 +249,32 @@ class _ParkingFormState extends State<ParkingForm> {
         onPressed: _scanning ? null : _save,
         icon: Icons.check_rounded,
       ),
-      const SizedBox(height: 8),
-      Text(
-        widget.controller.isDemo ? '이 기기에만 저장돼요.' : '저장 후 가족과 위치를 공유해요.',
-        textAlign: TextAlign.center,
-        style: Theme.of(context).textTheme.bodySmall,
-      ),
+      if (widget.controller.isDemo) ...[
+        const SizedBox(height: 8),
+        Text(
+          '이 기기에만 저장돼요.',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ],
     ],
   );
 
-  void _selectFloor(String value) => setState(() {
-    _floor = value;
-    _error = null;
-    _dirty = true;
-  });
+  void _selectFloor(String value) {
+    if (value != _floor) HapticFeedback.selectionClick();
+    setState(() {
+      _floor = value;
+      _error = null;
+    });
+  }
 
-  void _selectZone(String value) => setState(() {
-    _zone = value;
-    _error = null;
-    _dirty = true;
-  });
+  void _selectZone(String value) {
+    if (value != _zone) HapticFeedback.selectionClick();
+    setState(() {
+      _zone = value;
+      _error = null;
+    });
+  }
 
   Widget _floorChoices(List<String> options) {
     final ground = options

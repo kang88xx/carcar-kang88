@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:carcar/app/theme.dart';
 import 'package:carcar/core/native_bridge.dart';
+import 'package:carcar/core/repository.dart';
 import 'package:carcar/features/auth_screen.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -22,7 +23,10 @@ final _credential = AppleCredential(
   fullName: '가족',
 );
 
-Session _session(String id) => Session(
+Session _session(
+  String id, {
+  Map<String, dynamic> metadata = const {'full_name': '기존 이름'},
+}) => Session(
   accessToken:
       'e30.${base64Url.encode(utf8.encode(jsonEncode({'exp': DateTime.now().millisecondsSinceEpoch ~/ 1000 + 3600}))).replaceAll('=', '')}.c2ln',
   refreshToken: 'refresh-$id',
@@ -30,7 +34,7 @@ Session _session(String id) => Session(
   user: User(
     id: id,
     appMetadata: const {},
-    userMetadata: const {'full_name': '기존 이름'},
+    userMetadata: metadata,
     aud: 'authenticated',
     createdAt: '2026-01-01T00:00:00Z',
   ),
@@ -190,6 +194,37 @@ void main() {
     variant: TargetPlatformVariant.only(TargetPlatform.iOS),
   );
 
+  testWidgets(
+    'the first Apple name is offered in memory to that account only',
+    (tester) async {
+      final auth = AppleAuth()
+        ..responseSession = _session('apple-new', metadata: const {});
+      await pumpPage(
+        tester,
+        auth: auth,
+        apple: () async => AppleCredential(
+          identityToken: _token,
+          authorizationCode: 'single-use-code',
+          userIdentifier: 'apple-user',
+          rawNonce: _nonce,
+          fullName: '김민수',
+        ),
+      );
+      await tester.tap(find.text('Apple로 계속하기'));
+      await tester.pumpAndSettle();
+      final client = AppleClient(auth);
+      expect(SupabaseParkingRepository(client).accountName, '김민수');
+      // Apple sends no name on later sign-ins; that never erases the first.
+      rememberAppleName('apple-new', null);
+      expect(SupabaseParkingRepository(client).accountName, '김민수');
+      // The session itself stays untouched: nothing is written to the account.
+      expect(auth.currentSession?.user.userMetadata, isEmpty);
+      auth.session = _session('someone-else', metadata: const {});
+      expect(SupabaseParkingRepository(client).accountName, isNull);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+  );
+
   testWidgets('native errors hide credentials and allow a retry', (
     tester,
   ) async {
@@ -226,7 +261,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(auth.currentSession, isNull);
     expect(find.textContaining('private-detail'), findsNothing);
-    expect(find.textContaining('로그인 요청을 완료하지 못했어요'), findsOneWidget);
+    expect(find.text('로그인을 완료하지 못했어요. 잠시 후 다시 시도해 주세요.'), findsOneWidget);
+    // Sign-in has no email or password; the message must not ask for them.
+    expect(find.textContaining('비밀번호'), findsNothing);
+    expect(find.textContaining('입력 내용'), findsNothing);
     auth.error = null;
     await tester.tap(find.text('Apple로 계속하기'));
     await tester.pumpAndSettle();
@@ -280,6 +318,42 @@ void main() {
           .onPressed,
       isNotNull,
     );
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
+  testWidgets('progress shows on the tapped sign-in button only', (
+    tester,
+  ) async {
+    Finder progressIn(String label) => find.descendant(
+      of: find.ancestor(
+        of: find.text(label),
+        matching: find.byWidgetPredicate((w) => w is ButtonStyleButton),
+      ),
+      matching: find.byType(CircularProgressIndicator),
+    );
+    final apple = Completer<AppleCredential?>();
+    final google = Completer<bool>();
+    await pumpPage(
+      tester,
+      auth: AppleAuth(),
+      apple: () => apple.future,
+      google: () => google.future,
+    );
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    await tester.tap(find.text('Apple로 계속하기'));
+    await tester.pump();
+    expect(progressIn('Apple로 계속하기'), findsOneWidget);
+    expect(progressIn('Google로 계속하기'), findsNothing);
+    apple.complete(null);
+    await tester.pump();
+    await tester.pump();
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    await tester.tap(find.text('Google로 계속하기'));
+    await tester.pump();
+    expect(progressIn('Google로 계속하기'), findsOneWidget);
+    expect(progressIn('Apple로 계속하기'), findsNothing);
+    google.complete(true);
+    await tester.pumpAndSettle();
+    expect(find.byType(CircularProgressIndicator), findsNothing);
   }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
 
   testWidgets('pending Google launch blocks Apple authentication', (

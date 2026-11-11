@@ -364,9 +364,10 @@ class SheetDialog extends StatelessWidget {
             builder: (context, constraints) {
               // Dialog has already removed keyboard insets from these bounds.
               // Large text or a short viewport needs one scrollable region.
+              // 600 keeps the footer pinned on a 375x667 phone without keyboard.
               final pinnedFooter =
                   footer != null &&
-                  constraints.maxHeight >= 650 &&
+                  constraints.maxHeight >= 600 &&
                   MediaQuery.textScalerOf(context).scale(16) <= 20.8;
               return Column(
                 mainAxisSize: MainAxisSize.min,
@@ -472,7 +473,7 @@ class StatusNotice extends StatelessWidget {
     child: Row(
       children: [
         Icon(
-          error ? Icons.wifi_off_rounded : Icons.info_outline_rounded,
+          error ? Icons.error_outline_rounded : Icons.info_outline_rounded,
           size: 20,
           color: error ? Palette.roseInk : Palette.ink,
         ),

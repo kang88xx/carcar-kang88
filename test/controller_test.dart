@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:carcar/core/app_controller.dart';
 import 'package:carcar/core/models.dart';
 import 'package:carcar/core/repository.dart';
+import 'package:carcar/main.dart' show serverRequestOptions;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -35,18 +36,24 @@ class ControlledRepository implements ParkingRepository {
     ),
   ];
   Object? fetchError;
+  Completer<List<Vehicle>>? pendingFetch;
+  Completer<List<ParkingRecord>>? pendingRecords;
   Completer<ParkingRecord>? pendingSave;
   final keys = <String>[];
   int saveCalls = 0;
   @override
   Future<List<Vehicle>> vehicles() async {
     if (fetchError != null) throw fetchError!;
+    if (pendingFetch != null) return pendingFetch!.future;
     return List.of(available);
   }
 
   @override
-  Future<List<ParkingRecord>> records(String vehicleId) async =>
-      history.where((record) => record.vehicleId == vehicleId).toList();
+  Future<List<ParkingRecord>> records(String vehicleId) async {
+    if (pendingRecords != null) return pendingRecords!.future;
+    return history.where((record) => record.vehicleId == vehicleId).toList();
+  }
+
   @override
   Future<List<FamilyMember>> members(String vehicleId) async => [
     const FamilyMember(id: 'owner', name: '나', owner: true),
@@ -79,6 +86,42 @@ class ControlledRepository implements ParkingRepository {
   Future<void> signOut() async {}
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+/// Mirrors create_parking_record_and_set_latest: a known idempotency key
+/// returns the stored record and inserts nothing.
+class KeyedRepository extends ControlledRepository {
+  final stored = <String, ParkingRecord>{};
+  Completer<void>? stall;
+
+  ParkingRecord insert(String floor, String zone, String by) {
+    final record = ParkingRecord(
+      id: 'r${history.length}',
+      vehicleId: 'car',
+      floor: floor,
+      zone: zone,
+      spot: '',
+      note: '',
+      createdBy: by,
+      createdAt: DateTime.utc(2026, 11, 10, 20 + history.length),
+    );
+    history = [record, ...history];
+    available = [available.single.copyWith(latestId: record.id)];
+    return record;
+  }
+
+  @override
+  Future<ParkingRecord> save(
+    String vehicleId,
+    ParkingDraft draft,
+    String key,
+  ) async {
+    keys.add(key);
+    final wait = stall;
+    stall = null;
+    if (wait != null) await wait.future;
+    return stored[key] ??= insert(draft.floor, draft.zone, userId);
+  }
 }
 
 void main() {
@@ -252,10 +295,126 @@ void main() {
       repository.fetchError = StateError('network disconnected');
       await controller.refresh();
       expect(controller.latest?.id, 'old');
-      expect(controller.error, isNotNull);
+      // Nothing was typed on home, so the copy must not mention kept input.
+      expect(controller.error, '연결이 불안정해요. 다시 시도해 주세요.');
       expect(controller.loading, isFalse);
     },
   );
+  test('production timeouts are 12s for loads and 15s for saves', () {
+    expect(controller.loadTimeout, const Duration(seconds: 12));
+    expect(controller.saveTimeout, const Duration(seconds: 15));
+    // The stalled request itself is ended when the save gives up.
+    expect(serverRequestOptions.requestTimeout, controller.saveTimeout);
+    expect(AppController.retryWindow, const Duration(minutes: 2));
+  });
+  test(
+    'stalled save times out without success and retry reuses its key',
+    () async {
+      final stalled = AppController(
+        repository,
+        saveTimeout: const Duration(milliseconds: 20),
+      );
+      addTearDown(stalled.dispose);
+      await stalled.initialize();
+      nativeCalls.clear();
+      // Never completed: the server neither confirms nor rejects.
+      repository.pendingSave = Completer<ParkingRecord>();
+      await expectLater(stalled.save(draft), throwsA(isA<TimeoutException>()));
+      expect(stalled.saving, isFalse);
+      expect(stalled.latest?.id, 'old');
+      expect(stalled.records, hasLength(1));
+      expect(nativeCalls, isEmpty);
+      repository.pendingSave = Completer<ParkingRecord>()
+        ..complete(savedRecord());
+      final saved = await stalled.save(draft);
+      expect(saved.id, 'new');
+      expect(stalled.latest?.id, 'new');
+      expect(repository.keys, hasLength(2));
+      expect(repository.keys[1], repository.keys[0]);
+    },
+  );
+  test('stalled first load ends the spinner with nothing confirmed', () async {
+    repository.pendingFetch = Completer<List<Vehicle>>();
+    final stalled = AppController(
+      repository,
+      loadTimeout: const Duration(milliseconds: 20),
+    );
+    addTearDown(stalled.dispose);
+    await stalled.initialize();
+    expect(stalled.loading, isFalse);
+    expect(stalled.vehicle, isNull);
+    expect(stalled.lastSynced, isNull);
+    expect(stalled.error, '연결이 불안정해요. 다시 시도해 주세요.');
+  });
+  test('stalled refresh keeps the last confirmed location', () async {
+    final stalled = AppController(
+      repository,
+      loadTimeout: const Duration(milliseconds: 20),
+    );
+    addTearDown(stalled.dispose);
+    await stalled.initialize();
+    final synced = stalled.lastSynced;
+    repository.pendingRecords = Completer<List<ParkingRecord>>();
+    await stalled.refresh();
+    expect(stalled.loading, isFalse);
+    expect(stalled.latest?.id, 'old');
+    expect(stalled.lastSynced, synced);
+    expect(stalled.error, isNotNull);
+  });
+  group('a timed-out save that reached the server late', () {
+    const usual = ParkingDraft(floor: 'B2', zone: 'A');
+    late KeyedRepository server;
+    late AppController timedOut;
+    late DateTime now;
+    setUp(() async {
+      server = KeyedRepository();
+      now = DateTime.utc(2026, 11, 10, 20);
+      timedOut = AppController(
+        server,
+        saveTimeout: const Duration(milliseconds: 20),
+        now: () => now,
+      );
+      await timedOut.initialize();
+      final stall = server.stall = Completer<void>();
+      await expectLater(timedOut.save(usual), throwsA(isA<TimeoutException>()));
+      // The app has reported a failure; the request arrives afterwards.
+      stall.complete();
+      await Future<void>.delayed(Duration.zero);
+      expect(server.history.map((record) => record.id), ['r1', 'old']);
+    });
+    tearDown(() => timedOut.dispose());
+    test('is returned to a prompt retry instead of a duplicate', () async {
+      now = now.add(AppController.retryWindow);
+      final saved = await timedOut.save(usual);
+      expect(saved.id, 'r1');
+      expect(server.keys[1], server.keys[0]);
+      expect(server.history, hasLength(2));
+      expect(timedOut.latest?.id, 'r1');
+    });
+    test('does not swallow the next parking at the same place', () async {
+      // Later a family member parks elsewhere, then I park where I always do.
+      server.insert('B1', 'C', 'family');
+      await timedOut.refresh();
+      expect(timedOut.latest?.floor, 'B1');
+      now = now.add(
+        AppController.retryWindow + const Duration(milliseconds: 1),
+      );
+      final saved = await timedOut.save(usual);
+      expect(server.keys[1], isNot(server.keys[0]));
+      expect(saved.id, 'r3');
+      expect(server.history.map((record) => record.id), [
+        'r3',
+        'r2',
+        'r1',
+        'old',
+      ]);
+      expect(timedOut.latest?.id, 'r3');
+      expect(timedOut.latest?.floor, 'B2');
+    });
+  });
+  test('generic failure copy does not claim that input was kept', () {
+    expect(friendlyError(StateError('offline')), '연결이 불안정해요. 다시 시도해 주세요.');
+  });
   test(
     'native widget failure must not turn a confirmed server save into failure',
     () async {

@@ -13,13 +13,15 @@ export 'account_deletion.dart';
 abstract class ParkingRepository {
   bool get isDemo;
   String get userId;
+
+  /// Suggested display name from the sign-in account, or null.
+  String? get accountName;
   Map<String, dynamic>? widgetSession(Vehicle vehicle);
   Future<List<Vehicle>> vehicles();
   Future<List<ParkingRecord>> records(String vehicleId);
   Future<List<FamilyMember>> members(String vehicleId);
   Future<String> profileName();
   Future<void> updateProfileName(String name);
-  Future<bool> isPlateAvailable(String plate);
   Future<String> createVehicle(
     String apartment,
     String plate,
@@ -58,6 +60,14 @@ class SupabaseParkingRepository implements ParkingRepository {
   bool get isDemo => false;
   @override
   String get userId => _userId;
+  @override
+  String? get accountName {
+    final user = client.auth.currentUser;
+    if (user?.id != _userId) return null;
+    return accountDisplayName(user) ??
+        (_appleNameUser == _userId ? _appleName : null);
+  }
+
   @override
   Map<String, dynamic>? widgetSession(Vehicle vehicle) {
     final session = client.auth.currentSession;
@@ -118,26 +128,6 @@ class SupabaseParkingRepository implements ParkingRepository {
     if (client.auth.currentUser?.id != _userId) {
       throw const AppException('로그인 상태가 변경되었어요. 다시 로그인해 주세요.');
     }
-  }
-
-  @override
-  Future<bool> isPlateAvailable(String plate) async {
-    _requireSameUser();
-    final result = await client.rpc(
-      'check_vehicle_plate',
-      params: {'p_plate_number': plate},
-    );
-    if (result is! Map || result['ok'] != true) {
-      throw AppException(
-        result is Map && result['error'] == 'rate_limited'
-            ? '확인 요청이 많아요. 잠시 후 다시 시도해 주세요.'
-            : '차량번호를 확인해 주세요.',
-      );
-    }
-    if (result['available'] is! bool) {
-      throw const AppException('차량번호 확인 결과를 읽지 못했어요. 다시 시도해 주세요.');
-    }
-    return result['available'] as bool;
   }
 
   @override
@@ -235,13 +225,11 @@ class SupabaseParkingRepository implements ParkingRepository {
           as Map,
     );
     if (result['ok'] != true) {
-      throw AppException(
-        result['error'] == 'rate_limited'
-            ? '시도가 많아 잠시 제한되었어요. 10분 뒤 다시 시도해 주세요.'
-            : result['error'] == 'already_has_vehicle'
-            ? '이미 연결된 차량이 있어요. 한 계정에는 차량 한 대만 등록할 수 있어요.'
-            : '유효하지 않거나 만료된 초대예요. 새 초대를 요청해 주세요.',
-      );
+      throw result['error'] == 'rate_limited'
+          ? const AppException('시도가 많아 잠시 제한되었어요. 10분 뒤 다시 시도해 주세요.')
+          : result['error'] == 'already_has_vehicle'
+          ? const AppException('이미 연결된 차량이 있어요. 한 계정에는 차량 한 대만 등록할 수 있어요.')
+          : const InvalidInviteException();
     }
     return result['vehicle_id'] as String;
   }
@@ -454,6 +442,8 @@ class DemoParkingRepository implements ParkingRepository {
   @override
   String get userId => 'demo-me';
   @override
+  String? get accountName => null;
+  @override
   Map<String, dynamic>? widgetSession(Vehicle vehicle) => null;
   late List<Vehicle> _vehicles;
   late List<ParkingRecord> _records;
@@ -583,13 +573,6 @@ class DemoParkingRepository implements ParkingRepository {
       rethrow;
     }
   }
-
-  @override
-  Future<bool> isPlateAvailable(String plate) async => !_vehicles.any(
-    (v) =>
-        v.plate.replaceAll(RegExp(r'[\s-]'), '').toUpperCase() ==
-        plate.replaceAll(RegExp(r'[\s-]'), '').toUpperCase(),
-  );
 
   @override
   Future<String> createVehicle(
@@ -722,6 +705,13 @@ class AppException implements Exception {
   String toString() => message;
 }
 
+/// The server refused the invitation itself: already used, expired or unknown.
+/// Retrying the same invitation cannot succeed.
+class InvalidInviteException extends AppException {
+  const InvalidInviteException()
+    : super('이미 사용했거나 24시간이 지난 초대예요. 가족에게 새 초대를 받아 주세요.');
+}
+
 String validatedProfileName(String name) {
   final trimmed = name.trim();
   if (trimmed.isEmpty || trimmed.runes.length > 40) {
@@ -730,21 +720,49 @@ String validatedProfileName(String name) {
   return trimmed;
 }
 
+/// The name the sign-in provider stored for this account (Google does, Apple
+/// does not), cut to the profile name limit. Only ever a suggestion the user
+/// can edit; null when there is none.
+String? accountDisplayName(User? user) {
+  for (final key in const ['full_name', 'name']) {
+    final value = user?.userMetadata?[key];
+    if (value is String && value.trim().isNotEmpty) {
+      return String.fromCharCodes(value.trim().runes.take(40)).trim();
+    }
+  }
+  return null;
+}
+
+// Apple shares the name only at the first authorization. It lives in memory
+// for this app run and this account only; never persist or log it.
+String? _appleNameUser, _appleName;
+void rememberAppleName(String userId, String? fullName) {
+  final name = fullName?.trim() ?? '';
+  if (name.isEmpty) return;
+  _appleNameUser = userId;
+  _appleName = String.fromCharCodes(name.runes.take(40)).trim();
+}
+
+/// The server rejected the plate itself (wrong format or already registered),
+/// so the message belongs next to the plate field.
+bool isPlateError(Object error) =>
+    error is PostgrestException &&
+    (error.message.contains('plate_already_registered') ||
+        error.message.contains('invalid_plate'));
+
 String friendlyError(Object error) {
   if (error is AppException) return error.message;
   if (error is AppleDisconnectFailure) return error.message;
-  if (error is AuthException) {
-    if (error.code == 'invalid_credentials') return '이메일 또는 비밀번호를 확인해 주세요.';
-    if (error.code == 'email_not_confirmed') return '이메일의 가입 확인 링크를 먼저 눌러 주세요.';
-    if (error.statusCode == '429') return '요청이 많아요. 잠시 후 다시 시도해 주세요.';
-    return '로그인 요청을 완료하지 못했어요. 입력 내용과 연결을 확인해 주세요.';
-  }
+  if (error is AuthException) return '로그인을 완료하지 못했어요. 잠시 후 다시 시도해 주세요.';
   if (error is PostgrestException) {
     if (error.message.contains('already_has_vehicle')) {
       return '이미 연결된 차량이 있어요. 계정마다 차량 한 대만 사용할 수 있어요.';
     }
     if (error.message.contains('plate_already_registered')) {
       return '이미 등록된 차량번호예요. 처음 등록한 가족에게 초대 링크나 코드를 받아 주세요.';
+    }
+    if (error.message.contains('invalid_plate')) {
+      return '차량 번호를 확인해 주세요. 예: 123가 4567';
     }
     if (error.code == '42501' ||
         error.message.contains('not_member') ||
@@ -755,5 +773,5 @@ String friendlyError(Object error) {
       return '입력한 내용이 허용된 형식인지 확인해 주세요.';
     }
   }
-  return '연결이 원활하지 않아요. 입력한 내용은 유지되니 다시 시도해 주세요.';
+  return '연결이 불안정해요. 다시 시도해 주세요.';
 }

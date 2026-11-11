@@ -206,5 +206,68 @@ void main() {
       expect(copy.createdAt.isAtSameMomentAs(record.createdAt), isTrue);
       expect(copy.position, 'B2 · C구역 · 24번');
     });
+    test('a typed unit is not repeated, like the home screen widgets', () {
+      expect(zoneLabel('A'), 'A구역');
+      expect(zoneLabel('A', gap: ' '), 'A 구역');
+      expect(zoneLabel('A구역'), 'A구역');
+      expect(zoneLabel('A구역', gap: ' '), 'A구역');
+      expect(spotLabel('24'), '24번');
+      expect(spotLabel('24번'), '24번');
+      final record = ParkingRecord(
+        id: 'record',
+        vehicleId: 'car',
+        floor: 'B2',
+        zone: 'A구역',
+        spot: '24번',
+        note: '',
+        createdBy: 'owner',
+        createdAt: DateTime(2026),
+      );
+      expect(record.position, 'B2 · A구역 · 24번');
+    });
+  });
+
+  group('Record time', () {
+    final now = DateTime(2026, 11, 11, 16, 50);
+    String at(DateTime date, [DateTime? when]) =>
+        formatDate(date, now: when ?? now);
+    test('today and yesterday are named, older days are spelled out', () {
+      expect(at(DateTime(2026, 11, 11, 16, 41)), '오늘 16:41');
+      expect(at(DateTime(2026, 11, 10, 19, 34)), '어제 19:34');
+      expect(at(DateTime(2026, 11, 9, 5, 20)), '11월 9일 05:20');
+      expect(at(DateTime(2026, 1, 3, 9, 5)), '1월 3일 09:05');
+    });
+    test('the day changes at midnight, not after 24 hours', () {
+      final parked = DateTime(2026, 11, 10, 23, 59);
+      expect(at(parked, DateTime(2026, 11, 10, 23, 59, 59)), '오늘 23:59');
+      expect(at(parked, DateTime(2026, 11, 11, 0, 0)), '어제 23:59');
+      expect(at(parked, DateTime(2026, 11, 11, 23, 59)), '어제 23:59');
+      expect(at(parked, DateTime(2026, 11, 12, 0, 0)), '11월 10일 23:59');
+      // Midnight itself belongs to the new day.
+      expect(
+        at(DateTime(2026, 11, 11), DateTime(2026, 11, 11, 0, 1)),
+        '오늘 00:00',
+      );
+    });
+    test('another year shows the year, except across a new year night', () {
+      expect(at(DateTime(2025, 11, 11, 16, 41)), '2025년 11월 11일 16:41');
+      expect(
+        at(DateTime(2025, 12, 31, 23, 50), DateTime(2026, 1, 1, 0, 10)),
+        '어제 23:50',
+      );
+      expect(
+        at(DateTime(2025, 12, 30, 23, 50), DateTime(2026, 1, 1, 0, 10)),
+        '2025년 12월 30일 23:50',
+      );
+    });
+    test('a record ahead of the device clock is never called today', () {
+      expect(at(DateTime(2026, 11, 12, 0, 5)), '11월 12일 00:05');
+    });
+    test('the full form keeps the year and ignores the day words', () {
+      expect(
+        formatDate(DateTime(2026, 11, 11, 16, 41), full: true, now: now),
+        '2026. 11. 11. 16:41',
+      );
+    });
   });
 }

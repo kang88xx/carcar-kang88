@@ -115,7 +115,8 @@ class ParkingRecord {
   });
   final String id, vehicleId, floor, zone, spot, note, createdBy;
   final DateTime createdAt;
-  String get position => '$floor · $zone구역${spot.isEmpty ? '' : ' · $spot번'}';
+  String get position =>
+      '$floor · ${zoneLabel(zone)}${spot.isEmpty ? '' : ' · ${spotLabel(spot)}'}';
   factory ParkingRecord.fromJson(Map<String, dynamic> json) => ParkingRecord(
     id: json['id'] as String,
     vehicleId: json['vehicle_id'] as String,
@@ -235,9 +236,26 @@ OcrSuggestion parseParkingText(
   );
 }
 
-String formatDate(DateTime date, {bool full = false}) {
+/// Same rule as the native widgets: a value that already ends in its unit
+/// keeps it, so '24번' never becomes '24번번'.
+String zoneLabel(String zone, {String gap = ''}) =>
+    zone.endsWith('구역') ? zone : '$zone$gap구역';
+String spotLabel(String spot) => spot.endsWith('번') ? spot : '$spot번';
+
+/// [now] is only passed by tests; the day words follow the device calendar.
+String formatDate(DateTime date, {bool full = false, DateTime? now}) {
   final d = date.toLocal();
   final time =
       '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
-  return '${full ? '${d.year}. ' : ''}${d.month}. ${d.day}. $time';
+  if (full) return '${d.year}. ${d.month}. ${d.day}. $time';
+  final today = (now ?? DateTime.now()).toLocal();
+  // Calendar days, not 24-hour spans: 23:59 yesterday is '어제' at 00:01.
+  final days = DateTime.utc(
+    today.year,
+    today.month,
+    today.day,
+  ).difference(DateTime.utc(d.year, d.month, d.day)).inDays;
+  if (days == 0) return '오늘 $time';
+  if (days == 1) return '어제 $time';
+  return '${d.year == today.year ? '' : '${d.year}년 '}${d.month}월 ${d.day}일 $time';
 }

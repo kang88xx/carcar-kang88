@@ -1,20 +1,13 @@
 import 'package:flutter/material.dart';
 import '../app/theme.dart';
 import '../core/device_notifications.dart';
-import '../core/native_bridge.dart';
 import '../core/repository.dart';
 import '../shared/components.dart';
 
 class NotificationSettings extends StatelessWidget {
-  const NotificationSettings({
-    super.key,
-    this.controller,
-    this.isDemo = false,
-    this.onLiveDisabled,
-  });
+  const NotificationSettings({super.key, this.controller, this.isDemo = false});
   final DeviceNotificationController? controller;
   final bool isDemo;
-  final Future<void> Function()? onLiveDisabled;
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +16,7 @@ class NotificationSettings extends StatelessWidget {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const GroupLabel('알림과 차량 찾기'),
+          const GroupLabel('알림'),
           Surface(
             padding: const EdgeInsets.symmetric(vertical: 6),
             child: SwitchRow(
@@ -47,7 +40,7 @@ class NotificationSettings extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const GroupLabel('알림과 차량 찾기'),
+            const GroupLabel('알림'),
             Surface(
               padding: const EdgeInsets.symmetric(vertical: 6),
               child: Column(
@@ -60,7 +53,8 @@ class NotificationSettings extends StatelessWidget {
                       style: TextStyle(fontSize: 12.5, color: Palette.muted),
                     ),
                   ),
-                  if (c.loading)
+                  // Loading and saving both lock the switches below.
+                  if (c.busy)
                     const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 18),
                       child: LinearProgressIndicator(),
@@ -148,65 +142,6 @@ class NotificationSettings extends StatelessWidget {
                         ),
                       ),
                     ),
-                  const RowDivider(),
-                  SwitchRow(
-                    icon: Icons.near_me_outlined,
-                    title: '차량 찾기 표시 사용',
-                    subtitle: '직접 시작할 때 잠금 화면이나 알림에 위치를 표시해요. 가족 알림과는 별개예요.',
-                    value: settings.liveEnabled,
-                    onChanged: enabled
-                        ? (value) => _save(
-                            context,
-                            c,
-                            settings.copyWith(liveEnabled: value),
-                            stopFinding: !value,
-                          )
-                        : null,
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(18, 6, 18, 12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 8),
-                        const Text(
-                          '차량 찾기 기본 시간',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [60, 120, 240, 480]
-                              .map(
-                                (minutes) => ChoiceChip(
-                                  label: Text('${minutes ~/ 60}시간'),
-                                  selected:
-                                      settings.preferredLiveMinutes == minutes,
-                                  onSelected: enabled
-                                      ? (_) => _save(
-                                          context,
-                                          c,
-                                          settings.copyWith(
-                                            preferredLiveMinutes: minutes,
-                                          ),
-                                        )
-                                      : null,
-                                ),
-                              )
-                              .toList(),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          '표시 여부와 종료 시점은 기기 설정과 OS 정책에 따라 달라질 수 있어요.',
-                          style: TextStyle(fontSize: 12, color: Palette.muted),
-                        ),
-                      ],
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -219,29 +154,13 @@ class NotificationSettings extends StatelessWidget {
   Future<void> _save(
     BuildContext context,
     DeviceNotificationController c,
-    DeviceNotificationSettings next, {
-    bool stopFinding = false,
-  }) async {
+    DeviceNotificationSettings next,
+  ) async {
     try {
       await c.save(next);
     } on Object catch (failure) {
       if (context.mounted && c.error == null) {
         showMessage(context, friendlyError(failure));
-      }
-      return;
-    }
-    if (stopFinding && context.mounted && !c.settings.liveEnabled) {
-      try {
-        await (onLiveDisabled ?? NativeBridge.stopFinding)().timeout(
-          const Duration(seconds: 25),
-        );
-      } on Object {
-        if (context.mounted) {
-          showMessage(
-            context,
-            '설정은 껐지만 현재 차량 찾기 표시의 종료를 확인하지 못했어요. 잠금 화면이나 기기 알림에서 직접 종료해 주세요.',
-          );
-        }
       }
     }
   }

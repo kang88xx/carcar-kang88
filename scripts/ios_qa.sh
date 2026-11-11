@@ -202,7 +202,7 @@ print('Built Simulator app packaging passed: alternate icons and APNs build conf
 PY_CAPABILITIES
 test -s "$CARCAR_QA_ARTIFACT_DIR/native-home.png"
 test -s "$CARCAR_QA_ARTIFACT_DIR/native-history.png"
-for qa_capture in native-widget-guide native-widget-settings native-settings-top native-launcher-floor native-settings-notifications native-settings-account native-profile-editor; do
+for qa_capture in native-widget-guide native-settings-top native-launcher-floor native-settings-notifications native-settings-account native-profile-editor; do
   test -s "$CARCAR_QA_ARTIFACT_DIR/$qa_capture.png"
 done
 printf 'Native iOS integration passed; repository reopen is not a process-restart test.\n'

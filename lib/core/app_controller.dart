@@ -7,9 +7,24 @@ import 'repository.dart';
 import 'native_bridge.dart';
 
 class AppController extends ChangeNotifier {
-  AppController(this.repository, {this.preferences});
+  AppController(
+    this.repository, {
+    this.preferences,
+    this.loadTimeout = const Duration(seconds: 12),
+    this.saveTimeout = const Duration(seconds: 15),
+    this.now = DateTime.now,
+  });
   final ParkingRepository repository;
   final SharedPreferences? preferences;
+
+  /// A stalled connection must end in the normal error path instead of an
+  /// endless spinner. Tests shorten these; production keeps the defaults.
+  final Duration loadTimeout, saveTimeout;
+
+  /// A retry of the same draft reuses its idempotency key only this soon after
+  /// the previous attempt. Tests move [now]; production reads the device time.
+  static const retryWindow = Duration(minutes: 2);
+  final DateTime Function() now;
   bool _changingWidgetPermission = false;
   String get _widgetPreferenceKey =>
       'carcar.widget.quick_save.${repository.userId}';
@@ -30,6 +45,7 @@ class AppController extends ChangeNotifier {
   int _nativeGeneration = 0;
   Timer? _refreshTimer;
   String? _pendingFingerprint, _pendingKey;
+  DateTime? _pendingAt;
   Vehicle? get vehicle => vehicles.where((v) => v.id == selectedId).firstOrNull;
   ParkingRecord? get latest =>
       records.where((r) => r.id == vehicle?.latestId).firstOrNull;
@@ -52,7 +68,7 @@ class AppController extends ChangeNotifier {
     loading = true;
     _notify();
     try {
-      final fetched = await repository.vehicles();
+      final fetched = await repository.vehicles().timeout(loadTimeout);
       if (_disposed || generation != _generation) return;
       final wanted = select ?? selectedId;
       final selected =
@@ -65,7 +81,7 @@ class AppController extends ChangeNotifier {
         final results = await Future.wait([
           repository.records(selected.id),
           repository.members(selected.id),
-        ]);
+        ]).timeout(loadTimeout);
         newRecords = results[0] as List<ParkingRecord>;
         newMembers = results[1] as List<FamilyMember>;
       }
@@ -114,14 +130,24 @@ class AppController extends ChangeNotifier {
     final validation = draft.validate(current);
     if (validation != null) throw AppException(validation);
     final fingerprint = '${current.id}\u0000${draft.fingerprint}';
-    if (_pendingFingerprint != fingerprint) {
+    final attempt = now();
+    // The server answers a known key with the record it already stored, and a
+    // timed-out request may still have reached it. So only a prompt retry
+    // reuses the key; later, the same place is a new parking and a new record.
+    if (_pendingFingerprint != fingerprint ||
+        attempt.difference(_pendingAt!) > retryWindow) {
       _pendingFingerprint = fingerprint;
       _pendingKey = const Uuid().v4();
     }
+    _pendingAt = attempt;
     saving = true;
     _notify();
     try {
-      final record = await repository.save(current.id, draft, _pendingKey!);
+      // On timeout the key is kept, so a prompt retry of the same draft cannot
+      // create a second record even if the first request reached the server.
+      final record = await repository
+          .save(current.id, draft, _pendingKey!)
+          .timeout(saveTimeout);
       if (_disposed) return record;
       _pendingFingerprint = null;
       _pendingKey = null;
@@ -173,6 +199,23 @@ class AppController extends ChangeNotifier {
   Future<void> join(String code) async {
     if (_disposed) throw const AppException('로그인 상태가 바뀌었어요. 다시 시도해 주세요.');
     final id = await repository.join(code);
+    // The server names a joiner without a profile '가족'. Only after it has
+    // confirmed the membership, replace that placeholder with the sign-in
+    // account name; a name the member chose is never overwritten, and a
+    // refused invitation leaves no profile behind.
+    final name = repository.accountName;
+    if (name != null) {
+      try {
+        await () async {
+          final current = await repository.profileName();
+          if (current.isEmpty || current == '가족') {
+            await repository.updateProfileName(name);
+          }
+        }().timeout(const Duration(seconds: 5));
+      } on Object {
+        // The name is optional and can be set later in settings.
+      }
+    }
     await refresh(select: id);
   }
 
@@ -217,7 +260,26 @@ class AppController extends ChangeNotifier {
     unawaited(syncFloorIcon());
   }
 
+  /// This device's choice, not the account's or the vehicle's.
+  static const floorIconPreferenceKey = 'carcar.floor_icon.enabled';
+  bool get floorIconEnabled =>
+      !NativeBridge.floorIconIsOptIn ||
+      (preferences?.getBool(floorIconPreferenceKey) ?? false);
+  String? get _floorIcon =>
+      floorIconEnabled ? NativeBridge.iconForFloor(latest?.floor) : null;
+
+  Future<void> setFloorIconEnabled(bool enabled) async {
+    if (_disposed) throw const AppException('로그인 상태가 바뀌었어요. 다시 시도해 주세요.');
+    if (preferences == null ||
+        !await preferences!.setBool(floorIconPreferenceKey, enabled)) {
+      throw const AppException('기기 설정을 저장하지 못했어요. 다시 시도해 주세요.');
+    }
+    _notify();
+    await syncFloorIcon();
+  }
+
   /// The confirmed record is authoritative. Icon failure never rolls back a save.
+  /// While the floor icon is off, this keeps (or once restores) the default icon.
   Future<void> syncFloorIcon() async {
     if (_disposed || !appActive || !NativeBridge.supportsLauncherIcons) return;
     _iconPending = true;
@@ -226,24 +288,20 @@ class AppController extends ChangeNotifier {
     try {
       while (_iconPending && !_disposed && appActive) {
         _iconPending = false;
-        final target = NativeBridge.iconForFloor(latest?.floor);
+        final target = _floorIcon;
         try {
           await NativeBridge.syncLauncherIcon(
             target,
-            isCurrent: () =>
-                !_disposed &&
-                appActive &&
-                target == NativeBridge.iconForFloor(latest?.floor),
+            isCurrent: () => !_disposed && appActive && target == _floorIcon,
           );
           if (_disposed) break;
           iconWarning = null;
-          if (target != NativeBridge.iconForFloor(latest?.floor)) {
+          if (target != _floorIcon) {
             _iconPending = true;
           }
         } on Object {
-          if (!_disposed) {
-            iconWarning = '주차 기록은 저장되어 있어요. 앱 아이콘은 설정에서 다시 맞출 수 있어요.';
-          }
+          // Shown only on the settings row, next to its retry button.
+          if (!_disposed) iconWarning = '아이콘을 바꾸지 못했어요.';
         }
       }
     } finally {
