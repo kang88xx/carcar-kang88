@@ -1,5 +1,5 @@
 {
-  "status": "approved-for-submission",
+  "status": "submitted-waiting-for-review",
   "appId": "6829616379",
   "locale": "ko",
   "minimumSourceCommit": "0c90de16a6c2652e5387e247f086938ef7a86fef",
@@ -81,5 +81,15 @@
     "currentVersionReleaseDate": "2026-11-11T21:42:50Z",
     "verifiedBy": "parent agent official Apple lookup"
   },
-  "userApprovalDate": "2026-11-13"
+  "userApprovalDate": "2026-11-13",
+  "submission": {
+    "version": "1.0.2",
+    "build": "16",
+    "state": "WAITING_FOR_REVIEW",
+    "releaseType": "AFTER_APPROVAL",
+    "submissionId": "ae7dd517-8dce-447b-a565-6d2f5530739a",
+    "run": "https://github.com/kang88xx/60base-mobile-build/actions/runs/43256423932",
+    "verificationRun": "https://github.com/kang88xx/60base-mobile-build/actions/runs/43256689654",
+    "blockers": []
+  }
 }
