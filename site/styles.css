@@ -27,3 +27,37 @@ textarea { width:100%; resize:none; border:1px solid #cbd5e1; background:white; 
 footer { border-top:1px solid #e2e8f0; padding-block:24px 36px; font-size:13px; color:var(--muted); }
 footer a + a { margin-left:16px; }
 @media(max-width:400px) { .card { padding:20px; } main { padding-top:24px; } .actions button { width:100%; } }
+
+/* Public introduction only; support, privacy and invitation pages keep their layout. */
+.landing header,.landing main,.landing footer { width:min(100% - 40px,1080px); }
+.landing nav { display:flex; gap:20px; }
+.landing .hero { padding:24px 0 40px; max-width:800px; }
+.landing h1 { font-size:clamp(36px,6vw,64px); letter-spacing:-2px; line-height:1.22; }
+.landing .lead { max-width:700px; font-size:20px; }
+.landing .benefits { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:20px; }
+.landing .card { margin-top:0; padding:26px; }
+.landing .card h2 { font-size:24px; line-height:1.4; letter-spacing:-.7px; }
+.landing .card p:last-child { margin-bottom:0; }
+.landing .how,.landing .faq { margin-top:80px; max-width:760px; }
+.landing .how h2,.landing .faq h2,.landing .download h2 { font-size:clamp(26px,4vw,36px); line-height:1.4; letter-spacing:-1px; margin-top:0; }
+.landing ol { padding-left:24px; }
+.landing li { padding:12px 0 12px 8px; }
+.landing li::marker { color:var(--accent); font-weight:700; }
+.landing li strong,.landing li span { display:block; }
+.landing li span { color:var(--muted); margin-top:4px; }
+.landing details { border-bottom:1px solid #dbe2ec; padding:18px 0; }
+.landing summary { font-weight:700; cursor:pointer; min-height:44px; align-content:center; }
+.landing details p { margin:12px 0; color:var(--muted); }
+.landing .download { margin-top:80px; padding:40px; background:#e8f0ff; border-radius:24px; }
+.landing .download p { margin-bottom:0; }
+@media(max-width:760px) {
+  .landing .benefits { grid-template-columns:1fr; }
+  .landing .hero { padding-top:0; }
+  .landing .lead { font-size:18px; }
+  .landing .how,.landing .faq,.landing .download { margin-top:48px; }
+  .landing .download { padding:24px; }
+}
+@media(max-width:400px) {
+  .landing nav { gap:12px; font-size:13px; }
+  .landing .actions .button { width:100%; }
+}

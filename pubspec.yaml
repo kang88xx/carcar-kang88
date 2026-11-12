@@ -1,7 +1,7 @@
 name: carcar
 description: 가족과 함께 기억하는 우리 차의 자리, 차자리.
 publish_to: none
-version: 1.0.1+1
+version: 1.0.2+16
 environment:
   sdk: '>=3.9.0 <4.0.0'
   flutter: '>=3.47.9'

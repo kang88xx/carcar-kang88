@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtemp,writeFile,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {createHash} from 'node:crypto';
+import {scenes,nativeComplete,verifiedFile} from './build_store_gallery.mjs';
+test('requested benefit order preserves remaining home family history order',()=>assert.deepEqual(scenes.map(s=>s[0]),['01-widgets-icons','02-parking-entry','03-home','04-family','05-history']));
+test('submission needs all three native settings for both devices without duplicates',()=>{const complete=['iphone','ipad'].flatMap(deviceFamily=>['off-b2','on-b2','on-b3'].map(state=>({deviceFamily,state})));assert.equal(nativeComplete(complete),true);assert.equal(nativeComplete(complete.slice(1)),false);assert.equal(nativeComplete([...complete,complete[0]]),false);});
+test('source integrity rejects replaced capture and unsafe paths',async()=>{const root=await mkdtemp(join(tmpdir(),'carcar-gallery-'));try{const bytes=Buffer.from('capture');await writeFile(join(root,'capture.jpg'),bytes);const entry={file:'capture.jpg',sha256:createHash('sha256').update(bytes).digest('hex')};assert.deepEqual(await verifiedFile(root,entry),bytes);await writeFile(join(root,'capture.jpg'),'changed');await assert.rejects(verifiedFile(root,entry),/hash mismatch/);await assert.rejects(verifiedFile(root,{...entry,file:'../private.jpg'}),/Invalid source path/);}finally{await rm(root,{recursive:true});}});

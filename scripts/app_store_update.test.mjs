@@ -804,7 +804,7 @@ test('the write gate permits only the listed update operations on IDs read throu
     ['prepare', 'POST', '/v1/appStoreVersions', version],
     ['prepare', 'PATCH', '/v1/appStoreVersions/v1', {data: {attributes: {releaseType: 'MANUAL'}}}],
     ['prepare', 'PATCH', '/v1/appStoreVersions/v1/relationships/build', rel('builds', 'b1')],
-    ['prepare', 'PATCH', '/v1/appStoreVersionLocalizations/l1', {data: {attributes: {whatsNew: 'x'}}}],
+    ['prepare', 'PATCH', '/v1/appStoreVersionLocalizations/l1', {data: {type: 'appStoreVersionLocalizations', id: 'l1', attributes: {whatsNew: 'x'}}}],
     ['prepare', 'PATCH', '/v1/appStoreReviewDetails/r1', {data: {attributes: {notes: 'x'}}}],
     ['prepare', 'POST', '/v1/appStoreReviewDetails', {data: {attributes: {notes: 'x'}, relationships: {appStoreVersion: rel('appStoreVersions', 'v1')}}}],
     ['prepare', 'POST', '/v1/appScreenshotSets', {data: {relationships: {appStoreVersionLocalization: rel('appStoreVersionLocalizations', 'l1')}}}],
@@ -832,7 +832,7 @@ test('the write gate permits only the listed update operations on IDs read throu
     ['prepare', 'PATCH', '/v1/appStoreVersions/v1/relationships/build', {data: null}],
     ['prepare', 'PATCH', '/v1/appStoreVersions/v1/relationships/build', rel('builds', 'other')],
     ['prepare', 'PATCH', '/v1/appStoreVersionLocalizations/l1', {data: {attributes: {description: 'x'}}}],
-    ['prepare', 'PATCH', '/v1/appStoreVersionLocalizations/other', {data: {attributes: {whatsNew: 'x'}}}],
+    ['prepare', 'PATCH', '/v1/appStoreVersionLocalizations/other', {data: {type: 'appStoreVersionLocalizations', id: 'l1', attributes: {whatsNew: 'x'}}}],
     ['prepare', 'PATCH', '/v1/appStoreReviewDetails/r1', {data: {attributes: {notes: 'x', contactEmail: 'x'}}}],
     ['prepare', 'POST', '/v1/appStoreReviewDetails', {data: {relationships: {appStoreVersion: rel('appStoreVersions', 'other')}}}],
     ['prepare', 'POST', '/v1/appScreenshots', {data: {relationships: {appScreenshotSet: rel('appScreenshotSets', 'other')}}}],
@@ -1420,5 +1420,118 @@ test('draft limits and unexpected failures', async () => {
     assert.equal(JSON.parse(saved).error, message);
     assert.equal(JSON.parse(saved).submitted, false);
     assertNoSecrets(saved);
+  });
+});
+
+
+test('optional listing updates only the target Korean localization and blocks submit on later drift', async () => {
+  await temp('asc-listing-', async directory => {
+    const path = join(directory, 'draft.json');
+    const listing = {description: 'New description', keywords: 'parking,family', promotionalText: 'Find the shared car'};
+    await writeFile(path, JSON.stringify({...draftFile, listing}));
+    const w = world();
+    const env = {...prepareEnv, APP_STORE_UPDATE_DRAFT_PATH: path};
+    const before = structuredClone(w.locales[0]);
+    const prepared = await run(w, env);
+    assert.equal(prepared.prepared, true);
+    assert.deepEqual(w.locales[0], before);
+    const target = w.locales.find(l => l.id !== before.id);
+    for (const [key, value] of Object.entries(listing)) assert.equal(target.attributes[key], value);
+    const writes = w.written().length;
+    await run(w, env);
+    assert.equal(w.written().length, writes);
+    target.attributes.description = 'Unexpected drift';
+    const result = await run(w, {...env, APP_STORE_UPDATE_MODE: 'submit', APP_STORE_SUBMIT: 'true'});
+    assert.equal(result.submitted, false);
+    assert.ok(result.blockers.includes('LISTING_DIFFERS_FROM_DRAFT:description'));
+  });
+});
+
+test('listing draft rejects unrelated fields and oversized text before mutation', async () => {
+  await temp('asc-listing-invalid-', async directory => {
+    const path = join(directory, 'draft.json');
+    for (const listing of [{subtitle:'Separate app info'}, {name:'Other name'}, {description:'x'.repeat(4001)}, {keywords:'x'.repeat(101)}, {promotionalText:'x'.repeat(171)}, {}]) {
+      await writeFile(path, JSON.stringify({...draftFile, listing}));
+      const w=world();
+      await assert.rejects(run(w, {...prepareEnv, APP_STORE_UPDATE_DRAFT_PATH:path}), /listing/i);
+      assert.equal(w.written().length, 0);
+    }
+  });
+});
+
+test('listing mutation gate binds optional fields to verified ID and rejects relationships', () => {
+  const state={mode:'prepare',bound:{localization:'l1',listingFields:new Set(['description'])}};
+  const body={data:{type:'appStoreVersionLocalizations',id:'l1',attributes:{description:'Text'}}};
+  assert.equal(permittedUpdateWrite(state,'PATCH','/v1/appStoreVersionLocalizations/l1',body),true);
+  for(const changed of [{...body.data,id:'foreign'},{...body.data,attributes:{name:'Name'}},{...body.data,relationships:{app:{data:{id:'foreign'}}}}]) {
+    assert.equal(permittedUpdateWrite(state,'PATCH','/v1/appStoreVersionLocalizations/l1',{data:changed}),false);
+  }
+  assert.equal(permittedUpdateWrite(state,'PATCH','/v1/appStoreVersionLocalizations/foreign',body),false);
+});
+
+test('listing readback mismatch stops preparation before build attachment', async () => {
+  await temp('asc-listing-readback-', async directory => {
+    const path = join(directory, 'draft.json');
+    await writeFile(path, JSON.stringify({...draftFile, listing:{description:'Requested text'}}));
+    const w=world();
+    const original=w.fetchImpl;
+    let patched=false;
+    w.fetchImpl=async (url, options) => {
+      const response=await original(url, options);
+      if(options.method==='PATCH' && String(url).includes('/appStoreVersionLocalizations/')) patched=true;
+      if(patched && options.method==='GET' && /\/appStoreVersionLocalizations\/[^/?]+$/.test(String(url))) {
+        const body=await response.json();
+        body.data.attributes.description='Wrong readback';
+        return Response.json(body);
+      }
+      return response;
+    };
+    await assert.rejects(run(w,{...prepareEnv,APP_STORE_UPDATE_DRAFT_PATH:path}),/readback mismatch/);
+    assert.ok(!w.written().some(call=>call.endsWith('/relationships/build')));
+  });
+});
+
+test('explicit live baseline selects only the unique highest live version; default stays closed', async () => {
+  const w=world();
+  w.addVersion('0.9','READY_FOR_DISTRIBUTION');
+  const defaultResult=await run(w);
+  assert.ok(defaultResult.blockers.includes('MULTIPLE_LIVE_VERSIONS'));
+  const result=await run(w,{...prepareEnv,APP_STORE_UPDATE_LIVE_VERSION:'1.0'});
+  assert.equal(result.prepared,true);
+  assert.equal(result.liveBaselineInput,'1.0');
+  assert.equal(result.liveVersion.versionString,'1.0');
+  assert.equal(result.observedLiveVersions.length,2);
+});
+
+test('explicit live baseline rejects lower, nonlive, absent, and semantically duplicate versions', async () => {
+  for(const kind of ['lower','nonlive','absent','duplicate','newer']) {
+    const w=world();
+    let baseline='1.0';
+    if(kind==='lower'){w.addVersion('0.9','READY_FOR_DISTRIBUTION');baseline='0.9';}
+    if(kind==='nonlive'){w.live.attributes.appVersionState='PREPARE_FOR_SUBMISSION';}
+    if(kind==='absent')baseline='0.8';
+    if(kind==='duplicate')w.addVersion('1.0.0','READY_FOR_DISTRIBUTION');
+    if(kind==='newer')w.addVersion('1.0.2','READY_FOR_DISTRIBUTION');
+    await assert.rejects(run(w,{...prepareEnv,APP_STORE_UPDATE_LIVE_VERSION:baseline}),/Explicit live baseline/);
+    assert.equal(w.written().length,0);
+  }
+});
+
+test('in-review replay validates the requested listing and draft before reporting success', async () => {
+  await temp('asc-review-listing-', async directory => {
+    const w=await preparedWorld();
+    assert.equal((await run(w,submitEnv)).submitted,true);
+    const path=join(directory,'draft.json');
+    await writeFile(path,JSON.stringify({...draftFile,listing:{description:'Different requested listing'}}));
+    const start=w.calls.length;
+    for(const mode of [{},submitEnv]) {
+      const mismatch=await run(w,{...mode,APP_STORE_UPDATE_DRAFT_PATH:path});
+      assert.equal(mismatch.submitted,false);
+      assert.ok(mismatch.blockers.includes('LISTING_DIFFERS_FROM_DRAFT:description'));
+      const invalid=await run(w,{APP_STORE_UPDATE_DRAFT_PATH:join(directory,'missing.json')});
+      assert.equal(invalid.submitted,false);
+      assert.ok(invalid.blockers.includes('UPDATE_DRAFT_INVALID'));
+    }
+    assert.deepEqual(w.written(start),[]);
   });
 });

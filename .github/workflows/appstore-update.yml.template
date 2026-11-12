@@ -32,6 +32,14 @@ on:
         description: 'Build number already uploaded for this version (for example 15)'
         type: string
         required: true
+      live_version:
+        description: 'Explicit highest live iOS version baseline when Apple retains multiple live records'
+        type: string
+        default: ''
+      update_subtitle:
+        description: 'Apply/verify the approved Korean subtitle for version 1.0.2 only'
+        type: boolean
+        default: false
       release_type:
         description: 'KEEP = same as the live version when creating, unchanged if the version exists. MANUAL / AFTER_APPROVAL are applied by prepare only; inspect and submit stop if the version has another setting'
         type: choice
@@ -65,7 +73,7 @@ jobs:
         with:
           node-version: '24'
       - name: Verify bounded update helper
-        run: node --test scripts/app_store_update.test.mjs scripts/app_store_registration.test.mjs scripts/app_store_distribution.test.mjs scripts/app_store_submit.test.mjs
+        run: node --test scripts/app_store_update.test.mjs scripts/app_store_subtitle.test.mjs scripts/app_store_registration.test.mjs scripts/app_store_distribution.test.mjs scripts/app_store_submit.test.mjs
       - name: Resolve optional screenshot folder
         id: media
         env:
@@ -89,6 +97,15 @@ jobs:
             exit 1
           fi
           echo "root=store-media/$MEDIA_FOLDER" >> "$GITHUB_OUTPUT"
+      - name: Verify approved subtitle before submission
+        if: ${{ inputs.update_subtitle && inputs.mode == 'submit' }}
+        env:
+          APP_STORE_CONNECT_API_KEY_P8_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8_BASE64 }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_SUBTITLE_MODE: inspect
+        run: |
+          node --input-type=module -e 'import {updateSubtitle} from "./scripts/app_store_subtitle.mjs"; const s = await updateSubtitle(process.env); if (!s.matches) throw Error("Approved subtitle is not applied"); console.log(JSON.stringify(s));'
       - name: Inspect, prepare or submit only the carcar update
         env:
           APP_STORE_CONNECT_API_KEY_P8_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8_BASE64 }}
@@ -98,12 +115,23 @@ jobs:
           APP_STORE_UPDATE_MODE: ${{ inputs.mode }}
           APP_STORE_UPDATE_VERSION: ${{ inputs.version }}
           APP_STORE_UPDATE_BUILD: ${{ inputs.build_number }}
+          APP_STORE_UPDATE_LIVE_VERSION: ${{ inputs.live_version }}
           APP_STORE_RELEASE_TYPE: ${{ inputs.release_type }}
           APP_STORE_SUBMIT: ${{ inputs.mode == 'submit' && 'true' || 'false' }}
           APP_STORE_UPDATE_MEDIA_ROOT: ${{ steps.media.outputs.root }}
           APP_STORE_UPDATE_SUMMARY_PATH: ${{ runner.temp }}/carcar-appstore-update/summary.json
           APP_STORE_UPDATE_DIAGNOSTIC_PATH: ${{ runner.temp }}/carcar-appstore-update/diagnostics.json
         run: node scripts/app_store_update.mjs
+      - name: Apply or inspect approved Korean subtitle
+        if: ${{ inputs.update_subtitle && inputs.mode != 'submit' }}
+        env:
+          APP_STORE_CONNECT_API_KEY_P8_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8_BASE64 }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_SUBTITLE_MODE: ${{ inputs.mode == 'prepare' && 'apply' || 'inspect' }}
+          APP_STORE_SUBTITLE_SUMMARY_PATH: ${{ runner.temp }}/carcar-appstore-update/subtitle.json
+        run: |
+          node --input-type=module -e 'import {updateSubtitle} from "./scripts/app_store_subtitle.mjs"; const s = await updateSubtitle(process.env); if (!s.matches) throw Error("Approved subtitle is not applied"); console.log(JSON.stringify(s));'
       - name: Confirm the helper really ran
         env:
           MODE: ${{ inputs.mode }}
@@ -122,5 +150,6 @@ jobs:
           path: |
             ${{ runner.temp }}/carcar-appstore-update/summary.json
             ${{ runner.temp }}/carcar-appstore-update/diagnostics.json
+            ${{ runner.temp }}/carcar-appstore-update/subtitle.json
           retention-days: 3
           if-no-files-found: ignore

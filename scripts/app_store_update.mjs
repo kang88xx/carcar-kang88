@@ -75,7 +75,9 @@ export function updateConfig(env) {
   const release = env.APP_STORE_RELEASE_TYPE || 'KEEP';
   check(release === 'KEEP' || RELEASE_TYPES.includes(release), 'Release type must be KEEP, MANUAL or AFTER_APPROVAL.');
   if (mode === 'submit') check(env.APP_STORE_SUBMIT === 'true', 'Submission requires APP_STORE_SUBMIT to be exactly true.');
-  return {mode, version, build, release, draftPath: env.APP_STORE_UPDATE_DRAFT_PATH || 'docs/app-store/update-' + version + '.json',
+  const liveVersion = env.APP_STORE_UPDATE_LIVE_VERSION || null;
+  if (liveVersion) parseVersion(liveVersion);
+  return {mode, version, build, release, liveVersion, draftPath: env.APP_STORE_UPDATE_DRAFT_PATH || 'docs/app-store/update-' + version + '.json',
     mediaRoot: env.APP_STORE_UPDATE_MEDIA_ROOT || null};
 }
 
@@ -90,7 +92,18 @@ export async function loadUpdateDraft(path, version, build) {
   check(filled(whatsNew) && whatsNew.length <= 4000, 'Release text must contain 1 to 4000 characters.');
   check(filled(reviewNotes) && reviewNotes.length <= 4000, 'Review notes must contain 1 to 4000 characters.');
   check(reviewNotes.includes('Build: ' + version + ' (' + build + ')'), 'Review notes do not name the target build.');
-  return {whatsNew: normalize(whatsNew), reviewNotes: normalize(reviewNotes)};
+  let listing;
+  if (draft.listing !== undefined) {
+    const limits = {description: 4000, keywords: 100, promotionalText: 170};
+    check(draft.listing && typeof draft.listing === 'object' && !Array.isArray(draft.listing)
+      && Object.keys(draft.listing).length > 0, 'Listing must be a nonempty object.');
+    listing = {};
+    for (const [key, value] of Object.entries(draft.listing)) {
+      check(Object.hasOwn(limits, key) && filled(value) && [...value].length <= limits[key], 'Invalid listing field: ' + key);
+      listing[key] = normalize(value);
+    }
+  }
+  return {whatsNew: normalize(whatsNew), reviewNotes: normalize(reviewNotes), ...(listing ? {listing} : {})};
 }
 
 /** manifest.json: {devices: [{deviceFamily: 'iphone'|'ipad', screenshots: [{file, width, height, hasAlpha, sha256}]}]}.
@@ -159,7 +172,8 @@ export function permittedUpdateWrite({mode, target, bound}, method, pathname, bo
     if (method === 'PATCH' && at('/v1/appStoreVersions/', bound.version)) return keys.join() === 'releaseType' && !data?.relationships;
     // Attaches the verified target build only; a null body would detach.
     if (method === 'PATCH' && at('/v1/appStoreVersions/', bound.version, '/relationships/build')) return data?.type === 'builds' && Boolean(bound.build) && data.id === bound.build;
-    if (method === 'PATCH' && at('/v1/appStoreVersionLocalizations/', bound.localization)) return keys.join() === 'whatsNew';
+    if (method === 'PATCH' && at('/v1/appStoreVersionLocalizations/', bound.localization)) return data?.type === 'appStoreVersionLocalizations' && data.id === bound.localization && !data.relationships
+      && keys.length > 0 && keys.every(key => key === 'whatsNew' || bound.listingFields?.has(key));
     if (method === 'POST' && pathname === '/v1/appStoreReviewDetails') return Boolean(bound.version) && links.appStoreVersion?.data?.id === bound.version;
     if (method === 'PATCH' && at('/v1/appStoreReviewDetails/', bound.review)) return keys.join() === 'notes';
     if (method === 'POST' && pathname === '/v1/appScreenshotSets') return Boolean(bound.localization) && links.appStoreVersionLocalization?.data?.id === bound.localization;
@@ -293,7 +307,17 @@ export async function updateAppStore(env, fetchImpl = fetch, options = {}) {
     const app = await get('/v1/apps/' + APP_ID, 'apps');
     check(app.id === APP_ID && app.attributes?.bundleId === BUNDLE, 'Unexpected app identity.');
     const versions = await iosVersions();
-    const live = versions.filter(v => LIVE_STATES.includes(versionState(v)));
+    const allLive = versions.filter(v => LIVE_STATES.includes(versionState(v)));
+    let live = allLive;
+    if (config.liveVersion) {
+      const matches = versions.filter(v => comparable(v.attributes?.versionString)
+        && compareVersions(v.attributes.versionString, config.liveVersion) === 0);
+      check(matches.length === 1 && matches[0].attributes.versionString === config.liveVersion
+        && allLive.includes(matches[0]), 'Explicit live baseline must uniquely match a live version.');
+      check(allLive.every(v => comparable(v.attributes?.versionString)
+        && compareVersions(v.attributes.versionString, config.liveVersion) <= 0), 'Explicit live baseline is not the highest live version.');
+      live = matches;
+    }
     const targets = versions.filter(v => comparable(v.attributes?.versionString) && compareVersions(v.attributes.versionString, target) === 0);
     check(targets.length <= 1, 'More than one App Store version matches the target version.');
     const targetVersion = targets[0] ?? null;
@@ -338,7 +362,7 @@ export async function updateAppStore(env, fetchImpl = fetch, options = {}) {
           versionId: entryItem.relationships?.appStoreVersion?.data?.id ?? null,
           otherContent: Object.entries(entryItem.relationships ?? {}).some(([key, value]) => key !== 'appStoreVersion' && value?.data != null)}))});
     }
-    return {app, versions, live, targetVersion, candidates, targetBuild, attached, locales, review, sets, liveSets,
+    return {app, versions, live, allLive, targetVersion, candidates, targetBuild, attached, locales, review, sets, liveSets,
       submissions, completedSubmissions: allSubmissions.length - open.length};
   }
 
@@ -356,7 +380,7 @@ export async function updateAppStore(env, fetchImpl = fetch, options = {}) {
       found.push('TARGET_VERSION_NOT_HIGHER_THAN_LIVE:' + (s.live[0].attributes?.versionString ?? 'unknown'));
     }
     for (const v of s.versions) {
-      if (v === s.targetVersion || s.live.includes(v) || RETIRED_STATES.includes(versionState(v))) continue;
+      if (v === s.targetVersion || s.allLive.includes(v) || RETIRED_STATES.includes(versionState(v))) continue;
       found.push('OTHER_VERSION_IN_PROGRESS:' + (v.attributes?.versionString ?? 'unknown') + ':' + versionState(v));
     }
     if (!s.targetBuild && s.candidates.length) found.push('TARGET_BUILD_VERSION_MISMATCH');
@@ -382,11 +406,16 @@ export async function updateAppStore(env, fetchImpl = fetch, options = {}) {
   }
   /** The target version is already with App Review (possibly from an earlier
    * run): report what is there and write nothing. Returns false otherwise. */
-  function reportInReview(s) {
+  function reportInReview(s, draft) {
     const version = s.targetVersion, owner = s.submissions.find(entry => carriesTarget(entry, s));
     if (!version || refusals(s).length || !(owner || IN_REVIEW_STATES.includes(versionState(version)))) return false;
     if (!s.attached || s.attached.id !== s.targetBuild?.build.id) {
       summary.blockers = ['VERSION_IN_REVIEW_WITH_DIFFERENT_BUILD:' + (s.attached?.attributes?.version ?? 'none')];
+      return true;
+    }
+    const contentBlockers = readiness(s, draft).filter(reason => !reason.startsWith('RELEASE_TYPE_DIFFERS_FROM_INPUT:'));
+    if (contentBlockers.length) {
+      summary.blockers = contentBlockers;
       return true;
     }
     Object.assign(summary, {submitted: true, alreadySubmitted: true, submissionId: owner?.id ?? null, submissionState: owner?.state ?? null});
@@ -416,6 +445,9 @@ export async function updateAppStore(env, fetchImpl = fetch, options = {}) {
       const korean = s.locales.filter(l => l.attributes?.locale === LOCALE);
       if (korean.length !== 1) found.push('KOREAN_LOCALIZATION_MISSING');
       for (const l of s.locales) if (!filled(l.attributes?.whatsNew)) found.push('WHATS_NEW_MISSING:' + l.attributes?.locale);
+      if (draft?.listing && korean.length === 1) for (const [key, value] of Object.entries(draft.listing)) {
+        if (!sameText(korean[0].attributes?.[key], value)) found.push('LISTING_DIFFERS_FROM_DRAFT:' + key);
+      }
       if (draft && korean.length === 1 && filled(korean[0].attributes?.whatsNew) && !sameText(korean[0].attributes.whatsNew, draft.whatsNew)) found.push('WHATS_NEW_DIFFERS_FROM_DRAFT');
       if (!s.review) found.push('REVIEW_DETAIL_MISSING');
       else {
@@ -441,12 +473,16 @@ export async function updateAppStore(env, fetchImpl = fetch, options = {}) {
     Object.assign(summary, {
       app: {name: s.app.attributes?.name ?? null, bundleId: s.app.attributes?.bundleId ?? null, primaryLocale: s.app.attributes?.primaryLocale ?? null},
       versions: s.versions.map(versionFacts),
+      liveBaselineInput: config.liveVersion,
+      observedLiveVersions: s.allLive.map(versionFacts),
       liveVersion: s.live.length === 1 ? versionFacts(s.live[0]) : null,
       targetVersion: {exists: Boolean(s.targetVersion), ...(versionFacts(s.targetVersion) ?? {}),
         copyrightPresent: filled(s.targetVersion?.attributes?.copyright), attachedBuild: buildFacts(s.attached)},
       targetBuild: {found: Boolean(s.targetBuild), buildsWithThisNumber: s.candidates.length, ...(buildFacts(s.targetBuild?.build) ?? {}),
         preReleaseVersion: s.targetBuild?.prerelease.attributes?.version ?? null},
       localizations: s.locales.map(l => ({id: l.id, locale: l.attributes?.locale ?? null, whatsNewPresent: filled(l.attributes?.whatsNew),
+        listingExpected: Object.keys(draft?.listing ?? {}),
+        listingMatchesDraft: draft?.listing && l.attributes?.locale === LOCALE ? Object.entries(draft.listing).every(([key, value]) => sameText(l.attributes?.[key], value)) : null,
         whatsNewMatchesDraft: draft && l.attributes?.locale === LOCALE ? sameText(l.attributes?.whatsNew, draft.whatsNew) : null})),
       reviewDetail: {present: Boolean(s.review), contactComplete: CONTACT_KEYS.every(key => filled(a[key])),
         notesPresent: filled(a.notes), notesMatchDraft: draft ? sameText(a.notes, draft.reviewNotes) : null,
@@ -500,11 +536,15 @@ export async function updateAppStore(env, fetchImpl = fetch, options = {}) {
     const korean = (await localizationsOf(version)).filter(l => l.attributes?.locale === LOCALE);
     check(korean.length === 1, 'Korean localization of the new version is missing; nothing is created implicitly.');
     bound.localization = korean[0].id;
-    if (!sameText(korean[0].attributes?.whatsNew, draft.whatsNew)) {
+    const requestedText = {whatsNew: draft.whatsNew, ...draft.listing};
+    bound.listingFields = new Set(Object.keys(draft.listing ?? {}));
+    const changedText = Object.fromEntries(Object.entries(requestedText)
+      .filter(([key, value]) => !sameText(korean[0].attributes?.[key], value)));
+    if (Object.keys(changedText).length) {
       await request('/v1/appStoreVersionLocalizations/' + korean[0].id, 'PATCH', {data: {type: 'appStoreVersionLocalizations', id: korean[0].id,
-        attributes: {whatsNew: draft.whatsNew}}});
+        attributes: changedText}});
       const verified = await get('/v1/appStoreVersionLocalizations/' + korean[0].id, 'appStoreVersionLocalizations');
-      check(verified.attributes?.locale === LOCALE && sameText(verified.attributes.whatsNew, draft.whatsNew), 'Release text readback mismatch.');
+      check(verified.attributes?.locale === LOCALE && Object.entries(requestedText).every(([key, value]) => sameText(verified.attributes?.[key], value)), 'Release text readback mismatch.');
     }
 
     let review = await reviewDetailOf(version), createdReview = false;
@@ -644,7 +684,7 @@ export async function updateAppStore(env, fetchImpl = fetch, options = {}) {
 
   async function submit(s, draft) {
     const version = s.targetVersion;
-    if (reportInReview(s)) return;
+    if (reportInReview(s, draft)) return;
     summary.blockers = readiness(s, draft);
     if (summary.blockers.length) return;
     check(['PREPARE_FOR_SUBMISSION', 'READY_FOR_REVIEW'].includes(versionState(version)), 'Version is not in a submittable state.');
@@ -707,7 +747,7 @@ export async function updateAppStore(env, fetchImpl = fetch, options = {}) {
     describe(s, draft);
     // Test seam, unused by the command line: sends requests through the same gate as every other request.
     if (options.probe) await options.probe(request);
-    if (mode === 'inspect' && !reportInReview(s)) summary.blockers = readiness(s, draft);
+    if (mode === 'inspect' && !reportInReview(s, draft)) summary.blockers = readiness(s, draft);
     if (mode === 'prepare') await prepare(s, draft);
     if (mode === 'submit') await submit(s, draft);
     await persist();

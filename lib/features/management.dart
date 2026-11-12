@@ -854,7 +854,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
       const SizedBox(height: 28),
       const Text(
-        '차자리 1.0.1\n가족과 함께 기억하는 우리 차의 자리',
+        '차자리 1.0.2\n가족과 함께 기억하는 우리 차의 자리',
         textAlign: TextAlign.center,
         style: TextStyle(fontSize: 12, color: Palette.muted, height: 1.8),
       ),
